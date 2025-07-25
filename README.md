@@ -11,9 +11,9 @@ The original proposal and design rationale can be found in the included PDF: [To
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
-- Removed StableValue optimizations
+- Replaced StableValue optimizations with double-checked locking pattern
 - Removed value-based class annotations  
-- Basic implementation without performance optimizations
+- Basic implementation without advanced performance optimizations
 - Compatible with JDK 21+ instead of future JDK versions
 
 ## Building
