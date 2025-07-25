@@ -48,8 +48,8 @@ import jdk.sandbox.internal.util.json.Utils;
  * <p>
  * {@link #fromUntyped(Object)} and {@link #toUntyped(JsonValue)} provide a conversion
  * between {@code JsonValue} and an untyped object.
- *
- * @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
+ * <p>
+ * {@code @spec} <a href="https://datatracker.ietf.org/doc/html/rfc8259">...</a> RFC 8259: The JavaScript
  *      Object Notation (JSON) Data Interchange Format
  * @since 99
  */

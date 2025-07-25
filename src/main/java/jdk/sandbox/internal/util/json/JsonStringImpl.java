@@ -42,12 +42,12 @@ public final class JsonStringImpl implements JsonString {
     // It always conforms to JSON syntax. If created by parsing a JSON document,
     // it matches the original text exactly. If created via the factory method,
     // non-conformant characters are properly escaped.
-    private final jdk.sandbox.StableValue<String> jsonStr = jdk.sandbox.StableValue.of();
+    private final StableValue<String> jsonStr = StableValue.of();
 
     // The String instance returned by `value()`.
     // If created by parsing a JSON document, escaped characters are unescaped.
     // If created via the factory method, the input String is used as-is.
-    private final jdk.sandbox.StableValue<String> value = jdk.sandbox.StableValue.of();
+    private final StableValue<String> value = StableValue.of();
 
     // Called by JsonString.of() factory. The passed String represents the
     // unescaped value.
