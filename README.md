@@ -80,3 +80,127 @@ This is useful for:
 - Integrating with existing code that uses standard collections
 - Serializing/deserializing to formats that expect Java types
 - Working with frameworks that use reflection on standard types
+
+## Usage Examples
+
+### Record Mapping
+
+The most powerful feature is mapping between Java records and JSON:
+
+```java
+// Domain model using records
+record User(String name, String email, boolean active) {}
+record Team(String teamName, List<User> members) {}
+
+// Create a team with users
+Team team = new Team("Engineering", List.of(
+    new User("Alice", "alice@example.com", true),
+    new User("Bob", "bob@example.com", false)
+));
+
+// Convert records to JSON
+JsonValue teamJson = Json.fromUntyped(Map.of(
+    "teamName", team.teamName(),
+    "members", team.members().stream()
+        .map(u -> Map.of(
+            "name", u.name(),
+            "email", u.email(),
+            "active", u.active()
+        ))
+        .toList()
+));
+
+// Parse JSON back to records
+JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
+Team reconstructed = new Team(
+    ((JsonString) parsed.members().get("teamName")).value(),
+    ((JsonArray) parsed.members().get("members")).values().stream()
+        .map(v -> {
+            JsonObject member = (JsonObject) v;
+            return new User(
+                ((JsonString) member.members().get("name")).value(),
+                ((JsonString) member.members().get("email")).value(),
+                ((JsonBoolean) member.members().get("active")).value()
+            );
+        })
+        .toList()
+);
+```
+
+### Building Complex JSON
+
+Create structured JSON programmatically:
+
+```java
+// Building a REST API response
+JsonObject response = JsonObject.of(Map.of(
+    "status", JsonString.of("success"),
+    "data", JsonObject.of(Map.of(
+        "user", JsonObject.of(Map.of(
+            "id", JsonNumber.of(12345),
+            "name", JsonString.of("John Doe"),
+            "roles", JsonArray.of(List.of(
+                JsonString.of("admin"),
+                JsonString.of("user")
+            ))
+        )),
+        "timestamp", JsonNumber.of(System.currentTimeMillis())
+    )),
+    "errors", JsonArray.of(List.of())
+));
+```
+
+### Stream Processing
+
+Process JSON arrays efficiently with Java streams:
+
+```java
+// Filter active users from a JSON array
+JsonArray users = (JsonArray) Json.parse(jsonArrayString);
+List<String> activeUserEmails = users.values().stream()
+    .map(v -> (JsonObject) v)
+    .filter(obj -> ((JsonBoolean) obj.members().get("active")).value())
+    .map(obj -> ((JsonString) obj.members().get("email")).value())
+    .toList();
+```
+
+### Error Handling
+
+Handle parsing errors gracefully:
+
+```java
+try {
+    JsonValue value = Json.parse(userInput);
+    // Process valid JSON
+} catch (JsonParseException e) {
+    // Handle malformed JSON with line/column information
+    System.err.println("Invalid JSON at line " + e.getLine() + 
+                       ", column " + e.getColumn() + ": " + e.getMessage());
+}
+```
+
+### Pretty Printing
+
+Format JSON for display:
+
+```java
+JsonObject data = JsonObject.of(Map.of(
+    "name", JsonString.of("Alice"),
+    "scores", JsonArray.of(List.of(
+        JsonNumber.of(85),
+        JsonNumber.of(90),
+        JsonNumber.of(95)
+    ))
+));
+
+String formatted = Json.toDisplayString(data, 2);
+// Output:
+// {
+//   "name": "Alice",
+//   "scores": [
+//     85,
+//     90,
+//     95
+//   ]
+// }
+```
