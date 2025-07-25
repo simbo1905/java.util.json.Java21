@@ -80,7 +80,7 @@ public final class JsonNumberImpl implements JsonNumber {
             } else {
                 try {
                     return Long.parseLong(str);
-                } catch (NumberFormatException _) {
+                } catch (NumberFormatException ignored) {
                     return new BigInteger(str);
                 }
             }
