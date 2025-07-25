@@ -37,124 +37,123 @@ import java.util.LinkedHashMap;
 import jdk.sandbox.internal.util.json.JsonParser;
 import jdk.sandbox.internal.util.json.Utils;
 
-/**
- * This class provides static methods for producing and manipulating a {@link JsonValue}.
- * <p>
- * {@link #parse(String)} and {@link #parse(char[])} produce a {@code JsonValue}
- * by parsing data adhering to the JSON syntax defined in RFC 8259.
- * <p>
- * {@link #toDisplayString(JsonValue, int)} is a formatter that produces a
- * representation of the JSON value suitable for display.
- * <p>
- * {@link #fromUntyped(Object)} and {@link #toUntyped(JsonValue)} provide a conversion
- * between {@code JsonValue} and an untyped object.
- * <p>
- * {@code @spec} <a href="https://datatracker.ietf.org/doc/html/rfc8259">...</a> RFC 8259: The JavaScript
- *      Object Notation (JSON) Data Interchange Format
- * @since 99
- */
+/// This class provides static methods for producing and manipulating a {@link JsonValue}.
+/// 
+/// {@link #parse(String)} and {@link #parse(char[])} produce a `JsonValue`
+/// by parsing data adhering to the JSON syntax defined in RFC 8259.
+/// 
+/// {@link #toDisplayString(JsonValue, int)} is a formatter that produces a
+/// representation of the JSON value suitable for display.
+/// 
+/// {@link #fromUntyped(Object)} and {@link #toUntyped(JsonValue)} provide a conversion
+/// between `JsonValue` and an untyped object.
+/// 
+/// ## Example Usage
+/// ```java
+/// // Parse JSON string
+/// JsonValue json = Json.parse("{\"name\":\"John\",\"age\":30}");
+/// 
+/// // Convert to standard Java types
+/// Map<String, Object> data = (Map<String, Object>) Json.toUntyped(json);
+/// 
+/// // Create JSON from Java objects
+/// JsonValue fromJava = Json.fromUntyped(Map.of("active", true, "score", 95));
+/// ```
+/// 
+/// @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
+///       Object Notation (JSON) Data Interchange Format
+/// @since 99
 public final class Json {
 
-    /**
-     * Parses and creates a {@code JsonValue} from the given JSON document.
-     * If parsing succeeds, it guarantees that the input document conforms to
-     * the JSON syntax. If the document contains any JSON Object that has
-     * duplicate names, a {@code JsonParseException} is thrown.
-     * <p>
-     * {@code JsonValue}s created by this method produce their String and underlying
-     * value representation lazily.
-     * <p>
-     * {@code JsonObject}s preserve the order of their members declared in and parsed from
-     * the JSON document.
-     *
-     * @param in the input JSON document as {@code String}. Non-null.
-     * @throws JsonParseException if the input JSON document does not conform
-     *      to the JSON document format or a JSON object containing
-     *      duplicate names is encountered.
-     * @throws NullPointerException if {@code in} is {@code null}
-     * @return the parsed {@code JsonValue}
-     */
+    /// Parses and creates a `JsonValue` from the given JSON document.
+    /// If parsing succeeds, it guarantees that the input document conforms to
+    /// the JSON syntax. If the document contains any JSON Object that has
+    /// duplicate names, a `JsonParseException` is thrown.
+    /// 
+    /// `JsonValue`s created by this method produce their String and underlying
+    /// value representation lazily.
+    /// 
+    /// `JsonObject`s preserve the order of their members declared in and parsed from
+    /// the JSON document.
+    /// 
+    /// ## Example
+    /// ```java
+    /// JsonValue value = Json.parse("{\"name\":\"Alice\",\"active\":true}");
+    /// if (value instanceof JsonObject obj) {
+    ///     String name = ((JsonString) obj.members().get("name")).value();
+    ///     boolean active = ((JsonBoolean) obj.members().get("active")).value();
+    /// }
+    /// ```
+    ///
+    /// @param in the input JSON document as `String`. Non-null.
+    /// @throws JsonParseException if the input JSON document does not conform
+    ///         to the JSON document format or a JSON object containing
+    ///         duplicate names is encountered.
+    /// @throws NullPointerException if `in` is `null`
+    /// @return the parsed `JsonValue`
     public static JsonValue parse(String in) {
         Objects.requireNonNull(in);
         return new JsonParser(in.toCharArray()).parseRoot();
     }
 
-    /**
-     * Parses and creates a {@code JsonValue} from the given JSON document.
-     * If parsing succeeds, it guarantees that the input document conforms to
-     * the JSON syntax. If the document contains any JSON Object that has
-     * duplicate names, a {@code JsonParseException} is thrown.
-     * <p>
-     * {@code JsonValue}s created by this method produce their String and underlying
-     * value representation lazily.
-     * <p>
-     * {@code JsonObject}s preserve the order of their members declared in and parsed from
-     * the JSON document.
-     *
-     * @param in the input JSON document as {@code char[]}. Non-null.
-     * @throws JsonParseException if the input JSON document does not conform
-     *      to the JSON document format or a JSON object containing
-     *      duplicate names is encountered.
-     * @throws NullPointerException if {@code in} is {@code null}
-     * @return the parsed {@code JsonValue}
-     */
+    /// Parses and creates a `JsonValue` from the given JSON document.
+    /// If parsing succeeds, it guarantees that the input document conforms to
+    /// the JSON syntax. If the document contains any JSON Object that has
+    /// duplicate names, a `JsonParseException` is thrown.
+    /// 
+    /// `JsonValue`s created by this method produce their String and underlying
+    /// value representation lazily.
+    /// 
+    /// `JsonObject`s preserve the order of their members declared in and parsed from
+    /// the JSON document.
+    ///
+    /// @param in the input JSON document as `char[]`. Non-null.
+    /// @throws JsonParseException if the input JSON document does not conform
+    ///         to the JSON document format or a JSON object containing
+    ///         duplicate names is encountered.
+    /// @throws NullPointerException if `in` is `null`
+    /// @return the parsed `JsonValue`
     public static JsonValue parse(char[] in) {
         Objects.requireNonNull(in);
         // Defensive copy on input. Ensure source is immutable.
         return new JsonParser(Arrays.copyOf(in, in.length)).parseRoot();
     }
 
-    /**
-     * {@return a {@code JsonValue} created from the given {@code src} object}
-     * The mapping from an untyped {@code src} object to a {@code JsonValue}
-     * follows the table below.
-     * <table class="striped">
-     * <caption>Untyped to JsonValue mapping</caption>
-     * <thead>
-     *    <tr>
-     *       <th scope="col" class="TableHeadingColor">Untyped Object</th>
-     *       <th scope="col" class="TableHeadingColor">JsonValue</th>
-     *    </tr>
-     * </thead>
-     * <tbody>
-     * <tr>
-     *     <th>{@code List<Object>}</th>
-     *     <th>{@code JsonArray}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code Boolean}</th>
-     *     <th>{@code JsonBoolean}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code `null`}</th>
-     *     <th>{@code JsonNull}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code Number*}</th>
-     *     <th>{@code JsonNumber}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code Map<String, Object>}</th>
-     *     <th>{@code JsonObject}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code String}</th>
-     *     <th>{@code JsonString}</th>
-     * </tr>
-     * </tbody>
-     * </table>
-     *
-     * <i><sup>*</sup>The supported {@code Number} subclasses are: {@code Byte},
-     * {@code Short}, {@code Integer}, {@code Long}, {@code Float},
-     * {@code Double}, {@code BigInteger}, and {@code BigDecimal}.</i>
-     *
-     * <p>If {@code src} is an instance of {@code JsonValue}, it is returned as is.
-     *
-     * @param src the data to produce the {@code JsonValue} from. May be null.
-     * @throws IllegalArgumentException if {@code src} cannot be converted
-     *      to a {@code JsonValue}.
-     * @see #toUntyped(JsonValue)
-     */
+    /// {@return a `JsonValue` created from the given `src` object}
+    /// The mapping from an untyped `src` object to a `JsonValue`
+    /// follows the table below.
+    /// 
+    /// | Untyped Object | JsonValue |
+    /// |----------------|----------|
+    /// | `List<Object>` | `JsonArray` |
+    /// | `Boolean` | `JsonBoolean` |
+    /// | `null` | `JsonNull` |
+    /// | `Number*` | `JsonNumber` |
+    /// | `Map<String, Object>` | `JsonObject` |
+    /// | `String` | `JsonString` |
+    ///
+    /// *The supported `Number` subclasses are: `Byte`,
+    /// `Short`, `Integer`, `Long`, `Float`,
+    /// `Double`, `BigInteger`, and `BigDecimal`.
+    ///
+    /// If `src` is an instance of `JsonValue`, it is returned as is.
+    /// 
+    /// ## Example
+    /// ```java
+    /// // Convert Java collections to JSON
+    /// JsonValue json = Json.fromUntyped(Map.of(
+    ///     "user", Map.of(
+    ///         "name", "Bob",
+    ///         "age", 25
+    ///     ),
+    ///     "scores", List.of(85, 90, 78)
+    /// ));
+    /// ```
+    ///
+    /// @param src the data to produce the `JsonValue` from. May be null.
+    /// @throws IllegalArgumentException if `src` cannot be converted
+    ///         to a `JsonValue`.
+    /// @see #toUntyped(JsonValue)
     public static JsonValue fromUntyped(Object src) {
         return switch (src) {
             // Structural: JSON object
@@ -198,54 +197,31 @@ public final class Json {
         };
     }
 
-    /**
-     * {@return an {@code Object} created from the given {@code src}
-     * {@code JsonValue}} The mapping from a {@code JsonValue} to an
-     * untyped {@code src} object follows the table below.
-     * <table class="striped">
-     * <caption>JsonValue to Untyped mapping</caption>
-     * <thead>
-     *    <tr>
-     *       <th scope="col" class="TableHeadingColor">JsonValue</th>
-     *       <th scope="col" class="TableHeadingColor">Untyped Object</th>
-     *    </tr>
-     * </thead>
-     * <tbody>
-     * <tr>
-     *     <th>{@code JsonArray}</th>
-     *     <th>{@code List<Object>}(unmodifiable)</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code JsonBoolean}</th>
-     *     <th>{@code Boolean}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code JsonNull}</th>
-     *     <th>{@code `null`}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code JsonNumber}</th>
-     *     <th>{@code Number}</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code JsonObject}</th>
-     *     <th>{@code Map<String, Object>}(unmodifiable)</th>
-     * </tr>
-     * <tr>
-     *     <th>{@code JsonString}</th>
-     *     <th>{@code String}</th>
-     * </tr>
-     * </tbody>
-     * </table>
-     *
-     * <p>
-     * A {@code JsonObject} in {@code src} is converted to a {@code Map} whose
-     * entries occur in the same order as the {@code JsonObject}'s members.
-     *
-     * @param src the {@code JsonValue} to convert to untyped. Non-null.
-     * @throws NullPointerException if {@code src} is {@code null}
-     * @see #fromUntyped(Object)
-     */
+    /// {@return an `Object` created from the given `src` `JsonValue`} 
+    /// The mapping from a `JsonValue` to an untyped `src` object follows the table below.
+    /// 
+    /// | JsonValue | Untyped Object |
+    /// |-----------|----------------|
+    /// | `JsonArray` | `List<Object>` (unmodifiable) |
+    /// | `JsonBoolean` | `Boolean` |
+    /// | `JsonNull` | `null` |
+    /// | `JsonNumber` | `Number` |
+    /// | `JsonObject` | `Map<String, Object>` (unmodifiable) |
+    /// | `JsonString` | `String` |
+    ///
+    /// A `JsonObject` in `src` is converted to a `Map` whose
+    /// entries occur in the same order as the `JsonObject`'s members.
+    /// 
+    /// ## Example
+    /// ```java
+    /// JsonValue json = Json.parse("{\"active\":true,\"count\":42}");
+    /// Map<String, Object> data = (Map<String, Object>) Json.toUntyped(json);
+    /// // data contains: {"active"=true, "count"=42L}
+    /// ```
+    ///
+    /// @param src the `JsonValue` to convert to untyped. Non-null.
+    /// @throws NullPointerException if `src` is `null`
+    /// @see #fromUntyped(Object)
     public static Object toUntyped(JsonValue src) {
         Objects.requireNonNull(src);
         return switch (src) {
@@ -263,18 +239,31 @@ public final class Json {
         };
     }
 
-    /**
-     * {@return the String representation of the given {@code JsonValue} that conforms
-     * to the JSON syntax} As opposed to the compact output returned by {@link
-     * JsonValue#toString()}, this method returns a JSON string that is better
-     * suited for display.
-     *
-     * @param value the {@code JsonValue} to create the display string from. Non-null.
-     * @param indent the number of spaces used for the indentation. Zero or positive.
-     * @throws NullPointerException if {@code value} is {@code null}
-     * @throws IllegalArgumentException if {@code indent} is a negative number
-     * @see JsonValue#toString()
-     */
+    /// {@return the String representation of the given `JsonValue` that conforms
+    /// to the JSON syntax} As opposed to the compact output returned by {@link
+    /// JsonValue#toString()}, this method returns a JSON string that is better
+    /// suited for display.
+    /// 
+    /// ## Example
+    /// ```java
+    /// JsonValue json = Json.parse("{\"name\":\"Alice\",\"scores\":[85,90,95]}");
+    /// System.out.println(Json.toDisplayString(json, 2));
+    /// // Output:
+    /// // {
+    /// //   "name": "Alice",
+    /// //   "scores": [
+    /// //     85,
+    /// //     90,
+    /// //     95
+    /// //   ]
+    /// // }
+    /// ```
+    ///
+    /// @param value the `JsonValue` to create the display string from. Non-null.
+    /// @param indent the number of spaces used for the indentation. Zero or positive.
+    /// @throws NullPointerException if `value` is `null`
+    /// @throws IllegalArgumentException if `indent` is a negative number
+    /// @see JsonValue#toString()
     public static String toDisplayString(JsonValue value, int indent) {
         Objects.requireNonNull(value);
         if (indent < 0) {
