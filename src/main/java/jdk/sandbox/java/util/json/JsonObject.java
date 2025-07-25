@@ -67,7 +67,7 @@ public non-sealed interface JsonObject extends JsonValue {
                 .stream()
                 .collect(Collectors.toMap(
                         e -> Objects.requireNonNull(e.getKey()), Map.Entry::getValue, // Implicit NPE on val
-                        (_, v) -> v, LinkedHashMap::new)));
+                        (ignored, v) -> v, LinkedHashMap::new)));
     }
 
     /**

@@ -257,7 +257,7 @@ public final class Json {
                     .map(Json::toUntyped)
                     .toList();
             case JsonBoolean jb -> jb.value();
-            case JsonNull _ -> null;
+            case JsonNull ignored -> null;
             case JsonNumber n -> n.toNumber();
             case JsonString js -> js.value();
         };
