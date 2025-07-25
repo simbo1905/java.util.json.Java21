@@ -1,12 +1,29 @@
-# JSON Experimental - JDK 21+ Backport
+# java.util.json Backport for JDK 21+
 
-This repository contains a backport of the experimental JSON API from the [jdk-sandbox project](https://github.com/openjdk/jdk-sandbox) to JDK 21 and later.
+Early access to the future `java.util.json` API - tracking OpenJDK sandbox development.
 
-## Origin
+## Project Vision
 
-This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) ("Improve hash code spec wording").
+This project provides Java developers with early access to the future `java.util.json` API patterns today, allowing code written against this API to migrate seamlessly when the official API is released. Rather than adopting third-party JSON libraries that will never align with future JDK standards, developers can start using tomorrow's API patterns today.
+
+## Current Status
+
+This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (3 days ago - "Improve hash code spec wording").
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
+
+## Project Goals
+
+- **Enable early adoption**: Let developers use future Java JSON patterns today on JDK 21+
+- **Smooth migration path**: Code written against this API should require minimal changes when migrating to the official release
+- **API compatibility over performance**: Focus on matching the API design rather than competing with existing JSON libraries on speed
+
+## Non-Goals
+
+- **Performance competition**: This is not intended to be the fastest JSON library
+- **Feature additions**: No features beyond what's in the official sandbox/preview
+- **Production optimization**: The official implementation will have JVM-level optimizations unavailable to a backport
+- **API stability**: This backport may evolve as the official specification develops (if folks find it useful)
 
 ## Modifications
 

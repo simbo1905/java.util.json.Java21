@@ -7,8 +7,8 @@
   <version>1.0-SNAPSHOT</version>
   <packaging>jar</packaging>
 
-  <name>JSON Experimental</name>
-  <description>Experimental JSON API and internal dependencies</description>
+  <name>java.util.json Backport for JDK 21+</name>
+  <description>Early access to future java.util.json API - tracking OpenJDK sandbox development</description>
 
   <licenses>
     <license>
