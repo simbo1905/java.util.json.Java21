@@ -1,6 +1,6 @@
-# JSON Experimental - JDK 24 Backport
+# JSON Experimental - JDK 21+ Backport
 
-This repository contains a backport of the experimental JSON API from the [jdk-sandbox project](https://github.com/openjdk/jdk-sandbox) to JDK 24.
+This repository contains a backport of the experimental JSON API from the [jdk-sandbox project](https://github.com/openjdk/jdk-sandbox) to JDK 21 and later.
 
 ## Origin
 
@@ -14,11 +14,11 @@ This is a simplified backport with the following changes from the original:
 - Removed StableValue optimizations
 - Removed value-based class annotations  
 - Basic implementation without performance optimizations
-- Compatible with JDK 24 instead of future JDK versions
+- Compatible with JDK 21+ instead of future JDK versions
 
 ## Building
 
-Requires JDK 24 (Early Access). Build with Maven:
+Requires JDK 21 or later. Build with Maven:
 
 ```bash
 mvn clean compile
