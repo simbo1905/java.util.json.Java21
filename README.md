@@ -1,6 +1,6 @@
 # java.util.json Backport for JDK 21+
 
-Early access to the future `java.util.json` API - tracking OpenJDK sandbox development.
+Early access to the future `java.util.json` API - taken from OpenJDK sandbox July 2025.
 
 ## Project Vision
 
@@ -8,22 +8,22 @@ This project provides Java developers with early access to the future `java.util
 
 ## Current Status
 
-This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (3 days ago - "Improve hash code spec wording").
+This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (Mid July 2025 "Improve hash code spec wording").
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
-## Project Goals
+## Back Port Project Goals
 
 - **Enable early adoption**: Let developers use future Java JSON patterns today on JDK 21+
-- **Smooth migration path**: Code written against this API should require minimal changes when migrating to the official release
-- **API compatibility over performance**: Focus on matching the API design rather than competing with existing JSON libraries on speed
+- **Smooth migration path**: Code written against this API should require less changes when migrating to the eventual official release
+- **API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed
 
 ## Non-Goals
 
-- **Performance competition**: This is not intended to be the fastest JSON library
-- **Feature additions**: No features beyond what's in the official sandbox/preview
-- **Production optimization**: The official implementation will have JVM-level optimizations unavailable to a backport
-- **API stability**: This backport may evolve as the official specification develops (if folks find it useful)
+- **Performance competition**: This is not intended to be the fastest JSON library the JDK internal annotations had to be removed. 
+- **Feature additions**: No features beyond what's in the official sandbox/preview. 
+- **Production optimization**: The final official implementation will have JVM-level optimizations unavailable to a backport on Java 21.
+- **API stability**: This backport may evolve as the official specification develops (only if folks find it useful)
 
 ## Modifications
 
