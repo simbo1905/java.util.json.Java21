@@ -48,7 +48,7 @@ public final class JsonParser {
     // Access to the underlying JSON contents
     private final char[] doc;
     // Lazily initialized for member names with escape sequences
-    private final Supplier<StringBuilder> sb = jdk.sandbox.StableValue.supplier(this::initSb);
+    private final Supplier<StringBuilder> sb = StableValue.supplier(this::initSb);
     // Current offset during parsing
     private int offset;
     // For exception message on failure

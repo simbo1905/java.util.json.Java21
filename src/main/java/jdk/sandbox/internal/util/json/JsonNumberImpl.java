@@ -40,9 +40,9 @@ public final class JsonNumberImpl implements JsonNumber {
     private final int startOffset;
     private final int endOffset;
     private final boolean isFp;
-    private final jdk.sandbox.StableValue<Number> theNumber = jdk.sandbox.StableValue.of();
-    private final jdk.sandbox.StableValue<String> numString = jdk.sandbox.StableValue.of();
-    private final jdk.sandbox.StableValue<BigDecimal> cachedBD = jdk.sandbox.StableValue.of();
+    private final StableValue<Number> theNumber = StableValue.of();
+    private final StableValue<String> numString = StableValue.of();
+    private final StableValue<BigDecimal> cachedBD = StableValue.of();
 
     public JsonNumberImpl(Number num) {
         // Called by factories. Input is Double, Long, BI, or BD.

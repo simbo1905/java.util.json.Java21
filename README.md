@@ -44,3 +44,39 @@ Parsing is done via the `Json` class:
 ```java
 JsonValue value = Json.parse(jsonString);
 ```
+
+## Type Conversion Utilities
+
+The `Json` class provides bidirectional conversion between `JsonValue` objects and standard Java types:
+
+### Converting from Java Objects to JSON (`fromUntyped`)
+```java
+// Convert standard Java collections to JsonValue
+Map<String, Object> data = Map.of(
+    "name", "John",
+    "age", 30,
+    "scores", List.of(85, 92, 78)
+);
+JsonValue json = Json.fromUntyped(data);
+```
+
+### Converting from JSON to Java Objects (`toUntyped`)
+```java
+// Convert JsonValue back to standard Java types
+JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
+Object data = Json.toUntyped(parsed);
+// Returns a Map<String, Object> with standard Java types
+```
+
+The conversion mappings are:
+- `JsonObject` ↔ `Map<String, Object>`
+- `JsonArray` ↔ `List<Object>`
+- `JsonString` ↔ `String`
+- `JsonNumber` ↔ `Number` (Long, Double, BigInteger, or BigDecimal)
+- `JsonBoolean` ↔ `Boolean`
+- `JsonNull` ↔ `null`
+
+This is useful for:
+- Integrating with existing code that uses standard collections
+- Serializing/deserializing to formats that expect Java types
+- Working with frameworks that use reflection on standard types

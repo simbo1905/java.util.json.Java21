@@ -14,8 +14,8 @@ public class JsonDemo {
             "age", JsonNumber.of(30)
         ));
 
-        System.out.println(jsonObject.toString());
-        
+        System.out.println(jsonObject);
+
         // Parse JSON string
         String jsonStr = "{\"name\":\"Jane\",\"age\":25}";
         var parsed = Json.parse(jsonStr);
