@@ -22,7 +22,7 @@ public class JsonTypedUntypedTests {
         // Test integer
         JsonValue jsonInt = Json.fromUntyped(42);
         assertThat(jsonInt).isInstanceOf(JsonNumber.class);
-        assertThat(((JsonNumber) jsonInt).toNumber()).isEqualTo(42);
+        assertThat(((JsonNumber) jsonInt).toNumber()).isEqualTo(42L);
 
         // Test long
         JsonValue jsonLong = Json.fromUntyped(42L);
@@ -68,7 +68,7 @@ public class JsonTypedUntypedTests {
         JsonArray array = (JsonArray) jsonArray;
         assertThat(array.values()).hasSize(3);
         assertThat(((JsonString) array.values().get(0)).value()).isEqualTo("item1");
-        assertThat(((JsonNumber) array.values().get(1)).toNumber()).isEqualTo(42);
+        assertThat(((JsonNumber) array.values().get(1)).toNumber()).isEqualTo(42L);
         assertThat(((JsonBoolean) array.values().get(2)).value()).isTrue();
 
         // Test Map
@@ -77,7 +77,7 @@ public class JsonTypedUntypedTests {
         assertThat(jsonObject).isInstanceOf(JsonObject.class);
         JsonObject obj = (JsonObject) jsonObject;
         assertThat(((JsonString) obj.members().get("name")).value()).isEqualTo("John");
-        assertThat(((JsonNumber) obj.members().get("age")).toNumber()).isEqualTo(30);
+        assertThat(((JsonNumber) obj.members().get("age")).toNumber()).isEqualTo(30L);
         assertThat(((JsonBoolean) obj.members().get("active")).value()).isTrue();
     }
 
@@ -98,7 +98,7 @@ public class JsonTypedUntypedTests {
         
         JsonArray scores = (JsonArray) root.members().get("scores");
         assertThat(scores.values()).hasSize(3);
-        assertThat(((JsonNumber) scores.values().get(0)).toNumber()).isEqualTo(85);
+        assertThat(((JsonNumber) scores.values().get(0)).toNumber()).isEqualTo(85L);
     }
 
     @Test
@@ -155,7 +155,8 @@ public class JsonTypedUntypedTests {
         ));
         Object result = Json.toUntyped(array);
         assertThat(result).isInstanceOf(List.class);
-        List<?> list = (List<?>) result;
+        @SuppressWarnings("unchecked")
+        List<Object> list = (List<Object>) result;
         assertThat(list).containsExactly("item1", 42L, true);
 
         // Test object
@@ -201,11 +202,13 @@ public class JsonTypedUntypedTests {
         assertThat(user.get("name")).isEqualTo("John Doe");
         assertThat(user.get("age")).isEqualTo(30L);
         
-        List<?> scores = (List<?>) resultMap.get("scores");
+        @SuppressWarnings("unchecked")
+        List<Object> scores = (List<Object>) resultMap.get("scores");
         assertThat(scores).containsExactly(85.5, 92.0, 78.3);
         
         Map<?, ?> metadata = (Map<?, ?>) resultMap.get("metadata");
-        List<?> tags = (List<?>) metadata.get("tags");
+        @SuppressWarnings("unchecked")
+        List<Object> tags = (List<Object>) metadata.get("tags");
         assertThat(tags).containsExactly("vip", "premium");
     }
 
@@ -222,7 +225,8 @@ public class JsonTypedUntypedTests {
         assertThat(result).isInstanceOf(Map.class);
         
         // The order might not be preserved with Map.of(), so let's just verify contents
-        Map<?, ?> map = (Map<?, ?>) result;
+        @SuppressWarnings("unchecked")
+        Map<String, Object> map = (Map<String, Object>) result;
         assertThat(map).containsEntry("z", "last")
                       .containsEntry("a", "first")
                       .containsEntry("m", "middle");
