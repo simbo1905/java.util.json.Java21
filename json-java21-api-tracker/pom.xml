@@ -5,20 +5,20 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.github.simbo1905</groupId>
-        <artifactId>java-util-json-java21-parent</artifactId>
+        <groupId>io.github.simbo1905.json</groupId>
+        <artifactId>json-java21-parent</artifactId>
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>java-util-json-java21-api-tracker</artifactId>
+    <artifactId>json-java21-api-tracker</artifactId>
     <packaging>jar</packaging>
 
     <name>API Tracker</name>
 
     <dependencies>
         <dependency>
-            <groupId>io.github.simbo1905</groupId>
-            <artifactId>java-util-json-java21</artifactId>
+            <groupId>io.github.simbo1905.json</groupId>
+            <artifactId>json-java21</artifactId>
             <version>${project.version}</version>
         </dependency>
     </dependencies>
