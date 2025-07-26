@@ -10,18 +10,15 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java: [ '21', '22', '23', '24' ]
-    name: Build with JDK ${{ matrix.java }}
+    name: Build with JDK 24
 
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK ${{ matrix.java }}
+    - name: Set up JDK 24
       uses: actions/setup-java@v4
       with:
-        java-version: ${{ matrix.java }}
+        java-version: '24'
         distribution: 'oracle'
     
     - name: Cache Maven dependencies
