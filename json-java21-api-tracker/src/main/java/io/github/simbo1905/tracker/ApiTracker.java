@@ -79,45 +79,111 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// Discovers all classes in the local JSON API packages
     /// @return sorted set of classes from jdk.sandbox.java.util.json and jdk.sandbox.internal.util.json
     static Set<Class<?>> discoverLocalJsonClasses() {
-        LOGGER.fine("Discovering local JSON classes");
+        LOGGER.info("Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>((a, b) -> a.getName().compareTo(b.getName()));
         
-        // Known public API classes
-        final var publicApiClasses = List.of(
-            "jdk.sandbox.java.util.json.Json",
-            "jdk.sandbox.java.util.json.JsonValue",
-            "jdk.sandbox.java.util.json.JsonObject", 
-            "jdk.sandbox.java.util.json.JsonArray",
-            "jdk.sandbox.java.util.json.JsonString",
-            "jdk.sandbox.java.util.json.JsonNumber",
-            "jdk.sandbox.java.util.json.JsonBoolean",
-            "jdk.sandbox.java.util.json.JsonNull",
-            "jdk.sandbox.java.util.json.JsonParseException"
+        // Packages to scan
+        final var packages = List.of(
+            "jdk.sandbox.java.util.json",
+            "jdk.sandbox.internal.util.json"
         );
         
-        // Known internal implementation classes
-        final var internalClasses = List.of(
-            "jdk.sandbox.internal.util.json.JsonParser",
-            "jdk.sandbox.internal.util.json.JsonObjectImpl",
-            "jdk.sandbox.internal.util.json.JsonArrayImpl",
-            "jdk.sandbox.internal.util.json.JsonStringImpl",
-            "jdk.sandbox.internal.util.json.JsonNumberImpl"
-        );
+        final var classLoader = Thread.currentThread().getContextClassLoader();
         
-        // Load all known classes
-        Stream.concat(publicApiClasses.stream(), internalClasses.stream())
-            .forEach(className -> {
+        for (final var packageName : packages) {
+            try {
+                final var path = packageName.replace('.', '/');
+                final var resources = classLoader.getResources(path);
+                
+                while (resources.hasMoreElements()) {
+                    final var url = resources.nextElement();
+                    LOGGER.fine(() -> "Scanning resource: " + url);
+                    
+                    if ("file".equals(url.getProtocol())) {
+                        // Handle directory scanning
+                        scanDirectory(new java.io.File(url.toURI()), packageName, classes);
+                    } else if ("jar".equals(url.getProtocol())) {
+                        // Handle JAR scanning
+                        scanJar(url, packageName, classes);
+                    }
+                }
+            } catch (Exception e) {
+                LOGGER.log(Level.WARNING, "Error scanning package: " + packageName, e);
+            }
+        }
+        
+        LOGGER.info("Discovered " + classes.size() + " classes in JSON API packages");
+        return Collections.unmodifiableSet(classes);
+    }
+    
+    /// Scans a directory for class files
+    static void scanDirectory(java.io.File directory, String packageName, Set<Class<?>> classes) {
+        if (!directory.exists() || !directory.isDirectory()) {
+            return;
+        }
+        
+        final var files = directory.listFiles();
+        if (files == null) {
+            return;
+        }
+        
+        for (final var file : files) {
+            if (file.isDirectory()) {
+                scanDirectory(file, packageName + "." + file.getName(), classes);
+            } else if (file.getName().endsWith(".class") && !file.getName().contains("$")) {
+                final var className = packageName + '.' + 
+                    file.getName().substring(0, file.getName().length() - 6);
                 try {
                     final var clazz = Class.forName(className);
                     classes.add(clazz);
-                    LOGGER.finer(() -> "Loaded class: " + className);
-                } catch (ClassNotFoundException e) {
-                    LOGGER.fine(() -> "Class not found (might not exist yet): " + className);
+                    LOGGER.fine(() -> "Found class: " + className);
+                } catch (ClassNotFoundException | NoClassDefFoundError e) {
+                    LOGGER.fine(() -> "Could not load class: " + className);
                 }
-            });
-        
-        LOGGER.fine(() -> "Discovered " + classes.size() + " classes");
-        return Collections.unmodifiableSet(classes);
+            }
+        }
+    }
+    
+    /// Scans a JAR file for classes in the specified package
+    static void scanJar(java.net.URL jarUrl, String packageName, Set<Class<?>> classes) {
+        try {
+            final var jarPath = jarUrl.getPath();
+            final var exclamation = jarPath.indexOf('!');
+            if (exclamation < 0) {
+                return;
+            }
+            
+            final var jarFilePath = jarPath.substring(5, exclamation); // Remove "file:"
+            final var packagePath = packageName.replace('.', '/');
+            
+            try (final var jarFile = new java.util.jar.JarFile(jarFilePath)) {
+                final var entries = jarFile.entries();
+                
+                while (entries.hasMoreElements()) {
+                    final var entry = entries.nextElement();
+                    final var entryName = entry.getName();
+                    
+                    if (entryName.startsWith(packagePath) && 
+                        entryName.endsWith(".class") && 
+                        !entryName.contains("$")) {
+                        
+                        final var className = entryName
+                            .substring(0, entryName.length() - 6)
+                            .replace('/', '.');
+                        
+                        try {
+                            final var clazz = Class.forName(className);
+                            classes.add(clazz);
+                            LOGGER.fine(() -> "Found class in JAR: " + className);
+                        } catch (ClassNotFoundException | NoClassDefFoundError e) {
+                            LOGGER.fine(() -> "Could not load class from JAR: " + className);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            LOGGER.log(Level.WARNING, "Error scanning JAR: " + jarUrl, e);
+        }
     }
     
     /// Fetches upstream source files from GitHub for the given local classes
@@ -125,7 +191,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// @return map of className to source code (or error message if fetch failed)
     static Map<String, String> fetchUpstreamSources(Set<Class<?>> localClasses) {
         Objects.requireNonNull(localClasses, "localClasses must not be null");
-        LOGGER.fine(() -> "Fetching upstream sources for " + localClasses.size() + " classes");
+        LOGGER.info("Fetching upstream sources for " + localClasses.size() + " classes");
         
         final var results = new LinkedHashMap<String, String>();
         final var httpClient = HttpClient.newBuilder()
@@ -197,7 +263,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// @return JSON representation of the class's public API
     static JsonObject extractLocalApi(Class<?> clazz) {
         Objects.requireNonNull(clazz, "clazz must not be null");
-        LOGGER.fine(() -> "Extracting local API for: " + clazz.getName());
+        LOGGER.info("Extracting local API for: " + clazz.getName());
         
         final var apiMap = new LinkedHashMap<String, JsonValue>();
         
@@ -350,7 +416,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             return JsonObject.of(errorMap);
         }
         
-        LOGGER.fine(() -> "Extracting upstream API for: " + className);
+        LOGGER.info("Extracting upstream API for: " + className);
         
         final var compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -927,7 +993,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         
         // Discover local classes
         final var localClasses = discoverLocalJsonClasses();
-        LOGGER.info(() -> "Found " + localClasses.size() + " local classes");
+        LOGGER.info("Found " + localClasses.size() + " local classes");
         
         // Fetch upstream sources
         final var upstreamSources = fetchUpstreamSources(localClasses);
@@ -969,7 +1035,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var duration = Duration.between(startTime, Instant.now());
         reportMap.put("durationMs", JsonNumber.of(duration.toMillis()));
         
-        LOGGER.info(() -> "Comparison completed in " + duration.toMillis() + "ms");
+        LOGGER.info("Comparison completed in " + duration.toMillis() + "ms");
         
         return JsonObject.of(reportMap);
     }
