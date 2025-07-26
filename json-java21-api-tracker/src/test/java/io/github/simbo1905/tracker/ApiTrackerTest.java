@@ -80,7 +80,7 @@ public class ApiTrackerTest {
             assertThat(((JsonString) api.members().get("packageName")).value()).isEqualTo("jdk.sandbox.java.util.json");
             
             assertThat(api.members()).containsKey("isInterface");
-            assertThat(((JsonValue) api.members().get("isInterface"))).isEqualTo(JsonBoolean.of(true));
+            assertThat(api.members().get("isInterface")).isEqualTo(JsonBoolean.of(true));
             
             assertThat(api.members()).containsKey("methods");
             final var methods = (JsonObject) api.members().get("methods");
@@ -94,7 +94,7 @@ public class ApiTrackerTest {
             final var api = ApiTracker.extractLocalApi(clazz);
             
             assertThat(api.members()).containsKey("isSealed");
-            assertThat(((JsonValue) api.members().get("isSealed"))).isEqualTo(JsonBoolean.of(true));
+            assertThat(api.members().get("isSealed")).isEqualTo(JsonBoolean.of(true));
             
             assertThat(api.members()).containsKey("permits");
             final var permits = (JsonArray) api.members().get("permits");
@@ -203,7 +203,7 @@ public class ApiTrackerTest {
             );
             
             // Total classes should be greater than 0
-            final var totalClasses = ((JsonValue) summary.members().get("totalClasses"));
+            final var totalClasses = summary.members().get("totalClasses");
             assertThat(totalClasses).isNotNull();
         }
     }

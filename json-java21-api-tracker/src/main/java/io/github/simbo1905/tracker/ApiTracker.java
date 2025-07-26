@@ -112,7 +112,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             }
         }
         
-        LOGGER.info("Discovered " + classes.size() + " classes in JSON API packages");
+        LOGGER.info("Discovered " + classes.size() + " classes in JSON API packages: " + 
+            classes.stream().map(Class::getName).sorted().collect(Collectors.joining(", ")));
         return Collections.unmodifiableSet(classes);
     }
     
@@ -136,7 +137,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 try {
                     final var clazz = Class.forName(className);
                     classes.add(clazz);
-                    LOGGER.fine(() -> "Found class: " + className);
+                    LOGGER.info("Found class: " + className);
                 } catch (ClassNotFoundException | NoClassDefFoundError e) {
                     LOGGER.fine(() -> "Could not load class: " + className);
                 }
@@ -174,7 +175,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                         try {
                             final var clazz = Class.forName(className);
                             classes.add(clazz);
-                            LOGGER.fine(() -> "Found class in JAR: " + className);
+                            LOGGER.info("Found class in JAR: " + className);
                         } catch (ClassNotFoundException | NoClassDefFoundError e) {
                             LOGGER.fine(() -> "Could not load class from JAR: " + className);
                         }
@@ -212,7 +213,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             final var upstreamPath = mapToUpstreamPath(className);
             final var url = GITHUB_BASE_URL + upstreamPath;
             
-            LOGGER.fine(() -> "Fetching: " + url);
+            LOGGER.info("Fetching upstream source: " + url);
             
             try {
                 final var request = HttpRequest.newBuilder()
@@ -227,20 +228,20 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                     final var body = response.body();
                     FETCH_CACHE.put(className, body);
                     results.put(className, body);
-                    LOGGER.fine(() -> "Successfully fetched: " + className);
+                    LOGGER.info("Successfully fetched " + body.length() + " chars for: " + className);
                 } else if (response.statusCode() == 404) {
                     final var error = "NOT_FOUND: Upstream file not found (possibly deleted or renamed)";
                     results.put(className, error);
-                    LOGGER.fine(() -> "Not found: " + className);
+                    LOGGER.info("404 Not Found for upstream: " + className + " at " + url);
                 } else {
                     final var error = "HTTP_ERROR: Status " + response.statusCode();
                     results.put(className, error);
-                    LOGGER.warning(() -> "HTTP error for " + className + ": " + response.statusCode());
+                    LOGGER.info("HTTP error " + response.statusCode() + " for " + className + " at " + url);
                 }
             } catch (Exception e) {
                 final var error = "FETCH_ERROR: " + e.getMessage();
                 results.put(className, error);
-                LOGGER.log(Level.WARNING, "Error fetching " + className, e);
+                LOGGER.info("Fetch error for " + className + " at " + url + ": " + e.getMessage());
             }
         }
         
