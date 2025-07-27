@@ -1,36 +1,34 @@
 # java.util.json Backport for JDK 21+
 
-Early access to the future `java.util.json` API - taken from OpenJDK sandbox July 2025.
-
-## Project Vision
-
-This project provides Java developers with early access to the future `java.util.json` API today, allowing code written against this API to migrate seamlessly when the official API is released. 
-## Current Status
-
-This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (Mid July 2025 "Improve hash code spec wording").
-
-The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
+Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox July 2025.
 
 ## Back Port Project Goals
 
-- **Enable early adoption**: Let developers use future Java JSON patterns today on JDK 21+
-- **Smooth migration path**: Code written against this API should require less changes when migrating to the eventual official release
-- **API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed
+- **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
+- **✅API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed. 
+- **✅Track any official solution** track any `java.util.json` with matching API updates to be a potential "unofficial backport".
+- **✅Host Examples / Counter Examples** if anyone has any interest. GitHub wiki can be used for this if there is community interest. 
 
 ## Non-Goals
 
-- **Performance competition**: This is not intended to be the fastest JSON library the JDK internal annotations had to be removed. 
-- **Feature additions**: No features beyond what's in the official sandbox/preview. 
-- **Production optimization**: The final official implementation will have JVM-level optimizations unavailable to a backport on Java 21.
-- **API stability**: This backport may evolve as the official specification develops (only if folks find it useful)
+- **🛑Performance competition**: This backport is not intended to be the fastest JSON library. The JDK internal annotations that boost performance had to be removed. 
+- **🛑Feature additions**: No features beyond what's in the official sandbox/preview public API. Demos and example code are most welcome. 
+- **🛑Production optimization**: The final official implementation will have cutrent and future JVM-level optimizations unavailable to a backport on Java 21.
+- **🛑API stability**: This backport may, or may not, track the official specification develops (only if folks find it useful).
+- **🛑Advoocacy / Counter Advocacy**: This repo is not an endorsement of the proposed API nor a rejection of other solutions. Please only use the official Java email lists to debate the topic.
+
+## Current Status
+
+This code (as at July 2025) is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (Mid July 2025 "Improve hash code spec wording").
+
+The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
-- Replaced StableValue optimizations with double-checked locking pattern
-- Removed value-based class annotations  
-- Basic implementation without advanced performance optimizations
-- Compatible with JDK 21+ instead of future JDK versions
+- Replaced StableValue with double-checked locking pattern.
+- Removed value-based class annotations.
+- Compatible with JDK 21.
 
 ## Building
 
@@ -57,6 +55,7 @@ The API provides immutable JSON value types:
 - `JsonNull` - JSON null
 
 Parsing is done via the `Json` class:
+
 ```java
 JsonValue value = Json.parse(jsonString);
 ```
@@ -66,6 +65,7 @@ JsonValue value = Json.parse(jsonString);
 The `Json` class provides bidirectional conversion between `JsonValue` objects and standard Java types:
 
 ### Converting from Java Objects to JSON (`fromUntyped`)
+
 ```java
 // Convert standard Java collections to JsonValue
 Map<String, Object> data = Map.of(
@@ -77,6 +77,7 @@ JsonValue json = Json.fromUntyped(data);
 ```
 
 ### Converting from JSON to Java Objects (`toUntyped`)
+
 ```java
 // Convert JsonValue back to standard Java types
 JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
@@ -101,7 +102,7 @@ This is useful for:
 
 ### Record Mapping
 
-The most powerful feature is mapping between Java records and JSON:
+A powerful feature is mapping between Java records and JSON:
 
 ```java
 // Domain model using records
