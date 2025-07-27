@@ -1,7 +1,6 @@
 
 package jdk.sandbox.internal.util.json;
 
-import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonNumber;
 import jdk.sandbox.java.util.json.JsonObject;
