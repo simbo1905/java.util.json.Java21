@@ -10,16 +10,10 @@
         <version>0.1-SNAPSHOT</version>
     </parent>
 
-    <artifactId>json-test-suite</artifactId>
-    <packaging>pom</packaging>
+    <artifactId>json-compatibility-suite</artifactId>
+    <packaging>jar</packaging>
 
-    <modules>
-        <module>json-java21</module>
-        <module>json-compatibility-suite</module>
-        <module>json-java21-api-tracker</module>
-    </modules>
-
-    <name>JSON Java21 Backport</name>
+    <name>JSON Compatibility Suite</name>
 
     <dependencies>
         <dependency>
