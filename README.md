@@ -1,4 +1,4 @@
-# java.util.json Backport for JDK 21+
+# java.util.json Backport for JDK 21
 
 Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox July 2025.
 
