@@ -61,8 +61,84 @@ import com.sun.source.util.Trees;
 /// - Compare public APIs using compiler parsing
 /// - Generate structured diff reports
 ///
+/// Modular design supports different extraction strategies:
+/// - Binary reflection for quick class introspection
+/// - Source parsing for accurate parameter names and signatures
+/// 
 /// All functionality is exposed as static methods following functional programming principles
 public sealed interface ApiTracker permits ApiTracker.Nothing {
+    
+    /// API extraction strategy interface
+    sealed interface ApiExtractor permits 
+        ReflectionApiExtractor, SourceApiExtractor {
+        JsonObject extractApi(String identifier);
+    }
+    
+    /// Source location strategy interface
+    sealed interface SourceLocator permits 
+        LocalSourceLocator, RemoteSourceLocator {
+        String locateSource(String className);
+    }
+    
+    /// Reflection-based API extractor
+    record ReflectionApiExtractor() implements ApiExtractor {
+        @Override
+        public JsonObject extractApi(String className) {
+            try {
+                final var clazz = Class.forName(className);
+                return extractLocalApiFromClass(clazz);
+            } catch (ClassNotFoundException e) {
+                return JsonObject.of(Map.of(
+                    "error", JsonString.of("CLASS_NOT_FOUND: " + e.getMessage()),
+                    "className", JsonString.of(className)
+                ));
+            }
+        }
+    }
+    
+    /// Source-based API extractor
+    record SourceApiExtractor(SourceLocator sourceLocator) implements ApiExtractor {
+        @Override
+        public JsonObject extractApi(String className) {
+            final var sourceCode = sourceLocator.locateSource(className);
+            return extractApiFromSource(sourceCode, className);
+        }
+    }
+    
+    /// Local source file locator
+    record LocalSourceLocator(String sourceRoot) implements SourceLocator {
+        @Override
+        public String locateSource(String className) {
+            final var path = sourceRoot + "/" + className.replace('.', '/') + ".java";
+            try {
+                return java.nio.file.Files.readString(java.nio.file.Paths.get(path));
+            } catch (Exception e) {
+                return "FILE_NOT_FOUND: " + e.getMessage();
+            }
+        }
+    }
+    
+    /// Remote source locator (GitHub)
+    record RemoteSourceLocator(String baseUrl) implements SourceLocator {
+        @Override
+        public String locateSource(String className) {
+            final var upstreamPath = mapToUpstreamPath(className);
+            final var url = baseUrl + upstreamPath;
+            return fetchFromUrl(url);
+        }
+    }
+    
+    /// Comparison orchestrator
+    record ApiComparator(
+        ApiExtractor localExtractor,
+        ApiExtractor upstreamExtractor
+    ) {
+        JsonObject compare(String className) {
+            final var localApi = localExtractor.extractApi(className);
+            final var upstreamApi = upstreamExtractor.extractApi(className);
+            return compareApis(localApi, upstreamApi);
+        }
+    }
     
     /// Empty enum to seal the interface - no instances allowed
     enum Nothing implements ApiTracker {}
@@ -75,6 +151,33 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     
     // GitHub base URL for upstream sources
     static final String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/";
+    
+    /// Fetches content from a URL
+    static String fetchFromUrl(String url) {
+        final var httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+        
+        try {
+            final var request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .GET()
+                .build();
+            
+            final var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            
+            if (response.statusCode() == 200) {
+                return response.body();
+            } else if (response.statusCode() == 404) {
+                return "NOT_FOUND: Upstream file not found (possibly deleted or renamed)";
+            } else {
+                return "HTTP_ERROR: Status " + response.statusCode();
+            }
+        } catch (Exception e) {
+            return "FETCH_ERROR: " + e.getMessage();
+        }
+    }
     
     /// Discovers all classes in the local JSON API packages
     /// @return sorted set of classes from jdk.sandbox.java.util.json and jdk.sandbox.internal.util.json
@@ -261,7 +364,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// Extracts public API from a compiled class using reflection
     /// @param clazz the class to extract API from
     /// @return JSON representation of the class's public API
-    static JsonObject extractLocalApi(Class<?> clazz) {
+    static JsonObject extractLocalApiFromClass(Class<?> clazz) {
         Objects.requireNonNull(clazz, "clazz must not be null");
         LOGGER.info("Extracting local API for: " + clazz.getName());
         
@@ -397,11 +500,11 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         return JsonArray.of(constructors);
     }
     
-    /// Extracts public API from upstream source code using compiler parsing
+    /// Extracts public API from source code using compiler parsing
     /// @param sourceCode the source code to parse
     /// @param className the expected class name
     /// @return JSON representation of the parsed API
-    static JsonObject extractUpstreamApi(String sourceCode, String className) {
+    static JsonObject extractApiFromSource(String sourceCode, String className) {
         Objects.requireNonNull(sourceCode, "sourceCode must not be null");
         Objects.requireNonNull(className, "className must not be null");
         
@@ -701,7 +804,11 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         Objects.requireNonNull(upstream, "upstream must not be null");
         
         final var diffMap = new LinkedHashMap<String, JsonValue>();
-        final var className = ((JsonString) local.members().get("className")).value();
+        
+        // Extract class name safely
+        final var localClassName = local.members().get("className");
+        final var className = localClassName instanceof JsonString js ? 
+            js.value() : "Unknown";
         
         diffMap.put("className", JsonString.of(className));
         
@@ -980,9 +1087,33 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         return normalized;
     }
     
-    /// Runs a full comparison of local vs upstream APIs
-    /// @return complete comparison report as JSON
+    /// Runs a full comparison of local vs upstream APIs using reflection vs source parsing
+    /// @return complete comparison report as JSON  
     static JsonObject runFullComparison() {
+        return runComparisonWithExtractors(
+            new ReflectionApiExtractor(),
+            new SourceApiExtractor(new RemoteSourceLocator(GITHUB_BASE_URL))
+        );
+    }
+    
+    /// Runs a source-to-source comparison for apples-to-apples comparison
+    /// @param localSourceRoot path to local source files
+    /// @return complete comparison report as JSON
+    static JsonObject runSourceToSourceComparison(String localSourceRoot) {
+        return runComparisonWithExtractors(
+            new SourceApiExtractor(new LocalSourceLocator(localSourceRoot)),
+            new SourceApiExtractor(new RemoteSourceLocator(GITHUB_BASE_URL))
+        );
+    }
+    
+    /// Runs comparison with specified extractors
+    /// @param localExtractor extractor for local API
+    /// @param upstreamExtractor extractor for upstream API
+    /// @return complete comparison report as JSON
+    static JsonObject runComparisonWithExtractors(
+        ApiExtractor localExtractor, 
+        ApiExtractor upstreamExtractor
+    ) {
         LOGGER.info("Starting full API comparison");
         final var startTime = Instant.now();
         
@@ -995,21 +1126,16 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var localClasses = discoverLocalJsonClasses();
         LOGGER.info("Found " + localClasses.size() + " local classes");
         
-        // Fetch upstream sources
-        final var upstreamSources = fetchUpstreamSources(localClasses);
-        
         // Extract and compare APIs
         final var differences = new ArrayList<JsonValue>();
         var matchingCount = 0;
         var missingUpstream = 0;
         var differentApi = 0;
         
+        final var comparator = new ApiComparator(localExtractor, upstreamExtractor);
+        
         for (final var clazz : localClasses) {
-            final var localApi = extractLocalApi(clazz);
-            final var upstreamSource = upstreamSources.get(clazz.getName());
-            final var upstreamApi = extractUpstreamApi(upstreamSource, clazz.getName());
-            
-            final var diff = compareApis(localApi, upstreamApi);
+            final var diff = comparator.compare(clazz.getName());
             differences.add(diff);
             
             // Count statistics

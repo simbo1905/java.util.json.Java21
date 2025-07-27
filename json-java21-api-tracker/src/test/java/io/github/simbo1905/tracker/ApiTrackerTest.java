@@ -70,7 +70,7 @@ public class ApiTrackerTest {
         @DisplayName("Should extract API from JsonObject interface")
         void testExtractLocalApiJsonObject() throws ClassNotFoundException {
             final var clazz = Class.forName("jdk.sandbox.java.util.json.JsonObject");
-            final var api = ApiTracker.extractLocalApi(clazz);
+            final var api = ApiTracker.extractLocalApiFromClass(clazz);
             
             assertThat(api).isNotNull();
             assertThat(api.members()).containsKey("className");
@@ -91,7 +91,7 @@ public class ApiTrackerTest {
         @DisplayName("Should extract API from JsonValue sealed interface")
         void testExtractLocalApiJsonValue() throws ClassNotFoundException {
             final var clazz = Class.forName("jdk.sandbox.java.util.json.JsonValue");
-            final var api = ApiTracker.extractLocalApi(clazz);
+            final var api = ApiTracker.extractLocalApiFromClass(clazz);
             
             assertThat(api.members()).containsKey("isSealed");
             assertThat(api.members().get("isSealed")).isEqualTo(JsonBoolean.of(true));
@@ -104,7 +104,7 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should handle null class parameter")
         void testExtractLocalApiNull() {
-            assertThatThrownBy(() -> ApiTracker.extractLocalApi(null))
+            assertThatThrownBy(() -> ApiTracker.extractLocalApiFromClass(null))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("clazz must not be null");
         }
