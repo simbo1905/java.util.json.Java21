@@ -6,15 +6,14 @@ Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox J
 
 - **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
 - **✅API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed. 
-- **✅Track any official solution** track any `java.util.json` with matching API updates to be a potential "unofficial backport".
+- **✅Track upstream API**: Match emerging API updates to be a potential "unofficial backport" if a final official solution ever lands. 
 - **✅Host Examples / Counter Examples** if anyone has any interest. GitHub wiki can be used for this if there is community interest. 
 
 ## Non-Goals
 
 - **🛑Performance competition**: This backport is not intended to be the fastest JSON library. The JDK internal annotations that boost performance had to be removed. 
 - **🛑Feature additions**: No features beyond what's in the official sandbox/preview public API. Demos and example code are most welcome. 
-- **🛑Production optimization**: The final official implementation will have cutrent and future JVM-level optimizations unavailable to a backport on Java 21.
-- **🛑API stability**: This backport may, or may not, track the official specification develops (only if folks find it useful).
+- **🛑Production / API stability**: Its an unstable API. It is currently only for educational or experimenal usage. 
 - **🛑Advoocacy / Counter Advocacy**: This repo is not an endorsement of the proposed API nor a rejection of other solutions. Please only use the official Java email lists to debate the topic.
 
 ## Current Status
