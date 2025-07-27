@@ -3,6 +3,10 @@ name: Test Issue Creation
 on:
   workflow_dispatch:  # Manual trigger only for testing
 
+permissions:
+  issues: write
+  contents: read
+
 jobs:
   test-issue-creation:
     runs-on: ubuntu-latest
