@@ -8,12 +8,6 @@ import jdk.sandbox.java.util.json.JsonNumber;
 import jdk.sandbox.java.util.json.JsonBoolean;
 
 import java.io.IOException;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
-import java.lang.reflect.ParameterizedType;
-import java.lang.reflect.Type;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -22,7 +16,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -34,7 +28,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
@@ -44,14 +37,12 @@ import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
 import com.sun.source.tree.ClassTree;
-import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.TreePathScanner;
-import com.sun.source.util.Trees;
 
 /// API Tracker module for comparing local and upstream JSON APIs
 /// 
@@ -68,77 +59,8 @@ import com.sun.source.util.Trees;
 /// All functionality is exposed as static methods following functional programming principles
 public sealed interface ApiTracker permits ApiTracker.Nothing {
     
-    /// API extraction strategy interface
-    sealed interface ApiExtractor permits 
-        ReflectionApiExtractor, SourceApiExtractor {
-        JsonObject extractApi(String identifier);
-    }
-    
-    /// Source location strategy interface
-    sealed interface SourceLocator permits 
-        LocalSourceLocator, RemoteSourceLocator {
-        String locateSource(String className);
-    }
-    
-    /// Reflection-based API extractor
-    record ReflectionApiExtractor() implements ApiExtractor {
-        @Override
-        public JsonObject extractApi(String className) {
-            try {
-                final var clazz = Class.forName(className);
-                return extractLocalApiFromClass(clazz);
-            } catch (ClassNotFoundException e) {
-                return JsonObject.of(Map.of(
-                    "error", JsonString.of("CLASS_NOT_FOUND: " + e.getMessage()),
-                    "className", JsonString.of(className)
-                ));
-            }
-        }
-    }
-    
-    /// Source-based API extractor
-    record SourceApiExtractor(SourceLocator sourceLocator) implements ApiExtractor {
-        @Override
-        public JsonObject extractApi(String className) {
-            final var sourceCode = sourceLocator.locateSource(className);
-            return extractApiFromSource(sourceCode, className);
-        }
-    }
-    
-    /// Local source file locator
-    record LocalSourceLocator(String sourceRoot) implements SourceLocator {
-        @Override
-        public String locateSource(String className) {
-            final var path = sourceRoot + "/" + className.replace('.', '/') + ".java";
-            try {
-                return java.nio.file.Files.readString(java.nio.file.Paths.get(path));
-            } catch (Exception e) {
-                return "FILE_NOT_FOUND: " + e.getMessage();
-            }
-        }
-    }
-    
-    /// Remote source locator (GitHub)
-    record RemoteSourceLocator(String baseUrl) implements SourceLocator {
-        @Override
-        public String locateSource(String className) {
-            final var upstreamPath = mapToUpstreamPath(className);
-            final var url = baseUrl + upstreamPath;
-            return fetchFromUrl(url);
-        }
-    }
-    
-    /// Comparison orchestrator
-    record ApiComparator(
-        ApiExtractor localExtractor,
-        ApiExtractor upstreamExtractor
-    ) {
-        JsonObject compare(String className) {
-            final var localApi = localExtractor.extractApi(className);
-            final var upstreamApi = upstreamExtractor.extractApi(className);
-            return compareApis(localApi, upstreamApi);
-        }
-    }
+    /// Local source root for source-based extraction
+    static final String LOCAL_SOURCE_ROOT = "json-java21/src/main/java";
     
     /// Empty enum to seal the interface - no instances allowed
     enum Nothing implements ApiTracker {}
@@ -361,143 +283,18 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         return path + ".java";
     }
     
-    /// Extracts public API from a compiled class using reflection
-    /// @param clazz the class to extract API from
-    /// @return JSON representation of the class's public API
-    static JsonObject extractLocalApiFromClass(Class<?> clazz) {
-        Objects.requireNonNull(clazz, "clazz must not be null");
-        LOGGER.info("Extracting local API for: " + clazz.getName());
-        
-        final var apiMap = new LinkedHashMap<String, JsonValue>();
-        
-        // Basic class information
-        apiMap.put("className", JsonString.of(clazz.getSimpleName()));
-        apiMap.put("packageName", JsonString.of(clazz.getPackage() != null ? clazz.getPackage().getName() : ""));
-        apiMap.put("modifiers", extractModifiers(clazz.getModifiers()));
-        
-        // Type information
-        apiMap.put("isInterface", JsonBoolean.of(clazz.isInterface()));
-        apiMap.put("isEnum", JsonBoolean.of(clazz.isEnum()));
-        apiMap.put("isRecord", JsonBoolean.of(clazz.isRecord()));
-        apiMap.put("isSealed", JsonBoolean.of(clazz.isSealed()));
-        
-        // Inheritance
-        final var superTypes = new ArrayList<JsonValue>();
-        if (clazz.getSuperclass() != null && !Object.class.equals(clazz.getSuperclass())) {
-            superTypes.add(JsonString.of(clazz.getSuperclass().getSimpleName()));
+    /// Extracts local API from source file
+    static JsonObject extractLocalApiFromSource(String className) {
+        final var path = LOCAL_SOURCE_ROOT + "/" + className.replace('.', '/') + ".java";
+        try {
+            final var sourceCode = java.nio.file.Files.readString(java.nio.file.Paths.get(path));
+            return extractApiFromSource(sourceCode, className);
+        } catch (Exception e) {
+            return JsonObject.of(Map.of(
+                "error", JsonString.of("LOCAL_FILE_NOT_FOUND: " + e.getMessage()),
+                "className", JsonString.of(className)
+            ));
         }
-        Arrays.stream(clazz.getInterfaces())
-            .map(i -> JsonString.of(i.getSimpleName()))
-            .forEach(superTypes::add);
-        apiMap.put("extends", JsonArray.of(superTypes));
-        
-        // Permitted subclasses (for sealed types)
-        if (clazz.isSealed()) {
-            final var permits = Arrays.stream(clazz.getPermittedSubclasses())
-                .map(c -> JsonString.of(c.getSimpleName()))
-                .collect(Collectors.<JsonValue>toList());
-            apiMap.put("permits", JsonArray.of(permits));
-        }
-        
-        // Methods
-        apiMap.put("methods", extractMethods(clazz));
-        
-        // Fields
-        apiMap.put("fields", extractFields(clazz));
-        
-        // Constructors
-        apiMap.put("constructors", extractConstructors(clazz));
-        
-        return JsonObject.of(apiMap);
-    }
-    
-    /// Extracts modifiers as JSON array
-    static JsonArray extractModifiers(int modifiers) {
-        final var modList = new ArrayList<JsonValue>();
-        
-        if (Modifier.isPublic(modifiers)) modList.add(JsonString.of("public"));
-        if (Modifier.isProtected(modifiers)) modList.add(JsonString.of("protected"));
-        if (Modifier.isPrivate(modifiers)) modList.add(JsonString.of("private"));
-        if (Modifier.isStatic(modifiers)) modList.add(JsonString.of("static"));
-        if (Modifier.isFinal(modifiers)) modList.add(JsonString.of("final"));
-        if (Modifier.isAbstract(modifiers)) modList.add(JsonString.of("abstract"));
-        if (Modifier.isNative(modifiers)) modList.add(JsonString.of("native"));
-        if (Modifier.isSynchronized(modifiers)) modList.add(JsonString.of("synchronized"));
-        if (Modifier.isTransient(modifiers)) modList.add(JsonString.of("transient"));
-        if (Modifier.isVolatile(modifiers)) modList.add(JsonString.of("volatile"));
-        
-        return JsonArray.of(modList);
-    }
-    
-    /// Extracts public methods
-    static JsonObject extractMethods(Class<?> clazz) {
-        final var methodsMap = new LinkedHashMap<String, JsonValue>();
-        
-        Arrays.stream(clazz.getDeclaredMethods())
-            .filter(m -> Modifier.isPublic(m.getModifiers()))
-            .forEach(method -> {
-                final var methodInfo = new LinkedHashMap<String, JsonValue>();
-                methodInfo.put("modifiers", extractModifiers(method.getModifiers()));
-                methodInfo.put("returnType", JsonString.of(method.getReturnType().getSimpleName()));
-                methodInfo.put("genericReturnType", JsonString.of(method.getGenericReturnType().getTypeName()));
-                
-                final var params = Arrays.stream(method.getParameters())
-                    .map(p -> JsonString.of(p.getType().getSimpleName() + " " + p.getName()))
-                    .collect(Collectors.<JsonValue>toList());
-                methodInfo.put("parameters", JsonArray.of(params));
-                
-                final var exceptions = Arrays.stream(method.getExceptionTypes())
-                    .map(e -> JsonString.of(e.getSimpleName()))
-                    .collect(Collectors.<JsonValue>toList());
-                methodInfo.put("throws", JsonArray.of(exceptions));
-                
-                methodsMap.put(method.getName(), JsonObject.of(methodInfo));
-            });
-        
-        return JsonObject.of(methodsMap);
-    }
-    
-    /// Extracts public fields
-    static JsonObject extractFields(Class<?> clazz) {
-        final var fieldsMap = new LinkedHashMap<String, JsonValue>();
-        
-        Arrays.stream(clazz.getDeclaredFields())
-            .filter(f -> Modifier.isPublic(f.getModifiers()))
-            .forEach(field -> {
-                final var fieldInfo = new LinkedHashMap<String, JsonValue>();
-                fieldInfo.put("modifiers", extractModifiers(field.getModifiers()));
-                fieldInfo.put("type", JsonString.of(field.getType().getSimpleName()));
-                fieldInfo.put("genericType", JsonString.of(field.getGenericType().getTypeName()));
-                
-                fieldsMap.put(field.getName(), JsonObject.of(fieldInfo));
-            });
-        
-        return JsonObject.of(fieldsMap);
-    }
-    
-    /// Extracts public constructors
-    static JsonArray extractConstructors(Class<?> clazz) {
-        final var constructors = Arrays.stream(clazz.getDeclaredConstructors())
-            .filter(c -> Modifier.isPublic(c.getModifiers()))
-            .map(constructor -> {
-                final var ctorInfo = new LinkedHashMap<String, JsonValue>();
-                ctorInfo.put("modifiers", extractModifiers(constructor.getModifiers()));
-                
-                final var params = Arrays.stream(constructor.getParameters())
-                    .map(p -> JsonString.of(p.getType().getSimpleName() + " " + p.getName()))
-                    .collect(Collectors.<JsonValue>toList());
-                ctorInfo.put("parameters", JsonArray.of(params));
-                
-                final var exceptions = Arrays.stream(constructor.getExceptionTypes())
-                    .map(e -> JsonString.of(e.getSimpleName()))
-                    .collect(Collectors.<JsonValue>toList());
-                ctorInfo.put("throws", JsonArray.of(exceptions));
-                
-                return JsonObject.of(ctorInfo);
-            })
-            .collect(Collectors.<JsonValue>toList());
-        
-        return JsonArray.of(constructors);
     }
     
     /// Extracts public API from source code using compiler parsing
@@ -1087,33 +884,9 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         return normalized;
     }
     
-    /// Runs a full comparison of local vs upstream APIs using reflection vs source parsing
-    /// @return complete comparison report as JSON  
+    /// Runs source-to-source comparison for fair parameter name comparison
+    /// @return complete comparison report as JSON
     static JsonObject runFullComparison() {
-        return runComparisonWithExtractors(
-            new ReflectionApiExtractor(),
-            new SourceApiExtractor(new RemoteSourceLocator(GITHUB_BASE_URL))
-        );
-    }
-    
-    /// Runs a source-to-source comparison for apples-to-apples comparison
-    /// @param localSourceRoot path to local source files
-    /// @return complete comparison report as JSON
-    static JsonObject runSourceToSourceComparison(String localSourceRoot) {
-        return runComparisonWithExtractors(
-            new SourceApiExtractor(new LocalSourceLocator(localSourceRoot)),
-            new SourceApiExtractor(new RemoteSourceLocator(GITHUB_BASE_URL))
-        );
-    }
-    
-    /// Runs comparison with specified extractors
-    /// @param localExtractor extractor for local API
-    /// @param upstreamExtractor extractor for upstream API
-    /// @return complete comparison report as JSON
-    static JsonObject runComparisonWithExtractors(
-        ApiExtractor localExtractor, 
-        ApiExtractor upstreamExtractor
-    ) {
         LOGGER.info("Starting full API comparison");
         final var startTime = Instant.now();
         
@@ -1132,10 +905,12 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         var missingUpstream = 0;
         var differentApi = 0;
         
-        final var comparator = new ApiComparator(localExtractor, upstreamExtractor);
-        
         for (final var clazz : localClasses) {
-            final var diff = comparator.compare(clazz.getName());
+            final var className = clazz.getName();
+            final var localApi = extractLocalApiFromSource(className);
+            final var upstreamSource = fetchUpstreamSource(className);
+            final var upstreamApi = extractApiFromSource(upstreamSource, className);
+            final var diff = compareApis(localApi, upstreamApi);
             differences.add(diff);
             
             // Count statistics
@@ -1158,11 +933,26 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         reportMap.put("summary", summary);
         reportMap.put("differences", JsonArray.of(differences));
         
+        
         final var duration = Duration.between(startTime, Instant.now());
         reportMap.put("durationMs", JsonNumber.of(duration.toMillis()));
         
         LOGGER.info("Comparison completed in " + duration.toMillis() + "ms");
         
         return JsonObject.of(reportMap);
+    }
+    
+    /// Fetches single upstream source file
+    static String fetchUpstreamSource(String className) {
+        final var cached = FETCH_CACHE.get(className);
+        if (cached != null) {
+            return cached;
+        }
+        
+        final var upstreamPath = mapToUpstreamPath(className);
+        final var url = GITHUB_BASE_URL + upstreamPath;
+        final var source = fetchFromUrl(url);
+        FETCH_CACHE.put(className, source);
+        return source;
     }
 }

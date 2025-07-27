@@ -35,26 +35,9 @@ public class ApiTrackerRunner {
         System.out.println();
         
         try {
-            // Run comparison based on mode
-            final var report = switch (mode) {
-                case "binary" -> {
-                    System.out.println("Running binary reflection vs source parsing comparison");
-                    yield ApiTracker.runFullComparison();
-                }
-                case "source" -> {
-                    if (sourcePath == null) {
-                        System.err.println("Error: source mode requires sourcepath argument");
-                        System.exit(1);
-                    }
-                    System.out.println("Running source-to-source comparison (apples-to-apples)");
-                    yield ApiTracker.runSourceToSourceComparison(sourcePath);
-                }
-                default -> {
-                    System.err.println("Error: mode must be 'binary' or 'source'");
-                    System.exit(1);
-                    yield null; // Never reached
-                }
-            };
+            // Run comparison - now only source-to-source for fair parameter comparison
+            System.out.println("Running source-to-source comparison for fair parameter names");
+            final var report = ApiTracker.runFullComparison();
             
             // Pretty print the report
             System.out.println("=== Comparison Report ===");
