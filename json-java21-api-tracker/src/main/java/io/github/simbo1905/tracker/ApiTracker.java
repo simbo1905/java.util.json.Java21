@@ -82,10 +82,9 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         LOGGER.info("Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>((a, b) -> a.getName().compareTo(b.getName()));
         
-        // Packages to scan
+        // Packages to scan - only public API, not internal implementation
         final var packages = List.of(
-            "jdk.sandbox.java.util.json",
-            "jdk.sandbox.internal.util.json"
+            "jdk.sandbox.java.util.json"
         );
         
         final var classLoader = Thread.currentThread().getContextClassLoader();

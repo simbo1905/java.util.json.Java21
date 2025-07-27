@@ -50,10 +50,10 @@ public class ApiTrackerTest {
                     "jdk.sandbox.java.util.json.JsonNull"
                 );
             
-            // Should also find internal implementation classes
+            // Should NOT find internal implementation classes (public API only)
             assertThat(classes.stream().anyMatch(c -> c.getName().startsWith("jdk.sandbox.internal.util.json")))
-                .as("Should find internal implementation classes")
-                .isTrue();
+                .as("Should not find internal implementation classes - public API only")
+                .isFalse();
             
             // Should be sorted
             final var names = classes.stream().map(Class::getName).toList();
