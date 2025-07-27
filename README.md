@@ -4,8 +4,7 @@ Early access to the future `java.util.json` API - taken from OpenJDK sandbox Jul
 
 ## Project Vision
 
-This project provides Java developers with early access to the future `java.util.json` API patterns today, allowing code written against this API to migrate seamlessly when the official API is released. Rather than adopting third-party JSON libraries that will never align with future JDK standards, developers can start using tomorrow's API patterns today.
-
+This project provides Java developers with early access to the future `java.util.json` API today, allowing code written against this API to migrate seamlessly when the official API is released. 
 ## Current Status
 
 This code is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (Mid July 2025 "Improve hash code spec wording").
