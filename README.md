@@ -265,4 +265,4 @@ The 2 failing cases involve duplicate object keys, which this implementation rej
 - **StackOverflowError**: Security vulnerability exposed by malicious deeply nested structures - can leave applications in undefined state  
 - **Duplicate keys**: Implementation choice to reject for data integrity (2 files fail for this reason)
 
-This tool reports status rather than making API design decisions, aligning with the project's goal of tracking upstream development without advocacy.
+This tool reports status and is not a criticism of the expermeintal API which is not available for direct public use. This aligning with this project's goal of tracking upstream unstable development without advocacy. If you have opinions, good or bad, about anything you see here please use the official email lists to discuss. If you see a bug/mistake/improvement with this repo please raise an issue and ideally submit a PR. 
