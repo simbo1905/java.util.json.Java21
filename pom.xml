@@ -38,6 +38,7 @@
     <modules>
         <module>json-java21</module>
         <module>json-java21-api-tracker</module>
+        <module>json-compatibility-suite</module>
     </modules>
 
     <properties>
@@ -53,6 +54,7 @@
         <maven-surefire-plugin.version>3.2.5</maven-surefire-plugin.version>
         <maven-jar-plugin.version>3.4.2</maven-jar-plugin.version>
         <maven-install-plugin.version>3.1.2</maven-install-plugin.version>
+        <download-maven-plugin.version>1.7.1</download-maven-plugin.version>
     </properties>
 
     
@@ -112,6 +114,11 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-install-plugin</artifactId>
                     <version>${maven-install-plugin.version}</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.googlecode.maven-download-plugin</groupId>
+                    <artifactId>download-maven-plugin</artifactId>
+                    <version>${download-maven-plugin.version}</version>
                 </plugin>
             </plugins>
         </pluginManagement>
