@@ -1,0 +1,4 @@
+# Map Claude entries to exclude from contributor stats
+# Claude is a tool, not a contributor
+<noreply@anthropic.com> <noreply@anthropic.com>
+Claude <noreply@anthropic.com> <noreply@anthropic.com>
