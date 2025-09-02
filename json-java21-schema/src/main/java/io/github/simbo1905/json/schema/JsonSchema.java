@@ -31,6 +31,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.*;
 import java.util.regex.Pattern;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /// Single public sealed interface for JSON Schema validation.
 ///
@@ -51,11 +53,28 @@ import java.util.regex.Pattern;
 ///     }
 /// }
 /// ```
-public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.ObjectSchema, JsonSchema.ArraySchema, JsonSchema.StringSchema, JsonSchema.NumberSchema, JsonSchema.BooleanSchema, JsonSchema.NullSchema, JsonSchema.AnySchema, JsonSchema.RefSchema, JsonSchema.AllOfSchema, JsonSchema.AnyOfSchema, JsonSchema.OneOfSchema, JsonSchema.NotSchema {
+public sealed interface JsonSchema
+    permits JsonSchema.Nothing,
+            JsonSchema.ObjectSchema,
+            JsonSchema.ArraySchema,
+            JsonSchema.StringSchema,
+            JsonSchema.NumberSchema,
+            JsonSchema.BooleanSchema,
+            JsonSchema.NullSchema,
+            JsonSchema.AnySchema,
+            JsonSchema.RefSchema,
+            JsonSchema.AllOfSchema,
+            JsonSchema.AnyOfSchema,
+            JsonSchema.ConditionalSchema,
+            JsonSchema.ConstSchema,
+            JsonSchema.NotSchema,
+            JsonSchema.RootRef {
+
+    Logger LOG = Logger.getLogger(JsonSchema.class.getName());
 
     /// Prevents external implementations, ensuring all schema types are inner records
     enum Nothing implements JsonSchema {
-        INSTANCE;
+        ;  // Empty enum - just used as a sealed interface permit
 
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
@@ -85,6 +104,8 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
 
         while (!stack.isEmpty()) {
             ValidationFrame frame = stack.pop();
+            LOG.finest(() -> "POP " + frame.path() +
+                          "   schema=" + frame.schema().getClass().getSimpleName());
             ValidationResult result = frame.schema.validateAt(frame.path, frame.json, stack);
             if (!result.valid()) {
                 errors.addAll(result.errors());
@@ -345,11 +366,11 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
     record AllOfSchema(List<JsonSchema> schemas) implements JsonSchema {
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            List<ValidationError> errors = new ArrayList<>();
+            // Push all subschemas onto the stack for validation
             for (JsonSchema schema : schemas) {
                 stack.push(new ValidationFrame(path, schema, json));
             }
-            return ValidationResult.success(); // Errors collected by caller
+            return ValidationResult.success(); // Actual results emerge from stack processing
         }
     }
 
@@ -357,26 +378,60 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
     record AnyOfSchema(List<JsonSchema> schemas) implements JsonSchema {
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            throw new UnsupportedOperationException("AnyOf composition not implemented");
+            List<ValidationError> collected = new ArrayList<>();
+            boolean anyValid = false;
+
+            for (JsonSchema schema : schemas) {
+                // Create a separate validation stack for this branch
+                Deque<ValidationFrame> branchStack = new ArrayDeque<>();
+                List<ValidationError> branchErrors = new ArrayList<>();
+
+                LOG.finest(() -> "BRANCH START: " + schema.getClass().getSimpleName());
+                branchStack.push(new ValidationFrame(path, schema, json));
+
+                while (!branchStack.isEmpty()) {
+                    ValidationFrame frame = branchStack.pop();
+                    ValidationResult result = frame.schema().validateAt(frame.path(), frame.json(), branchStack);
+                    if (!result.valid()) {
+                        branchErrors.addAll(result.errors());
+                    }
+                }
+
+                if (branchErrors.isEmpty()) {
+                    anyValid = true;
+                    break;
+                }
+                collected.addAll(branchErrors);
+                LOG.finest(() -> "BRANCH END: " + branchErrors.size() + " errors");
+            }
+
+            return anyValid ? ValidationResult.success() : ValidationResult.failure(collected);
         }
     }
 
-    /// OneOf composition - must satisfy exactly one schema
-    record OneOfSchema(List<JsonSchema> schemas) implements JsonSchema {
+    /// If/Then/Else conditional schema
+    record ConditionalSchema(JsonSchema ifSchema, JsonSchema thenSchema, JsonSchema elseSchema) implements JsonSchema {
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            throw new UnsupportedOperationException("OneOf composition not implemented");
-        }
-    }
+            // Step 1 - evaluate IF condition (still needs direct validation)
+            ValidationResult ifResult = ifSchema.validate(json);
 
-    /// Not composition - must not satisfy the schema
-    record NotSchema(JsonSchema schema) implements JsonSchema {
-        @Override
-        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            ValidationResult result = schema.validate(json);
-            return result.valid() ?
-                ValidationResult.failure(List.of(new ValidationError(path, "Schema should not match"))) :
-                ValidationResult.success();
+            // Step 2 - choose branch
+            JsonSchema branch = ifResult.valid() ? thenSchema : elseSchema;
+
+            LOG.finer(() -> String.format(
+                "Conditional path=%s ifValid=%b branch=%s",
+                path, ifResult.valid(),
+                branch == null ? "none" : (ifResult.valid() ? "then" : "else")));
+
+            // Step 3 - if there's a branch, push it onto the stack for later evaluation
+            if (branch == null) {
+                return ValidationResult.success();      // no branch → accept
+            }
+
+            // NEW: push branch onto SAME stack instead of direct call
+            stack.push(new ValidationFrame(path, branch, json));
+            return ValidationResult.success();          // real result emerges later
         }
     }
 
@@ -399,8 +454,25 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
     /// Internal schema compiler
     final class SchemaCompiler {
         private static final Map<String, JsonSchema> definitions = new HashMap<>();
+        private static JsonSchema currentRootSchema;
+
+        private static void trace(String stage, JsonValue fragment) {
+            if (LOG.isLoggable(Level.FINER)) {
+                LOG.finer(() ->
+                    String.format("[%s] %s", stage, fragment.toString()));
+            }
+        }
 
         static JsonSchema compile(JsonValue schemaJson) {
+            definitions.clear(); // Clear any previous definitions
+            currentRootSchema = null;
+            trace("compile-start", schemaJson);
+            JsonSchema schema = compileInternal(schemaJson);
+            currentRootSchema = schema; // Store the root schema for self-references
+            return schema;
+        }
+
+        private static JsonSchema compileInternal(JsonValue schemaJson) {
             if (schemaJson instanceof JsonBoolean bool) {
                 return bool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
             }
@@ -412,8 +484,9 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             // Process definitions first
             JsonValue defsValue = obj.members().get("$defs");
             if (defsValue instanceof JsonObject defsObj) {
+                trace("compile-defs", defsValue);
                 for (var entry : defsObj.members().entrySet()) {
-                    definitions.put("#/$defs/" + entry.getKey(), compile(entry.getValue()));
+                    definitions.put("#/$defs/" + entry.getKey(), compileInternal(entry.getValue()));
                 }
             }
 
@@ -421,6 +494,11 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             JsonValue refValue = obj.members().get("$ref");
             if (refValue instanceof JsonString refStr) {
                 String ref = refStr.value();
+                trace("compile-ref", refValue);
+                if (ref.equals("#")) {
+                    // Lazily resolve to whatever the root schema becomes after compilation
+                    return new RootRef(() -> currentRootSchema);
+                }
                 JsonSchema resolved = definitions.get(ref);
                 if (resolved == null) {
                     throw new IllegalArgumentException("Unresolved $ref: " + ref);
@@ -431,12 +509,76 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             // Handle composition keywords
             JsonValue allOfValue = obj.members().get("allOf");
             if (allOfValue instanceof JsonArray allOfArr) {
+                trace("compile-allof", allOfValue);
                 List<JsonSchema> schemas = new ArrayList<>();
                 for (JsonValue item : allOfArr.values()) {
-                    schemas.add(compile(item));
+                    schemas.add(compileInternal(item));
                 }
                 return new AllOfSchema(schemas);
             }
+
+            JsonValue anyOfValue = obj.members().get("anyOf");
+            if (anyOfValue instanceof JsonArray anyOfArr) {
+                trace("compile-anyof", anyOfValue);
+                List<JsonSchema> schemas = new ArrayList<>();
+                for (JsonValue item : anyOfArr.values()) {
+                    schemas.add(compileInternal(item));
+                }
+                return new AnyOfSchema(schemas);
+            }
+
+            // Handle if/then/else
+            JsonValue ifValue = obj.members().get("if");
+            if (ifValue != null) {
+                trace("compile-conditional", obj);
+                JsonSchema ifSchema = compileInternal(ifValue);
+                JsonSchema thenSchema = null;
+                JsonSchema elseSchema = null;
+
+                JsonValue thenValue = obj.members().get("then");
+                if (thenValue != null) {
+                    thenSchema = compileInternal(thenValue);
+                }
+
+                JsonValue elseValue = obj.members().get("else");
+                if (elseValue != null) {
+                    elseSchema = compileInternal(elseValue);
+                }
+
+                return new ConditionalSchema(ifSchema, thenSchema, elseSchema);
+            }
+
+            // Handle const
+            JsonValue constValue = obj.members().get("const");
+            if (constValue != null) {
+                return new ConstSchema(constValue);
+            }
+
+            // Handle not
+            JsonValue notValue = obj.members().get("not");
+            if (notValue != null) {
+                JsonSchema inner = compileInternal(notValue);
+                return new NotSchema(inner);
+            }
+
+            // If object-like keywords are present without explicit type, treat as object schema
+            boolean hasObjectKeywords = obj.members().containsKey("properties")
+                    || obj.members().containsKey("required")
+                    || obj.members().containsKey("additionalProperties")
+                    || obj.members().containsKey("minProperties")
+                    || obj.members().containsKey("maxProperties");
+
+            // If array-like keywords are present without explicit type, treat as array schema
+            boolean hasArrayKeywords = obj.members().containsKey("items")
+                    || obj.members().containsKey("minItems")
+                    || obj.members().containsKey("maxItems")
+                    || obj.members().containsKey("uniqueItems");
+
+            // If string-like keywords are present without explicit type, treat as string schema
+            boolean hasStringKeywords = obj.members().containsKey("pattern")
+                    || obj.members().containsKey("minLength")
+                    || obj.members().containsKey("maxLength")
+                    || obj.members().containsKey("enum");
 
             // Handle type-based schemas
             JsonValue typeValue = obj.members().get("type");
@@ -451,8 +593,15 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
                     case "null" -> new NullSchema();
                     default -> AnySchema.INSTANCE;
                 };
+            } else {
+                if (hasObjectKeywords) {
+                    return compileObjectSchema(obj);
+                } else if (hasArrayKeywords) {
+                    return compileArraySchema(obj);
+                } else if (hasStringKeywords) {
+                    return compileStringSchema(obj);
+                }
             }
-
 
             return AnySchema.INSTANCE;
         }
@@ -462,7 +611,7 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             JsonValue propsValue = obj.members().get("properties");
             if (propsValue instanceof JsonObject propsObj) {
                 for (var entry : propsObj.members().entrySet()) {
-                    properties.put(entry.getKey(), compile(entry.getValue()));
+                    properties.put(entry.getKey(), compileInternal(entry.getValue()));
                 }
             }
 
@@ -481,7 +630,7 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             if (addPropsValue instanceof JsonBoolean addPropsBool) {
                 additionalProperties = addPropsBool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
             } else if (addPropsValue instanceof JsonObject addPropsObj) {
-                additionalProperties = compile(addPropsObj);
+                additionalProperties = compileInternal(addPropsObj);
             }
 
             Integer minProperties = getInteger(obj, "minProperties");
@@ -494,7 +643,7 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             JsonSchema items = AnySchema.INSTANCE;
             JsonValue itemsValue = obj.members().get("items");
             if (itemsValue != null) {
-                items = compile(itemsValue);
+                items = compileInternal(itemsValue);
             }
 
             Integer minItems = getInteger(obj, "minItems");
@@ -542,9 +691,9 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
             JsonValue value = obj.members().get(key);
             if (value instanceof JsonNumber num) {
                 Number n = num.toNumber();
-                if (n instanceof Integer) return (Integer) n;
-                if (n instanceof Long) return ((Long) n).intValue();
-                if (n instanceof BigDecimal) return ((BigDecimal) n).intValue();
+                if (n instanceof Integer i) return i;
+                if (n instanceof Long l) return l.intValue();
+                if (n instanceof BigDecimal bd) return bd.intValue();
             }
             return null;
         }
@@ -566,6 +715,40 @@ public sealed interface JsonSchema permits JsonSchema.Nothing, JsonSchema.Object
                 return BigDecimal.valueOf(n.doubleValue());
             }
             return null;
+        }
+    }
+
+    /// Const schema - validates that a value equals a constant
+    record ConstSchema(JsonValue constValue) implements JsonSchema {
+        @Override
+        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            return json.equals(constValue) ?
+                ValidationResult.success() :
+                ValidationResult.failure(List.of(new ValidationError(path, "Value must equal const value")));
+        }
+    }
+
+    /// Not composition - inverts the validation result of the inner schema
+    record NotSchema(JsonSchema schema) implements JsonSchema {
+        @Override
+        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            ValidationResult result = schema.validate(json);
+            return result.valid() ?
+                ValidationResult.failure(List.of(new ValidationError(path, "Schema should not match"))) :
+                ValidationResult.success();
+        }
+    }
+
+    /// Root reference schema that refers back to the root schema
+    record RootRef(java.util.function.Supplier<JsonSchema> rootSupplier) implements JsonSchema {
+        @Override
+        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            JsonSchema root = rootSupplier.get();
+            if (root == null) {
+                // No root yet (should not happen during validation), accept for now
+                return ValidationResult.success();
+            }
+            return root.validate(json); // Direct validation against root schema
         }
     }
 }
