@@ -13,11 +13,6 @@ import jdk.sandbox.java.util.json.*;
 
 public sealed interface JsonSchema permits JsonSchema.Nothing {
     
-    // Prevents external implementations
-    enum Nothing implements JsonSchema {
-        INSTANCE;
-    }
-    
     // Factory method to create schema from JSON
     static JsonSchema compile(JsonValue schemaJson) {
         // Parses JSON Schema document into immutable record hierarchy
