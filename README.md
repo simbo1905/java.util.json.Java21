@@ -2,6 +2,25 @@
 
 Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox July 2025.
 
+## JSON Schema Validator
+
+A simple JSON Schema (2020-12 subset) validator is included (module: json-java21-schema).
+
+Quick example:
+
+```java
+var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
+    jdk.sandbox.java.util.json.Json.parse("""
+      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
+    """));
+var result = schema.validate(
+    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
+);
+// result.valid() => true
+```
+
+Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases. This will improve over time.
+
 ## Back Port Project Goals
 
 - **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
@@ -240,13 +259,13 @@ First, build the project and download the test suite:
 
 ```bash
 # Build project and download test suite
-./mvnw clean compile generate-test-resources -pl json-compatibility-suite
+mvn clean compile generate-test-resources -pl json-compatibility-suite
 
 # Run human-readable report
-./mvnw exec:java -pl json-compatibility-suite
+mvn exec:java -pl json-compatibility-suite
 
 # Run JSON output (dogfoods the API)
-./mvnw exec:java -pl json-compatibility-suite -Dexec.args="--json"
+mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ```
 
 ### Current Status
@@ -265,4 +284,4 @@ The 2 failing cases involve duplicate object keys, which this implementation rej
 - **StackOverflowError**: Security vulnerability exposed by malicious deeply nested structures - can leave applications in undefined state  
 - **Duplicate keys**: Implementation choice to reject for data integrity (2 files fail for this reason)
 
-This tool reports status and is not a criticism of the expermeintal API which is not available for direct public use. This aligning with this project's goal of tracking upstream unstable development without advocacy. If you have opinions, good or bad, about anything you see here please use the official email lists to discuss. If you see a bug/mistake/improvement with this repo please raise an issue and ideally submit a PR. 
+This tool reports status and is not a criticism of the expermeintal API which is not available for direct public use. This aligning with this project's goal of tracking upstream unstable development without advocacy. If you have opinions, good or bad, about anything you see here please use the official Java email lists to discuss. If you see a bug/mistake/improvement with this repo please raise an issue and ideally submit a PR.

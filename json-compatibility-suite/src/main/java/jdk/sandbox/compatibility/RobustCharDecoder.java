@@ -10,10 +10,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.logging.Logger;
 
-/**
- * Robust decoder for converting byte arrays to char arrays with multiple encoding fallback strategies.
- * Handles BOM detection, various Unicode encodings, and graceful degradation to byte-level conversion.
- */
+/// Robust decoder for converting byte arrays to char arrays with multiple encoding fallback strategies.
+/// Handles BOM detection, various Unicode encodings, and graceful degradation to byte-level conversion.
 class RobustCharDecoder {
     
     private static final Logger LOGGER = Logger.getLogger(RobustCharDecoder.class.getName());
@@ -25,13 +23,11 @@ class RobustCharDecoder {
     private static final byte[] UTF32_BE_BOM = {(byte) 0x00, (byte) 0x00, (byte) 0xFE, (byte) 0xFF};
     private static final byte[] UTF32_LE_BOM = {(byte) 0xFF, (byte) 0xFE, (byte) 0x00, (byte) 0x00};
     
-    /**
-     * Converts byte array to char array using multiple encoding strategies.
-     * 
-     * @param rawBytes the bytes to convert
-     * @param filename filename for logging purposes
-     * @return char array representing the content
-     */
+    /// Converts byte array to char array using multiple encoding strategies.
+    /// 
+    /// @param rawBytes the bytes to convert
+    /// @param filename filename for logging purposes
+    /// @return char array representing the content
     static char[] decodeToChars(byte[] rawBytes, String filename) {
         LOGGER.fine("Attempting robust decoding for " + filename + " (" + rawBytes.length + " bytes)");
         
@@ -108,10 +104,8 @@ class RobustCharDecoder {
         }
     }
     
-    /**
-     * Converts bytes to chars by attempting to interpret UTF-8 sequences properly,
-     * falling back to individual byte conversion for invalid sequences.
-     */
+    /// Converts bytes to chars by attempting to interpret UTF-8 sequences properly,
+    /// falling back to individual byte conversion for invalid sequences.
     private static char[] convertBytesToCharsPermissively(byte[] bytes) {
         StringBuilder result = new StringBuilder();
         int i = 0;

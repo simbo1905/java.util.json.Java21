@@ -28,9 +28,7 @@ package jdk.sandbox.internal.util.json;
 import jdk.sandbox.java.util.json.JsonNull;
 
 
-/**
- * JsonNull implementation class
- */
+/// JsonNull implementation class
 public final class JsonNullImpl implements JsonNull {
 
     public static final JsonNullImpl NULL = new JsonNullImpl();

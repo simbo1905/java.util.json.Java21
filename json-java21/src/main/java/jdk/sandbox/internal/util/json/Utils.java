@@ -31,9 +31,7 @@ import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonObject;
 import jdk.sandbox.java.util.json.JsonValue;
 
-/**
- * Shared utilities for Json classes.
- */
+/// Shared utilities for Json classes.
 public class Utils {
 
     // Non instantiable

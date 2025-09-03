@@ -28,9 +28,7 @@ package jdk.sandbox.internal.util.json;
 import jdk.sandbox.java.util.json.JsonBoolean;
 
 
-/**
- * JsonBoolean implementation class
- */
+/// JsonBoolean implementation class
 public final class JsonBooleanImpl implements JsonBoolean {
 
     private final Boolean theBoolean;
