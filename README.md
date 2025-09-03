@@ -19,7 +19,7 @@ var result = schema.validate(
 // result.valid() => true
 ```
 
-Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases. This will improve over time.
+Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases. 
 
 ## Back Port Project Goals
 
