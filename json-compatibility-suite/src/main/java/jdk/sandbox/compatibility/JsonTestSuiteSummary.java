@@ -16,10 +16,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
 
-/**
- * Generates a conformance summary report.
- * Run with: mvn exec:java -pl json-compatibility-suite
- */
+/// Generates a conformance summary report.
+/// Run with: mvn exec:java -pl json-compatibility-suite
 public class JsonTestSuiteSummary {
 
     private static final Logger LOGGER = Logger.getLogger(JsonTestSuiteSummary.class.getName());

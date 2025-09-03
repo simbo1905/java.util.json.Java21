@@ -27,32 +27,24 @@ package jdk.sandbox.java.util.json;
 
 import jdk.sandbox.internal.util.json.JsonNullImpl;
 
-/**
- * The interface that represents JSON null.
- * <p>
- * A {@code JsonNull} can be produced by {@link Json#parse(String)}.
- * <p> Alternatively, {@link #of()} can be used to obtain a {@code JsonNull}.
- *
- * @since 99
- */
+/// The interface that represents JSON null.
+///
+/// A {@code JsonNull} can be produced by {@link Json#parse(String)}.
+/// Alternatively, {@link #of()} can be used to obtain a {@code JsonNull}.
+///
+/// @since 99
 public non-sealed interface JsonNull extends JsonValue {
 
-    /**
-     * {@return a {@code JsonNull}}
-     */
+    /// {@return a {@code JsonNull}}
     static JsonNull of() {
         return JsonNullImpl.NULL;
     }
 
-    /**
-     * {@return true if the given {@code obj} is a {@code JsonNull}}
-     */
+    /// {@return true if the given {@code obj} is a {@code JsonNull}}
     @Override
     boolean equals(Object obj);
 
-    /**
-     * {@return the hash code value of this {@code JsonNull}}
-     */
+    /// {@return the hash code value of this {@code JsonNull}}
     @Override
     int hashCode();
 }

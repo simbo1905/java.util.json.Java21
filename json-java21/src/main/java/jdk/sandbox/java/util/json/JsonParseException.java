@@ -28,51 +28,39 @@ package jdk.sandbox.java.util.json;
 import java.io.Serial;
 
 
-/**
- * Signals that an error has been detected while parsing the
- * JSON document.
- *
- * @since 99
- */
+/// Signals that an error has been detected while parsing the
+/// JSON document.
+///
+/// @since 99
 public class JsonParseException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 7022545379651073390L;
 
-    /**
-     * Position of the error row in the document
-     * @serial
-     */
+    /// Position of the error row in the document
+    /// @serial
     private final int row;
 
-    /**
-     * Position of the error column in the document
-     * @serial
-     */
+    /// Position of the error column in the document
+    /// @serial
     private final int col;
 
-    /**
-     * Constructs a JsonParseException with the specified detail message.
-     * @param message the detail message
-     * @param row the row of the error on parsing the document
-     * @param col the column of the error on parsing the document
-     */
+    /// Constructs a JsonParseException with the specified detail message.
+    /// @param message the detail message
+    /// @param row the row of the error on parsing the document
+    /// @param col the column of the error on parsing the document
     public JsonParseException(String message, int row, int col) {
         super(message);
         this.row = row;
         this.col = col;
     }
 
-    /**
-     * {@return the row of the error on parsing the document}
-     */
+    /// {@return the row of the error on parsing the document}
     public int getErrorRow() {
         return row;
     }
 
-    /**
-     * {@return the column of the error on parsing the document}
-     */
+    /// {@return the column of the error on parsing the document}
     public int getErrorColumn() {
         return col;
     }

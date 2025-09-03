@@ -31,9 +31,7 @@ import java.util.Locale;
 import jdk.sandbox.java.util.json.JsonNumber;
 
 
-/**
- * JsonNumber implementation class
- */
+/// JsonNumber implementation class
 public final class JsonNumberImpl implements JsonNumber {
 
     private final char[] doc;

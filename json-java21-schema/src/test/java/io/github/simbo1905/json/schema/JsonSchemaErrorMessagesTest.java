@@ -14,21 +14,21 @@ class JsonSchemaErrorMessagesTest extends JsonSchemaLoggingConfig {
         """));
         var r1 = sString.validate(Json.parse("123"));
         assertThat(r1.valid()).isFalse();
-        assertThat(r1.errors().get(0).message()).contains("Expected string");
+        assertThat(r1.errors().getFirst().message()).contains("Expected string");
 
         JsonSchema sArray = JsonSchema.compile(Json.parse("""
             {"type":"array"}
         """));
         var r2 = sArray.validate(Json.parse("{}"));
         assertThat(r2.valid()).isFalse();
-        assertThat(r2.errors().get(0).message()).contains("Expected array");
+        assertThat(r2.errors().getFirst().message()).contains("Expected array");
 
         JsonSchema sObject = JsonSchema.compile(Json.parse("""
             {"type":"object"}
         """));
         var r3 = sObject.validate(Json.parse("[]"));
         assertThat(r3.valid()).isFalse();
-        assertThat(r3.errors().get(0).message()).contains("Expected object");
+        assertThat(r3.errors().getFirst().message()).contains("Expected object");
     }
 
     @Test
@@ -40,15 +40,15 @@ class JsonSchemaErrorMessagesTest extends JsonSchemaLoggingConfig {
 
         var below = s.validate(Json.parse("0"));
         assertThat(below.valid()).isFalse();
-        assertThat(below.errors().get(0).message()).contains("Below minimum");
+        assertThat(below.errors().getFirst().message()).contains("Below minimum");
 
         var above = s.validate(Json.parse("3"));
         assertThat(above.valid()).isFalse();
-        assertThat(above.errors().get(0).message()).contains("Above maximum");
+        assertThat(above.errors().getFirst().message()).contains("Above maximum");
 
         var notMultiple = s.validate(Json.parse("1"));
         assertThat(notMultiple.valid()).isFalse();
-        assertThat(notMultiple.errors().get(0).message()).contains("Not multiple of");
+        assertThat(notMultiple.errors().getFirst().message()).contains("Not multiple of");
     }
 
     @Test
@@ -63,8 +63,8 @@ class JsonSchemaErrorMessagesTest extends JsonSchemaLoggingConfig {
         """));
         assertThat(bad.valid()).isFalse();
         // Expect failing path to point to the non-integer element
-        assertThat(bad.errors().get(0).path()).isEqualTo("[1]");
-        assertThat(bad.errors().get(0).message()).contains("Expected number");
+        assertThat(bad.errors().getFirst().path()).isEqualTo("[1]");
+        assertThat(bad.errors().getFirst().message()).contains("Expected number");
     }
 
     @Test
@@ -76,7 +76,7 @@ class JsonSchemaErrorMessagesTest extends JsonSchemaLoggingConfig {
 
         var badEnum = s.validate(Json.parse("\"xxxx\""));
         assertThat(badEnum.valid()).isFalse();
-        assertThat(badEnum.errors().get(0).message()).satisfiesAnyOf(
+        assertThat(badEnum.errors().getFirst().message()).satisfiesAnyOf(
             m -> assertThat(m).contains("Not in enum"),
             m -> assertThat(m).contains("Pattern mismatch")
         );

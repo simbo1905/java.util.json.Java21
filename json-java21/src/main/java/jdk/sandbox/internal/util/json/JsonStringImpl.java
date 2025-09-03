@@ -28,9 +28,7 @@ package jdk.sandbox.internal.util.json;
 import jdk.sandbox.java.util.json.JsonString;
 
 
-/**
- * JsonString implementation class
- */
+/// JsonString implementation class
 public final class JsonStringImpl implements JsonString {
 
     private final char[] doc;

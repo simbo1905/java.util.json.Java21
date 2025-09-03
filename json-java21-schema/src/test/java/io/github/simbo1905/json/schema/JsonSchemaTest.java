@@ -24,7 +24,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
         var result2 = schema.validate(Json.parse("42"));
         assertThat(result2.valid()).isFalse();
         assertThat(result2.errors()).hasSize(1);
-        assertThat(result2.errors().get(0).message()).contains("Expected string");
+        assertThat(result2.errors().getFirst().message()).contains("Expected string");
     }
 
     @Test
@@ -55,7 +55,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
             """;
         var result2 = schema.validate(Json.parse(invalidJson));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).message()).contains("Missing required property: name");
+        assertThat(result2.errors().getFirst().message()).contains("Missing required property: name");
     }
 
     @Test
@@ -78,12 +78,12 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
         // Invalid - too many items
         var result2 = schema.validate(Json.parse("[1, 2, 3, 4]"));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).message()).contains("Too many items");
+        assertThat(result2.errors().getFirst().message()).contains("Too many items");
         
         // Invalid - wrong type in array
         var result3 = schema.validate(Json.parse("[1, \"two\", 3]"));
         assertThat(result3.valid()).isFalse();
-        assertThat(result3.errors().get(0).message()).contains("Expected number");
+        assertThat(result3.errors().getFirst().message()).contains("Expected number");
     }
 
     @Test
@@ -104,7 +104,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
         // Invalid pattern
         var result2 = schema.validate(Json.parse("\"abc-123\""));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).message()).contains("Pattern mismatch");
+        assertThat(result2.errors().getFirst().message()).contains("Pattern mismatch");
     }
 
     @Test
@@ -125,7 +125,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
         // Invalid - not in enum
         var result2 = schema.validate(Json.parse("\"yellow\""));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).message()).contains("Not in enum");
+        assertThat(result2.errors().getFirst().message()).contains("Not in enum");
     }
 
     @Test
@@ -168,8 +168,8 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
             """;
         var result2 = schema.validate(Json.parse(invalidJson));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).path()).contains("user");
-        assertThat(result2.errors().get(0).message()).contains("Missing required property: name");
+        assertThat(result2.errors().getFirst().path()).contains("user");
+        assertThat(result2.errors().getFirst().message()).contains("Missing required property: name");
     }
 
     @Test
@@ -252,8 +252,8 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
             """;
         var result2 = schema.validate(Json.parse(invalidJson));
         assertThat(result2.valid()).isFalse();
-        assertThat(result2.errors().get(0).path()).contains("billingAddress");
-        assertThat(result2.errors().get(0).message()).contains("Missing required property: city");
+        assertThat(result2.errors().getFirst().path()).contains("billingAddress");
+        assertThat(result2.errors().getFirst().message()).contains("Missing required property: city");
     }
 
     @Test
@@ -277,17 +277,17 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
         // Invalid - below minimum
         var result = schema.validate(Json.parse("-5"));
         assertThat(result.valid()).isFalse();
-        assertThat(result.errors().get(0).message()).contains("Below minimum");
+        assertThat(result.errors().getFirst().message()).contains("Below minimum");
         
         // Invalid - above maximum
         result = schema.validate(Json.parse("105"));
         assertThat(result.valid()).isFalse();
-        assertThat(result.errors().get(0).message()).contains("Above maximum");
+        assertThat(result.errors().getFirst().message()).contains("Above maximum");
         
         // Invalid - not multiple of 5
         result = schema.validate(Json.parse("52"));
         assertThat(result.valid()).isFalse();
-        assertThat(result.errors().get(0).message()).contains("Not multiple of");
+        assertThat(result.errors().getFirst().message()).contains("Not multiple of");
     }
 
     @Test

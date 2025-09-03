@@ -23,7 +23,7 @@ class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
         """));
         assertThat(result.valid()).isFalse();
         assertThat(result.errors()).isNotEmpty();
-        assertThat(result.errors().get(0).path()).isEqualTo("extra");
+        assertThat(result.errors().getFirst().path()).isEqualTo("extra");
     }
 
     @Test
@@ -42,8 +42,8 @@ class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
             {"id": 1, "extra": 999}
         """));
         assertThat(bad.valid()).isFalse();
-        assertThat(bad.errors().get(0).path()).isEqualTo("extra");
-        assertThat(bad.errors().get(0).message()).contains("Expected string");
+        assertThat(bad.errors().getFirst().path()).isEqualTo("extra");
+        assertThat(bad.errors().getFirst().message()).contains("Expected string");
 
         // valid because extra is a string
         var ok = schema.validate(Json.parse("""
@@ -67,7 +67,7 @@ class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
             {"a": 1}
         """));
         assertThat(tooFew.valid()).isFalse();
-        assertThat(tooFew.errors().get(0).message()).contains("Too few properties");
+        assertThat(tooFew.errors().getFirst().message()).contains("Too few properties");
 
         var ok = schema.validate(Json.parse("""
             {"a": 1, "b": 2}
@@ -78,7 +78,7 @@ class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
             {"a":1, "b":2, "c":3, "d":4}
         """));
         assertThat(tooMany.valid()).isFalse();
-        assertThat(tooMany.errors().get(0).message()).contains("Too many properties");
+        assertThat(tooMany.errors().getFirst().message()).contains("Too many properties");
     }
 
     @Test
@@ -93,7 +93,7 @@ class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
 
         var bad = schema.validate(Json.parse("{}"));
         assertThat(bad.valid()).isFalse();
-        assertThat(bad.errors().get(0).message()).contains("Missing required property: name");
+        assertThat(bad.errors().getFirst().message()).contains("Missing required property: name");
 
         var ok = schema.validate(Json.parse("""
             {"name":"x"}

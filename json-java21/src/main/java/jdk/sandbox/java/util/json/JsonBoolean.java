@@ -27,53 +27,43 @@ package jdk.sandbox.java.util.json;
 
 import jdk.sandbox.internal.util.json.JsonBooleanImpl;
 
-/**
- * The interface that represents JSON boolean.
- * <p>
- * A {@code JsonBoolean} can be produced by {@link Json#parse(String)}.
- * <p> Alternatively, {@link #of(boolean)} can be used to
- * obtain a {@code JsonBoolean}.
- *
- * @since 99
- */
+/// The interface that represents JSON boolean.
+///
+/// A {@code JsonBoolean} can be produced by {@link Json#parse(String)}.
+/// Alternatively, {@link #of(boolean)} can be used to
+/// obtain a {@code JsonBoolean}.
+///
+/// @since 99
 public non-sealed interface JsonBoolean extends JsonValue {
 
-    /**
-     * {@return the {@code boolean} value represented by this
-     * {@code JsonBoolean}}
-     */
+    /// {@return the {@code boolean} value represented by this
+    /// {@code JsonBoolean}}
     boolean value();
 
-    /**
-     * {@return the {@code JsonBoolean} created from the given
-     * {@code boolean}}
-     *
-     * @param src the given {@code boolean}.
-     */
+    /// {@return the {@code JsonBoolean} created from the given
+    /// {@code boolean}}
+    ///
+    /// @param src the given {@code boolean}.
     static JsonBoolean of(boolean src) {
         return src ? JsonBooleanImpl.TRUE : JsonBooleanImpl.FALSE;
     }
 
-    /**
-     * {@return {@code true} if the given object is also a {@code JsonBoolean}
-     * and the two {@code JsonBoolean}s represent the same boolean value} Two
-     * {@code JsonBoolean}s {@code jb1} and {@code jb2} represent the same
-     * boolean values if {@code jb1.value().equals(jb2.value())}.
-     *
-     * @see #value()
-     */
+    /// {@return {@code true} if the given object is also a {@code JsonBoolean}
+    /// and the two {@code JsonBoolean}s represent the same boolean value} Two
+    /// {@code JsonBoolean}s {@code jb1} and {@code jb2} represent the same
+    /// boolean values if {@code jb1.value().equals(jb2.value())}.
+    ///
+    /// @see #value()
     @Override
     boolean equals(Object obj);
 
-    /**
-     * {@return the hash code value for this {@code JsonBoolean}} The hash code value
-     * of a {@code JsonBoolean} is derived from the hash code of {@code JsonBoolean}'s
-     * {@link #value()}. Thus, for two {@code JsonBooleans}s {@code jb1} and {@code jb2},
-     * {@code jb1.equals(jb2)} implies that {@code jb1.hashCode() == jb2.hashCode()}
-     * as required by the general contract of {@link Object#hashCode}.
-     *
-     * @see #value()
-     */
+    /// {@return the hash code value for this {@code JsonBoolean}} The hash code value
+    /// of a {@code JsonBoolean} is derived from the hash code of {@code JsonBoolean}'s
+    /// {@link #value()}. Thus, for two {@code JsonBooleans}s {@code jb1} and {@code jb2},
+    /// {@code jb1.equals(jb2)} implies that {@code jb1.hashCode() == jb2.hashCode()}
+    /// as required by the general contract of {@link Object#hashCode}.
+    ///
+    /// @see #value()
     @Override
     int hashCode();
 }

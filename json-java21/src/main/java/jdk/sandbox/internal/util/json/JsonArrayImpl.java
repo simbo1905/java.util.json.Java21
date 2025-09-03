@@ -31,9 +31,7 @@ import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonValue;
 
 
-/**
- * JsonArray implementation class
- */
+/// JsonArray implementation class
 public final class JsonArrayImpl implements JsonArray {
 
     private final List<JsonValue> theValues;

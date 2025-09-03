@@ -33,39 +33,32 @@ import java.util.stream.Collectors;
 import jdk.internal.javac.PreviewFeature;
 import jdk.internal.util.json.JsonObjectImpl;
 
-/**
- * The interface that represents JSON object.
- *
- * <p>
- * A {@code JsonObject} can be produced by a {@link Json#parse(String)}.
- *
- * Alternatively, {@link #of(Map)} can be used to obtain a {@code JsonObject}.
- * Implementations of {@code JsonObject} cannot be created from sources that
- * contain duplicate member names. If duplicate names appear during
- * a {@link Json#parse(String)}, a {@code JsonParseException} is thrown.
- *
- * @since 99
- */
+/// The interface that represents JSON object.
+///
+/// A {@code JsonObject} can be produced by a {@link Json#parse(String)}.
+///
+/// Alternatively, {@link #of(Map)} can be used to obtain a {@code JsonObject}.
+/// Implementations of {@code JsonObject} cannot be created from sources that
+/// contain duplicate member names. If duplicate names appear during
+/// a {@link Json#parse(String)}, a {@code JsonParseException} is thrown.
+///
+/// @since 99
 @PreviewFeature(feature = PreviewFeature.Feature.JSON)
 public non-sealed interface JsonObject extends JsonValue {
 
-    /**
-     * {@return an unmodifiable map of the {@code String} to {@code JsonValue}
-     * members in this {@code JsonObject}}
-     */
+    /// {@return an unmodifiable map of the {@code String} to {@code JsonValue}
+    /// members in this {@code JsonObject}}
     Map<String, JsonValue> members();
 
-    /**
-     * {@return the {@code JsonObject} created from the given
-     * map of {@code String} to {@code JsonValue}s}
-     *
-     * The {@code JsonObject}'s members occur in the same order as the given
-     * map's entries.
-     *
-     * @param map the map of {@code JsonValue}s. Non-null.
-     * @throws NullPointerException if {@code map} is {@code null}, contains
-     * any keys that are {@code null}, or contains any values that are {@code null}.
-     */
+    /// {@return the {@code JsonObject} created from the given
+    /// map of {@code String} to {@code JsonValue}s}
+    ///
+    /// The {@code JsonObject}'s members occur in the same order as the given
+    /// map's entries.
+    ///
+    /// @param map the map of {@code JsonValue}s. Non-null.
+    /// @throws NullPointerException if {@code map} is {@code null}, contains
+    /// any keys that are {@code null}, or contains any values that are {@code null}.
     static JsonObject of(Map<String, JsonValue> map) {
         return new JsonObjectImpl(map.entrySet() // Implicit NPE on map
                                      .stream()
@@ -76,26 +69,22 @@ public non-sealed interface JsonObject extends JsonValue {
                                              LinkedHashMap::new)));
     }
 
-    /**
-     * {@return {@code true} if the given object is also a {@code JsonObject}
-     * and the two {@code JsonObject}s represent the same mappings} Two
-     * {@code JsonObject}s {@code jo1} and {@code jo2} represent the same
-     * mappings if {@code jo1.members().equals(jo2.members())}.
-     *
-     * @see #members()
-     */
+    /// {@return {@code true} if the given object is also a {@code JsonObject}
+    /// and the two {@code JsonObject}s represent the same mappings} Two
+    /// {@code JsonObject}s {@code jo1} and {@code jo2} represent the same
+    /// mappings if {@code jo1.members().equals(jo2.members())}.
+    ///
+    /// @see #members()
     @Override
     boolean equals(Object obj);
 
-    /**
-     * {@return the hash code value for this {@code JsonObject}} The hash code value
-     * of a {@code JsonObject} is derived from the hash code of {@code JsonObject}'s
-     * {@link #members()}. Thus, for two {@code JsonObject}s {@code jo1} and {@code jo2},
-     * {@code jo1.equals(jo2)} implies that {@code jo1.hashCode() == jo2.hashCode()}
-     * as required by the general contract of {@link Object#hashCode}.
-     *
-     * @see #members()
-     */
+    /// {@return the hash code value for this {@code JsonObject}} The hash code value
+    /// of a {@code JsonObject} is derived from the hash code of {@code JsonObject}'s
+    /// {@link #members()}. Thus, for two {@code JsonObject}s {@code jo1} and {@code jo2},
+    /// {@code jo1.equals(jo2)} implies that {@code jo1.hashCode() == jo2.hashCode()}
+    /// as required by the general contract of {@link Object#hashCode}.
+    ///
+    /// @see #members()
     @Override
     int hashCode();
 }

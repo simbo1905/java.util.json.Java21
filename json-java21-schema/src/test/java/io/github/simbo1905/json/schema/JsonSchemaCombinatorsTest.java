@@ -68,7 +68,7 @@ class JsonSchemaCombinatorsTest extends JsonSchemaLoggingConfig {
             {"user": {}}
         """));
         assertThat(bad.valid()).isFalse();
-        assertThat(bad.errors().get(0).path()).isEqualTo("user");
-        assertThat(bad.errors().get(0).message()).contains("Missing required property: name");
+        assertThat(bad.errors().getFirst().path()).isEqualTo("user");
+        assertThat(bad.errors().getFirst().message()).contains("Missing required property: name");
     }
 }

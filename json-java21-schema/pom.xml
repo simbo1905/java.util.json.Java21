@@ -26,6 +26,8 @@
             <artifactId>json-java21</artifactId>
             <version>${project.version}</version>
         </dependency>
+
+        <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -41,5 +43,68 @@
             <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!-- JSON Schema Test Suite runner -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.15.0</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!-- Integration-test / verify runner -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>3.1.2</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <includes>
+                        <include>**/*IT.java</include>
+                        <include>**/*ITCase.java</include>
+                    </includes>
+                </configuration>
+            </plugin>
+
+            <!-- Download & unzip the official test-suite -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>fetch-json-schema-suite</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <mkdir dir="${project.build.directory}/json-schema-test-suite"/>
+                                <get src="https://github.com/json-schema-org/JSON-Schema-Test-Suite/archive/refs/tags/23.1.0.zip"
+                                     dest="${project.build.directory}/json-schema-test-suite.zip"
+                                     skipexisting="true"/>
+                                <unzip src="${project.build.directory}/json-schema-test-suite.zip"
+                                       dest="${project.build.directory}/json-schema-test-suite"
+                                       overwrite="false"/>
+                                <!-- Rename the extracted directory for stable path -->
+                                <move file="${project.build.directory}/json-schema-test-suite/JSON-Schema-Test-Suite-23.1.0"
+                                      tofile="${project.build.directory}/json-schema-test-suite"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

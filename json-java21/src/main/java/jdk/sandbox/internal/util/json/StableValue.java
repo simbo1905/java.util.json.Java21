@@ -2,10 +2,8 @@ package jdk.sandbox.internal.util.json;
 
 import java.util.function.Supplier;
 
-/**
- * Mimics JDK's StableValue using double-checked locking pattern
- * for thread-safe lazy initialization.
- */
+/// Mimics JDK's StableValue using double-checked locking pattern
+/// for thread-safe lazy initialization.
 class StableValue<T> {
   private volatile T value;
   private final Object lock = new Object();

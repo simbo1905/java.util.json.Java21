@@ -16,13 +16,11 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.*;
 
-/**
- * Runs the JSON Test Suite against our implementation.
- * Files are categorized:
- * - y_*.json: Valid JSON that MUST parse successfully
- * - n_*.json: Invalid JSON that MUST fail to parse
- * - i_*.json: Implementation-defined (may accept or reject)
- */
+/// Runs the JSON Test Suite against our implementation.
+/// Files are categorized:
+/// - y_*.json: Valid JSON that MUST parse successfully
+/// - n_*.json: Invalid JSON that MUST fail to parse
+/// - i_*.json: Implementation-defined (may accept or reject)
 public class JsonTestSuiteTest {
 
     private static final Logger LOGGER = Logger.getLogger(JsonTestSuiteTest.class.getName());

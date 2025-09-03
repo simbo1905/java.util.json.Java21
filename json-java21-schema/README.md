@@ -2,6 +2,38 @@
 
 Stack-based JSON Schema validator using sealed interface pattern with inner record types.
 
+- Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, $defs and local $ref (including root "#")
+- Thread-safe compiled schemas; immutable results with error paths/messages
+
+Quick usage
+
+```java
+import jdk.sandbox.java.util.json.Json;
+import io.github.simbo1905.json.schema.JsonSchema;
+
+var schema = JsonSchema.compile(Json.parse("""
+  {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
+"""));
+var result = schema.validate(Json.parse("{\"name\":\"Alice\"}"));
+// result.valid() == true
+```
+
+Compatibility and verify
+
+- The module runs the official JSON Schema Test Suite during Maven verify.
+- Default mode is lenient: unsupported groups/tests are skipped to avoid build breaks while still logging.
+- Strict mode: enable with -Djson.schema.strict=true to enforce full assertions. In strict mode it currently passes about 71% of applicable cases.
+
+How to run
+
+```bash
+# Run unit + integration tests (includes official suite)
+mvn -pl json-java21-schema -am verify
+
+# Strict mode
+mvn -Djson.schema.strict=true -pl json-java21-schema -am verify
+```
+
 ## API Design
 
 Single public interface with all schema types as inner records:

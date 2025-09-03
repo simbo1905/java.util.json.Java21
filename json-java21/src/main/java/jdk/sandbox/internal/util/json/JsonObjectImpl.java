@@ -31,9 +31,7 @@ import jdk.sandbox.java.util.json.JsonObject;
 import jdk.sandbox.java.util.json.JsonValue;
 
 
-/**
- * JsonObject implementation class
- */
+/// JsonObject implementation class
 public final class JsonObjectImpl implements JsonObject {
 
     private final Map<String, JsonValue> theMembers;

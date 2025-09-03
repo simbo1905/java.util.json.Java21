@@ -7,9 +7,9 @@ public class JsonSchemaLoggingConfig {
     @BeforeAll
     static void enableJulDebug() {
         Logger root = Logger.getLogger("");
-        root.setLevel(Level.FINEST);          // show FINEST level messages
+        root.setLevel(Level.FINE);          // show FINEST level messages
         for (Handler h : root.getHandlers()) {
-            h.setLevel(Level.FINEST);
+            h.setLevel(Level.FINE);
         }
     }
 }
