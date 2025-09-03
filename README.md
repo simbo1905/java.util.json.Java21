@@ -2,24 +2,46 @@
 
 Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox July 2025.
 
-## JSON Schema Validator
+## Quick Start
 
-A simple JSON Schema (2020-12 subset) validator is included (module: json-java21-schema).
-
-Quick example:
+### Parsing JSON to Maps and Objects
 
 ```java
-var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
-    jdk.sandbox.java.util.json.Json.parse("""
-      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
-    """));
-var result = schema.validate(
-    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
-);
-// result.valid() => true
+// Parse JSON string to generic structure
+String json = "{\"name\":\"Alice\",\"age\":30,\"active\":true}";
+JsonValue value = Json.parse(json);
+
+// Access as map-like structure
+JsonObject obj = (JsonObject) value;
+String name = ((JsonString) obj.members().get("name")).value();
+int age = ((JsonNumber) obj.members().get("age")).intValue();
+boolean active = ((JsonBoolean) obj.members().get("active")).value();
 ```
 
-Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases. 
+### Record Mapping
+
+```java
+// Define records for structured data
+record User(String name, int age, boolean active) {}
+
+// Parse JSON directly to records
+String userJson = "{\"name\":\"Bob\",\"age\":25,\"active\":false}";
+JsonObject jsonObj = (JsonObject) Json.parse(userJson);
+
+// Map to record
+User user = new User(
+    ((JsonString) jsonObj.members().get("name")).value(),
+    ((JsonNumber) jsonObj.members().get("age")).intValue(),
+    ((JsonBoolean) jsonObj.members().get("active")).value()
+);
+
+// Convert records back to JSON
+JsonValue backToJson = Json.fromUntyped(Map.of(
+    "name", user.name(),
+    "age", user.age(),
+    "active", user.active()
+));
+```
 
 ## Back Port Project Goals
 
@@ -56,6 +78,25 @@ This is a simplified backport with the following changes from the original:
 - **API contract violations**: The `Json.parse()` method documentation only declares `JsonParseException` and `NullPointerException`, but malicious inputs can trigger undeclared exceptions
 
 These vulnerabilities exist in the upstream OpenJDK sandbox implementation and are reported here for transparency.
+
+## JSON Schema Validator
+
+By including a basic schema validator good enough to validate simple JSON RPC 2.0 for MCP communication, this demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
+
+A simple JSON Schema (2020-12 subset) validator is included (module: json-java21-schema).
+
+```java
+var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
+    jdk.sandbox.java.util.json.Json.parse("""
+      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
+    """));
+var result = schema.validate(
+    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
+);
+// result.valid() => true
+```
+
+Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases.
 
 ## Building
 
