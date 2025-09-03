@@ -81,7 +81,7 @@ These vulnerabilities exist in the upstream OpenJDK sandbox implementation and a
 
 ## JSON Schema Validator
 
-By including a basic schema validator good enough to validate simple JSON RPC 2.0 for MCP communication, this demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
+By including a basic schema validator that demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
 
 A simple JSON Schema (2020-12 subset) validator is included (module: json-java21-schema).
 
@@ -96,7 +96,7 @@ var result = schema.validate(
 // result.valid() => true
 ```
 
-Compatibility: we run the official JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases.
+Compatibility: we run the official 2020-12 JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases.
 
 ## Building
 
