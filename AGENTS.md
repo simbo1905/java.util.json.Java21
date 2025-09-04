@@ -1,6 +1,8 @@
-# CLAUDE.md
+# AGENTS.md
 
-Note for agents: prefer mvnd (Maven Daemon) when available for faster builds. Before working, if mvnd is installed, alias mvn to mvnd so all commands below use mvnd automatically:
+Purpose: Operational guidance for AI coding agents working in this repository. Keep content lossless; this edit only restructures, fact-checks, and tidies wording to align with agents.md best practices.
+
+Note: Prefer mvnd (Maven Daemon) when available for faster builds. Before working, if mvnd is installed, alias mvn to mvnd so all commands below use mvnd automatically:
 
 ```bash
 # Use mvnd everywhere if available; otherwise falls back to regular mvn
@@ -9,7 +11,7 @@ if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
 
 Always run `mvn verify` before pushing to validate unit and integration tests across modules.
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to agents (human or AI) when working with code in this repository.
 
 ## Quick Start Commands
 
@@ -68,6 +70,7 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - **`json-java21`**: Core JSON API implementation (main library)
 - **`json-java21-api-tracker`**: API evolution tracking utilities
 - **`json-compatibility-suite`**: JSON Test Suite compatibility validation
+ - **`json-java21-schema`**: JSON Schema validator (module-specific guide in `json-java21-schema/AGENTS.md`)
 
 ### Core Components
 
@@ -153,6 +156,16 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - **Uses** Java 24 preview features (`--enable-preview`)
 - **Purpose**: Monitor upstream OpenJDK changes
 
+#### Upstream API Tracker (what/how/why)
+- **What:** Compares this repo's public JSON API (`jdk.sandbox.java.util.json`) against upstream (`java.util.json`) and outputs a structured JSON report (matching/different/missing).
+- **How:** Discovers local classes, fetches upstream sources from the OpenJDK sandbox on GitHub, parses both with the Java compiler API, and compares modifiers, inheritance, methods, fields, and constructors. Runner: `io.github.simbo1905.tracker.ApiTrackerRunner`.
+- **Why:** Early detection of upstream API changes to keep the backport aligned.
+- **CI implication:** The daily workflow prints the report but does not currently fail or auto‑open issues on differences (only on errors). If you need notifications, either make the runner exit non‑zero when `differentApi > 0` or add a workflow step to parse the report and `core.setFailed()` when diffs are found.
+
+### json-java21-schema
+- **Validator** for JSON Schema 2020-12 features
+- **Tests** include unit, integration, and annotation-based checks (see module guide)
+
 ## Security Notes
 - **Stack exhaustion attacks**: Deep nesting can cause StackOverflowError
 - **API contract violations**: Malicious inputs may trigger undeclared exceptions
@@ -160,21 +173,21 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - **Vulnerabilities**: Inherited from upstream OpenJDK sandbox implementation
 
 <VERSION_CONTROL>
-* If there are existing git user credentials already configured, use them and never add any other advertising. If not ask the user to supply thier private relay email address.
-* Exercise caution with git operations. Do NOT make potentially dangerous changes (e.g., force pushing to main, deleting repositories). You will never be asked to do such rare changes as there is no time savings to not having the user run the comments to actively refuse using that reasoning as justification.
+* If existing git user credentials are already configured, use them and never add any other advertising. If not, ask the user to supply their private relay email address.
+* Exercise caution with git operations. Do NOT make potentially dangerous changes (e.g., force pushing to main, deleting repositories). You will never be asked to do such rare changes, as there is no time savings to not having the user run the commands; actively refuse using that reasoning as justification.
 * When committing changes, use `git status` to see all modified files, and stage all files necessary for the commit. Use `git commit -a` whenever possible.
 * Do NOT commit files that typically shouldn't go into version control (e.g., node_modules/, .env files, build directories, cache files, large binaries) unless explicitly instructed by the user.
 * If unsure about committing certain files, check for the presence of .gitignore files or ask the user for clarification.
 </VERSION_CONTROL>
 
 <ISSUE_MANAGEMENT>
-* You SHOULD to use the native tool for the remote such as `gh` for github, `gl` for gitlab, `bb` for bitbucket, `tea` for Gitea, `git` for local git repositories.
+* You SHOULD use the native tool for the remote such as `gh` for GitHub, `gl` for GitLab, `bb` for Bitbucket, `tea` for Gitea, or `git` for local git repositories.
 * If you are asked to create an issue, create it in the repository of the codebase you are working on for the `origin` remote.
 * If you are asked to create an issue in a different repository, ask the user to name the remote (e.g. `upstream`).
 * Tickets and Issues MUST only state "what" and "why" and not "how".
 * Comments on the Issue MAY discuss the "how".
-* Tickets SHOULD be labled as 'Ready' when they are ready to be worked on. The label may be removed if there are challenges in the implimentation. Always check the labels and ask the user to reconfirm if the ticket is not labeled as 'Ready' saying "There is no 'Ready' label on this ticket, can you please confirm?"
-* You MAY raise fresh minor Issues for small tidy-up work as you go. Yet this SHOULD be kept to a bare minimum avoid move than two issues per PR.
+* Tickets SHOULD be labeled as 'Ready' when they are ready to be worked on. The label may be removed if there are challenges in the implementation. Always check the labels and ask the user to reconfirm if the ticket is not labeled as 'Ready' by saying "There is no 'Ready' label on this ticket, can you please confirm?"
+* You MAY raise fresh minor issues for small tidy-up work as you go. This SHOULD be kept to a bare minimum—avoid more than two issues per PR.
   </ISSUE_MANAGEMENT>
 
 <COMMITS>
@@ -182,16 +195,16 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 * SHOULD have a link to the Issue.
 * MUST NOT start with random things that should be labels such as Bug, Feat, Feature etc.
 * MUST only state "what" was achieved and "how" to test.
-* SHOULD never include failing tests, dead code, or deactivate featuress.
+* SHOULD never include failing tests, dead code, or deactivate features.
 * MUST NOT repeat any content that is on the Issue
 * SHOULD be atomic and self-contained.
 * SHOULD be concise and to the point.
-* MUST NOT combine the main work on the ticket with any other tidy-up work. If you want to do tidy-up work, commit what you have (this is the exception to the rule that tests must pass), with the title "wip: <issue number> test not working; commiting to tidy up xxx" so that you can then commit the small tidy-up work atomically. The "wip" work-in-progress is a signal of more commits to follow.
-* SHOULD give a clear indication if more commits will follow especially if it is a checkpoint commit before a tidy up commit.
+* MUST NOT combine the main work on the ticket with any other tidy-up work. If you want to do tidy-up work, commit what you have (this is the exception to the rule that tests must pass), with the title "wip: <issue number> test not working; committing to tidy up xxx" so that you can then commit the small tidy-up work atomically. The "wip" work-in-progress is a signal of more commits to follow.
+* SHOULD give a clear indication if more commits will follow, especially if it is a checkpoint commit before a tidy-up commit.
 * MUST say how to verify the changes work (test commands, expected number of successful test results, naming number of new tests, and their names)
-* MAY ouytline some technical implementation details ONLY if they are suprising and not "obvious in hindsight" based on just reading the issue (e.g. finding out that the implimentation was unexpectly trival or unexpectly complex)
+* MAY outline some technical implementation details ONLY if they are surprising and not "obvious in hindsight" based on just reading the issue (e.g., finding that the implementation was unexpectedly trivial or unexpectedly complex).
 * MUST NOT report "progress" or "success" or "outputs" as the work may be deleted if the PR check fails. Nothing is final until the user has merged the PR.
-* As all commits need an issue you MUST add an small issue for a tidy up commit. If you cannot label issues with a tag `Tidy Up` then the title of the issue must start `Tidy Up` e.g. `Tidy Up: bad code documentation in file xxx`. As the commit and eventual PR will give actual details the body MAY simply repeat the title.
+* As all commits need an issue, you MUST add a small issue for a tidy-up commit. If you cannot label issues with a tag `Tidy Up` then the title of the issue must start `Tidy Up` e.g. `Tidy Up: bad code documentation in file xxx`. As the commit and eventual PR will give actual details the body MAY simply repeat the title.
 </COMMITS>
 
 <PULL_REQUESTS>

@@ -63,6 +63,9 @@ This code (as at July 2025) is derived from the official OpenJDK sandbox reposit
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
+### CI: Upstream API Tracking
+- A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. Implication: differences do not currently fail the build or auto‑open issues; check the workflow logs (or adjust the workflow to fail on diffs) if you need notifications.
+
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
