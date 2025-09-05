@@ -1,6 +1,6 @@
 # java.util.json Backport for JDK 21
 
-Early access to the unstable `java.util.json` API - taken from OpenJDK sandbox July 2025.
+Early access to the unstable `java.util.json` API — taken from the OpenJDK jdk-sandbox “json” branch as of 2025-09-04.
 
 ## Quick Start
 
@@ -59,7 +59,7 @@ JsonValue backToJson = Json.fromUntyped(Map.of(
 
 ## Current Status
 
-This code (as at July 2025) is derived from the official OpenJDK sandbox repository at commit [d22dc2ba89789041c3908cdaafadc1dcf8882ebf](https://github.com/openjdk/jdk-sandbox/commit/d22dc2ba89789041c3908cdaafadc1dcf8882ebf) (Mid July 2025 "Improve hash code spec wording").
+This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json” branch at commit [a8e7de8b49e4e4178eb53c94ead2fa2846c30635](https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635) ("Produce path/col during path building", 2025-08-14 UTC).
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
