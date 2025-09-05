@@ -28,10 +28,17 @@ package jdk.sandbox.internal.util.json;
 import java.util.List;
 import java.util.Map;
 import jdk.sandbox.java.util.json.JsonArray;
+import jdk.sandbox.java.util.json.JsonAssertionException;
+import jdk.sandbox.java.util.json.JsonBoolean;
+import jdk.sandbox.java.util.json.JsonNull;
+import jdk.sandbox.java.util.json.JsonNumber;
 import jdk.sandbox.java.util.json.JsonObject;
+import jdk.sandbox.java.util.json.JsonString;
 import jdk.sandbox.java.util.json.JsonValue;
 
-/// Shared utilities for Json classes.
+/**
+ * Shared utilities for Json classes.
+ */
 public class Utils {
 
     // Non instantiable
@@ -90,5 +97,189 @@ public class Utils {
             }
         }
         return sb == null ? str : sb.toString();
+    }
+
+    // Use to compose an exception when casting to an incorrect type
+    public static JsonAssertionException composeTypeError(JsonValue jv, String expected) {
+        var actual = switch (jv) {
+            case JsonObject obj -> "JsonObject";
+            case JsonArray arr -> "JsonArray";
+            case JsonBoolean b -> "JsonBoolean";
+            case JsonNull n -> "JsonNull";
+            case JsonNumber num -> "JsonNumber";
+            case JsonString str -> "JsonString";
+        };
+        return new JsonAssertionException("%s is not a %s.".formatted(actual, expected)
+                + ((jv instanceof JsonValueImpl jvi && jvi.doc() != null) ? JsonPath.getPath(jvi) : ""));
+    }
+
+    public static String getPath(JsonValueImpl jvi) {
+        return JsonPath.getPath(jvi);
+    }
+
+    private static final class JsonPath {
+
+        private final int offset;
+        private final char[] doc;
+        // Tracked and incremented during path creation
+        private int row;
+        private int col;
+
+        private JsonPath(JsonValueImpl jvi) {
+            this.offset = jvi.offset();
+            this.doc = jvi.doc();
+        }
+
+        private static String getPath(JsonValueImpl jvi) {
+            return new JsonPath(jvi).parseToRoot();
+        }
+
+        private String parseToRoot() {
+            var sb = new StringBuilder();
+            // Updates the sb
+            toPath(offset, sb);
+            // If no new line encountered, col is the starting offset value
+            if (row == 0) {
+                col = offset;
+            }
+            return " Path: \"%s\". Location: row %d, col %d.".formatted(sb.toString(), row, col);
+        }
+
+        private void addRow(int curr) {
+            row++;
+            if (row == 1) {
+                col = offset - curr - 1;
+            }
+        }
+
+        // Void return type, builds the passed StringBuilder
+        private void toPath(int offset, StringBuilder sb) {
+            // Walk past starting char and white space
+            offset = walkWhitespace(offset - 1);
+            // If offset is -1, we found the root and are finished
+            if (offset != -1) {
+                // Node case
+                offset = switch (doc[offset]) {
+                    // Does the actual appending
+                    // Walks to the node's starting [ or {
+                    case ',', '[' -> arrayNode(offset, sb);
+                    case ':' -> objectNode(offset, sb);
+                    default -> throw new InternalError();
+                };
+                toPath(offset, sb);
+            }
+        }
+
+        private int walkWhitespace(int offset) {
+            while (offset >= 0) {
+                var ws = switch (doc[offset]) {
+                    case ' ', '\t','\r' -> true;
+                    case '\n' -> {
+                        addRow(offset);
+                        yield true;
+                    }
+                    default -> false;
+                };
+                if (!ws) {
+                    break;
+                }
+                offset--;
+            }
+            return offset;
+        }
+
+        // Backtracking from an element in a JsonArray either expects a ',' or '['
+        // E.g. " [ val ... " or " [ foo, val "
+        private int arrayNode(int offset, StringBuilder sb) {
+            int aDepth = 0;
+            int oDepth = 0;
+            int values = 0;
+            boolean inString = false;
+            while (offset > 0) {
+                var c = doc[offset];
+                if (inString) {
+                    if (c == '"' && doc[offset - 1] != '\\') {
+                        inString = false;
+                    }
+                } else {
+                    if (c == '[') {
+                        aDepth++;
+                    } else if (c == ']') {
+                        aDepth--;
+                    } else if (c == '{') {
+                        oDepth++;
+                    } else if (c == '}') {
+                        oDepth--;
+                    } else if (c == ',' && aDepth == 0 && oDepth == 0) {
+                        values++;
+                    } else if (c == '"') {
+                        inString = true;
+                    } else if (c == '\n') {
+                        addRow(offset);
+                    }
+                    if (aDepth > 0) {
+                        break;
+                    }
+                }
+                offset--;
+            }
+            sb.insert(0, '[' + String.valueOf(values));
+            return offset;
+        }
+
+        // Unlike arrayNode, always expects a ':'
+        // Regardless of value position, always preceded by a member name and colon
+        private int objectNode(int offset, StringBuilder sb) {
+            offset--; // Walk past ':'
+            int depth = 0;
+            int nameStart = 0;
+            int nameEnd = 0;
+            boolean inName = false;
+
+            // Append member name first
+            while (offset > 0) {
+                var c = doc[offset];
+                if (c == '"' && !inName) {
+                    nameEnd = offset;
+                    inName = true;
+                } else if (c == '"' && doc[offset - 1] != '\\') {
+                    // Pre-escape check should not throw AIOOBE because guaranteed
+                    // to have enclosing opening bracket
+                    nameStart = offset + 1;
+                    offset--; // Walk past quote
+                    break;
+                }
+                offset--;
+            }
+
+            // Add the name
+            sb.insert(0, '{' + new String(doc, nameStart, nameEnd - nameStart));
+
+            boolean inString = false;
+            // Move to parent offset
+            while (offset > 0) {
+                var c = doc[offset];
+                if (inString) {
+                    if (c == '"' && doc[offset - 1] != '\\') {
+                        inString = false;
+                    }
+                } else {
+                    if (c == '{') {
+                        depth++;
+                    } else if (c == '}') {
+                        depth--;
+                    } else if (c == '"') {
+                        inString = true;
+                    } else if (c == '\n') {
+                        addRow(offset);
+                    }
+                    if (depth > 0) {
+                        break;
+                    }
+                }
+                offset--;
+            }
+            return offset;
+        }
     }
 }

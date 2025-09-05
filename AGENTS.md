@@ -64,6 +64,50 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ./mvn-test-no-boilerplate.sh -Dtest=JsonParserTests -Djava.util.logging.ConsoleHandler.level=FINER
 ```
 
+## Python Usage (Herodoc, 3.2-safe)
+- Prefer `python3` with a heredoc over Perl/sed for non-trivial transforms.
+- Target ancient Python 3.2 syntax: no f-strings, no fancy deps.
+- Example pattern:
+
+```bash
+python3 - <<'PY'
+import os, sys, re
+src = 'updates/2025-09-04/upstream/jdk.internal.util.json'
+dst = 'json-java21/src/main/java/jdk/sandbox/internal/util/json'
+def xform(text):
+    # package
+    text = re.sub(r'^package\s+jdk\.internal\.util\.json;', 'package jdk.sandbox.internal.util.json;', text, flags=re.M)
+    # imports for public API
+    text = re.sub(r'^(\s*import\s+)java\.util\.json\.', r'\1jdk.sandbox.java.util.json.', text, flags=re.M)
+    # annotations
+    text = re.sub(r'^\s*@(?:jdk\.internal\..*|ValueBased|StableValue).*\n', '', text, flags=re.M)
+    return text
+for name in os.listdir(src):
+    if not name.endswith('.java') or name == 'StableValue.java':
+        continue
+    data = open(os.path.join(src,name),'r').read()
+    out = xform(data)
+    target = os.path.join(dst,name)
+    tmp = target + '.tmp'
+    open(tmp,'w').write(out)
+    if os.path.getsize(tmp) == 0:
+        sys.stderr.write('Refusing to overwrite 0-byte: '+target+'\n'); sys.exit(1)
+    os.rename(tmp, target)
+print('OK')
+PY
+```
+
+## <IMPIMENTATION>
+- MUST: Follow plan → implement → verify. No silent pivots.
+- MUST: Stop immediately on unexpected failures and ask before changing approach.
+- MUST: Keep edits atomic; avoid leaving mixed partial states.
+- SHOULD: Propose options with trade-offs before invasive changes.
+- SHOULD: Prefer mechanical, reversible transforms for upstream syncs.
+- SHOULD: Validate non-zero outputs before overwriting files.
+- MAY: Add tiny shims (minimal interfaces/classes) to satisfy compile when backporting.
+- MUST NOT: Commit unverified mass changes; run compile/tests first.
+- MUST NOT: Use Perl/sed for multi-line structural edits—prefer Python 3.2 heredoc.
+
 ## Architecture Overview
 
 ### Module Structure

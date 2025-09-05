@@ -29,20 +29,38 @@ import java.util.Collections;
 import java.util.Map;
 import jdk.sandbox.java.util.json.JsonObject;
 import jdk.sandbox.java.util.json.JsonValue;
-
-
-/// JsonObject implementation class
-public final class JsonObjectImpl implements JsonObject {
+/**
+ * JsonObject implementation class
+ */
+public final class JsonObjectImpl implements JsonObject, JsonValueImpl {
 
     private final Map<String, JsonValue> theMembers;
+    private final int offset;
+    private final char[] doc;
 
     public JsonObjectImpl(Map<String, JsonValue> map) {
+        this(map, -1, null);
+    }
+
+    public JsonObjectImpl(Map<String, JsonValue> map, int o, char[] d) {
         theMembers = map;
+        offset = o;
+        doc = d;
     }
 
     @Override
     public Map<String, JsonValue> members() {
         return Collections.unmodifiableMap(theMembers);
+    }
+
+    @Override
+    public char[] doc() {
+        return doc;
+    }
+
+    @Override
+    public int offset() {
+        return offset;
     }
 
     @Override

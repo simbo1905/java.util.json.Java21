@@ -29,20 +29,38 @@ import java.util.Collections;
 import java.util.List;
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonValue;
-
-
-/// JsonArray implementation class
-public final class JsonArrayImpl implements JsonArray {
+/**
+ * JsonArray implementation class
+ */
+public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
 
     private final List<JsonValue> theValues;
+    private final int offset;
+    private final char[] doc;
 
     public JsonArrayImpl(List<JsonValue> from) {
+        this(from, -1, null);
+    }
+
+    public JsonArrayImpl(List<JsonValue> from, int o, char[] d) {
         theValues = from;
+        offset = o;
+        doc = d;
     }
 
     @Override
     public List<JsonValue> values() {
         return Collections.unmodifiableList(theValues);
+    }
+
+    @Override
+    public char[] doc() {
+        return doc;
+    }
+
+    @Override
+    public int offset() {
+        return offset;
     }
 
     @Override
