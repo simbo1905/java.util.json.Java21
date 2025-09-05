@@ -1,6 +1,4 @@
-# JSON Schema Validator - Development Guide
-
-Purpose: Module-level guidance for agents working on `json-java21-schema`. Content is preserved; changes are limited to structure, clarity, and minor wording improvements to align with agents.md best practices.
+# JSON Schema Validator - AGENTS Development Guide
 
 Note: Prefer mvnd (Maven Daemon) for faster builds. If installed, you can alias mvn to mvnd so top-level instructions work consistently:
 
