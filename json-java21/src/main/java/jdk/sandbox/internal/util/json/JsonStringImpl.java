@@ -26,10 +26,10 @@
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonString;
-
-
-/// JsonString implementation class
-public final class JsonStringImpl implements JsonString {
+/**
+ * JsonString implementation class
+ */
+public final class JsonStringImpl implements JsonString, JsonValueImpl {
 
     private final char[] doc;
     private final int startOffset;
@@ -68,6 +68,16 @@ public final class JsonStringImpl implements JsonString {
     @Override
     public String value() {
         return value.orElseSet(this::unescape);
+    }
+
+    @Override
+    public char[] doc() {
+        return doc;
+    }
+
+    @Override
+    public int offset() {
+        return startOffset;
     }
 
     @Override

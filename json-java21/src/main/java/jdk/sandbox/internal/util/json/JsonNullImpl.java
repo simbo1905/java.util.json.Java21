@@ -26,16 +26,32 @@
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonNull;
+/**
+ * JsonNull implementation class
+ */
+public final class JsonNullImpl implements JsonNull, JsonValueImpl {
 
+    private final int offset;
+    private final char[] doc;
 
-/// JsonNull implementation class
-public final class JsonNullImpl implements JsonNull {
-
-    public static final JsonNullImpl NULL = new JsonNullImpl();
+    public static final JsonNullImpl NULL = new JsonNullImpl(null, -1);
     private static final String VALUE = "null";
     private static final int HASH = VALUE.hashCode();
 
-    private JsonNullImpl() {}
+    public JsonNullImpl(char[] doc, int offset) {
+        this.doc = doc;
+        this.offset = offset;
+    }
+
+    @Override
+    public char[] doc() {
+        return doc;
+    }
+
+    @Override
+    public int offset() {
+        return offset;
+    }
 
     @Override
     public String toString() {

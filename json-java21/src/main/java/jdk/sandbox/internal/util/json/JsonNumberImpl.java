@@ -29,10 +29,10 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Locale;
 import jdk.sandbox.java.util.json.JsonNumber;
-
-
-/// JsonNumber implementation class
-public final class JsonNumberImpl implements JsonNumber {
+/**
+ * JsonNumber implementation class
+ */
+public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
 
     private final char[] doc;
     private final int startOffset;
@@ -78,7 +78,7 @@ public final class JsonNumberImpl implements JsonNumber {
             } else {
                 try {
                     return Long.parseLong(str);
-                } catch (NumberFormatException ignored) {
+                } catch(NumberFormatException e) {
                     return new BigInteger(str);
                 }
             }
@@ -95,6 +95,16 @@ public final class JsonNumberImpl implements JsonNumber {
                 return new BigDecimal(toString());
             }
         });
+    }
+
+    @Override
+    public char[] doc() {
+        return doc;
+    }
+
+    @Override
+    public int offset() {
+        return startOffset;
     }
 
     @Override

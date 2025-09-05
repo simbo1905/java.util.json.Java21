@@ -36,11 +36,13 @@ import jdk.sandbox.java.util.json.JsonParseException;
 import jdk.sandbox.java.util.json.JsonString;
 import jdk.sandbox.java.util.json.JsonValue;
 
-/// Parses a JSON Document char[] into a tree of JsonValues. JsonObject and JsonArray
-/// nodes create their data structures which maintain the connection to children.
-/// JsonNumber and JsonString contain only a start and end offset, which
-/// are used to lazily procure their underlying value/string on demand. Singletons
-/// are used for JsonBoolean and JsonNull.
+/**
+ * Parses a JSON Document char[] into a tree of JsonValues. JsonObject and JsonArray
+ * nodes create their data structures which maintain the connection to children.
+ * JsonNumber and JsonString contain only a start and end offset, which
+ * are used to lazily procure their underlying value/string on demand. Singletons
+ * are used for JsonBoolean and JsonNull.
+ */
 public final class JsonParser {
 
     // Access to the underlying JSON contents
@@ -100,11 +102,11 @@ public final class JsonParser {
      * See https://datatracker.ietf.org/doc/html/rfc8259#section-4
      */
     private JsonObject parseObject() {
-        offset++; // Walk past the '{'
+        var startO = offset++; // Walk past the '{'
         skipWhitespaces();
         // Check for empty case
         if (charEquals('}')) {
-            return new JsonObjectImpl(Map.of());
+            return new JsonObjectImpl(Map.of(), startO, doc);
         }
         var members = new LinkedHashMap<String, JsonValue>();
         while (hasInput()) {
@@ -126,7 +128,7 @@ public final class JsonParser {
             members.put(name, parseValue());
             // Ensure current char is either ',' or '}'
             if (charEquals('}')) {
-                return new JsonObjectImpl(members);
+                return new JsonObjectImpl(members, startO, doc);
             } else if (charEquals(',')) {
                 skipWhitespaces();
             } else {
@@ -201,11 +203,11 @@ public final class JsonParser {
      * See https://datatracker.ietf.org/doc/html/rfc8259#section-5
      */
     private JsonArray parseArray() {
-        offset++; // Walk past the '['
+        var startO = offset++; // Walk past the '['
         skipWhitespaces();
         // Check for empty case
         if (charEquals(']')) {
-            return new JsonArrayImpl(List.of());
+            return new JsonArrayImpl(List.of(), startO, doc);
         }
         var list = new ArrayList<JsonValue>();
         while (hasInput()) {
@@ -213,7 +215,7 @@ public final class JsonParser {
             list.add(parseValue());
             // Ensure current char is either ']' or ','
             if (charEquals(']')) {
-                return new JsonArrayImpl(list);
+                return new JsonArrayImpl(list, startO, doc);
             } else if (!charEquals(',')) {
                 break;
             }
@@ -262,7 +264,7 @@ public final class JsonParser {
     private JsonBooleanImpl parseTrue() {
         offset++;
         if (charEquals('r') && charEquals('u') && charEquals('e')) {
-            return JsonBooleanImpl.TRUE;
+            return new JsonBooleanImpl(true, doc, offset);
         }
         throw failure(UNEXPECTED_VAL);
     }
@@ -271,7 +273,7 @@ public final class JsonParser {
         offset++;
         if (charEquals('a') && charEquals('l') && charEquals('s')
                 && charEquals('e')) {
-            return JsonBooleanImpl.FALSE;
+            return new JsonBooleanImpl(false, doc, offset);
         }
         throw failure(UNEXPECTED_VAL);
     }
@@ -279,7 +281,7 @@ public final class JsonParser {
     private JsonNullImpl parseNull() {
         offset++;
         if (charEquals('u') && charEquals('l') && charEquals('l')) {
-            return JsonNullImpl.NULL;
+            return new JsonNullImpl(doc, offset);
         }
         throw failure(UNEXPECTED_VAL);
     }
@@ -425,11 +427,15 @@ public final class JsonParser {
         return false;
     }
 
+    // Return the col position reflective of the current row
+    private int col() {
+        return offset - lineStart;
+    }
+
     private JsonParseException failure(String message) {
         // Non-revealing message does not produce input source String
         return new JsonParseException("%s. Location: row %d, col %d."
-                .formatted(message, line, offset - lineStart),
-                line, offset - lineStart);
+                .formatted(message, line, col()), line, col());
     }
 
     // Parsing error messages ----------------------

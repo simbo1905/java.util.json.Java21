@@ -1,4 +1,10 @@
-# JSON Schema Validator - Development Guide
+# JSON Schema Validator - AGENTS Development Guide
+
+Note: Prefer mvnd (Maven Daemon) for faster builds. If installed, you can alias mvn to mvnd so top-level instructions work consistently:
+
+```bash
+if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
+```
 
 ## Quick Start Commands
 
@@ -82,3 +88,5 @@ The project uses `java.util.logging` with levels:
 - **Test isolation**: Run individual test methods for focused debugging
 - **Schema visualization**: Use `Json.toDisplayString()` to inspect schemas
 - **Error analysis**: Check validation error paths for debugging
+
+Repo-level validation: Before pushing, run `mvn verify` at the repository root to validate unit and integration tests across all modules.
