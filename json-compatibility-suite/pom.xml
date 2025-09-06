@@ -7,7 +7,7 @@
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
         <artifactId>json-java21-parent</artifactId>
-        <version>0.1-SNAPSHOT</version>
+        <version>0.1.0</version>
     </parent>
 
     <artifactId>json-compatibility-suite</artifactId>

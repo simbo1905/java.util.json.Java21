@@ -1,0 +1,72 @@
+name: Release on Tag
+
+on:
+  push:
+    tags:
+      - 'releases/*'
+
+permissions:
+  contents: write    # push tags, push commits
+  pull-requests: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Java, Central creds and GPG
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          server-id: central
+          server-username: CENTRAL_USERNAME
+          server-password: CENTRAL_PASSWORD
+          gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }}
+          gpg-passphrase: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Create GitHub Release with notes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          generate_release_notes: true
+
+      - name: Build and Deploy to Central
+        env:
+          CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
+          CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
+        run: |
+          mvn -B -ntp clean deploy
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create branch from tag for PR
+        id: prbranch
+        run: |
+          BRANCH_NAME="release-bot-$(date +%Y%m%d-%H%M%S)"
+          git checkout -B "$BRANCH_NAME" $GITHUB_SHA
+          git push origin "$BRANCH_NAME"
+          echo "branch=$BRANCH_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Open PR back to main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr create \
+            --title "chore: merge release ${{ github.ref_name }} to main" \
+            --body "Automated PR created from tag ${{ github.ref_name }}." \
+            --base main \
+            --head "${{ steps.prbranch.outputs.branch }}" \
+          || echo "PR already exists or nothing to compare"
