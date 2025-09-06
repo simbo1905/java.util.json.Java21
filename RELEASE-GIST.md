@@ -1,6 +1,6 @@
 # Tag-Triggered Maven Central Release (GitHub Actions)
 
-- Trigger: push tag `releases/X.Y.Z` (no leading `v`).
+- Trigger: push tag `release/X.Y.Z` (no leading `v`).
 - CI creates a GitHub Release from the tag, then deploys to Maven Central.
 - CI opens a PR back to `main` from `release-bot-YYYYMMDD-HHMMSS` (no version bumps).
 
@@ -11,7 +11,7 @@ name: Release on Tag
 on:
   push:
     tags:
-      - 'releases/*'
+      - 'release/[0-9]*.[0-9]*.[0-9]*'
 permissions:
   contents: write
   pull-requests: write
@@ -62,7 +62,7 @@ jobs:
 - CENTRAL_USERNAME, CENTRAL_PASSWORD (Central Portal token)
 - GPG_PRIVATE_KEY (ASCII-armored secret key), GPG_PASSPHRASE
 
-zsh helper (uses gh, gpg):
+zsh helper (uses gh, gpg) — auto-detects a signing key if not provided:
 
 ```zsh
 #!/usr/bin/env zsh
@@ -72,13 +72,17 @@ export CENTRAL_PASSWORD=your_pass
 export GPG_PASSPHRASE=your_passphrase
 export GPG_KEY_ID=YOUR_KEY_ID   # or export GPG_PRIVATE_KEY="$(gpg --armor --export-secret-keys YOUR_KEY_ID)"
 ./scripts/setup-release-secrets.zsh
+
+# If you don't set GPG_KEY_ID or GPG_PRIVATE_KEY, the script tries to
+# auto-detect a signing key. To see candidates explicitly:
+gpg --list-secret-keys --keyid-format=long
 ```
 
 ## Trigger a Release
 
 ```bash
-git tag 'releases/0.1.0'
-git push origin 'releases/0.1.0'
+git tag 'release/0.1.0'
+git push origin 'release/0.1.0'
 ```
 
 ## Publish this doc as a Gist
