@@ -39,7 +39,7 @@ jobs:
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-        run: mvn -B -ntp clean deploy
+        run: mvn -B -ntp -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" clean deploy
       - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"

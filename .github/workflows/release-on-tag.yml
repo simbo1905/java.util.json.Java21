@@ -45,7 +45,7 @@ jobs:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
         run: |
-          mvn -B -ntp clean deploy
+          mvn -B -ntp -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" clean deploy
 
       - name: Configure Git identity
         run: |
