@@ -35,9 +35,34 @@ if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
   echo "Using provided GPG_PRIVATE_KEY..."
   print -r -- "$GPG_PRIVATE_KEY" | gh secret set GPG_PRIVATE_KEY --app actions ${REPO_FLAG:+${REPO_FLAG[@]}}
 else
-  [[ -n "${GPG_KEY_ID:-}" ]] || { echo "Provide GPG_PRIVATE_KEY or GPG_KEY_ID" >&2; exit 1; }
+  if [[ -z "${GPG_KEY_ID:-}" ]]; then
+    echo "No GPG_PRIVATE_KEY or GPG_KEY_ID provided. Attempting auto-detect..."
+    # Find first signing-capable secret key (sec) via machine-readable output
+    # Field 1=type (sec), 5=keyid, 12=capabilities (contains 's' when signing)
+    CANDIDATE=$(gpg --list-secret-keys --with-colons 2>/dev/null | awk -F: '$1=="sec" && $12 ~ /s/ {print $5; exit}')
+    if [[ -n "$CANDIDATE" ]]; then
+      echo "Auto-detected signing key: $CANDIDATE"
+      GPG_KEY_ID="$CANDIDATE"
+    else
+      echo "Could not auto-detect a signing key. Available secret keys:" >&2
+      gpg --list-secret-keys --keyid-format=long || true
+      echo "Set GPG_KEY_ID or GPG_PRIVATE_KEY and re-run." >&2
+      exit 1
+    fi
+  fi
   echo "Exporting secret key for $GPG_KEY_ID ..."
-  gpg --armor --export-secret-keys "$GPG_KEY_ID" | gh secret set GPG_PRIVATE_KEY --app actions ${REPO_FLAG:+${REPO_FLAG[@]}}
+  # Try non-interactive export using loopback pinentry and provided passphrase.
+  # If the agent disallows loopback, this may still prompt; in that case, instruct manual export.
+  if gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" --armor --export-secret-keys "$GPG_KEY_ID" 2>/dev/null | gh secret set GPG_PRIVATE_KEY --app actions ${REPO_FLAG:+${REPO_FLAG[@]}}; then
+    :
+  else
+    echo "Non-interactive export failed. Listing keys and instructions:" >&2
+    gpg --list-secret-keys --keyid-format=long || true
+    echo "Workaround: export your key and re-run with GPG_PRIVATE_KEY env var:" >&2
+    echo "  gpg --armor --export-secret-keys $GPG_KEY_ID > /tmp/secret.asc" >&2
+    echo "  GPG_PRIVATE_KEY=\"\$(cat /tmp/secret.asc)\" $0 ${REPO_FLAG:+--repo ${2:-}}" >&2
+    exit 1
+  fi
 fi
 
 print -r -- "$GPG_PASSPHRASE" | gh secret set GPG_PASSPHRASE --app actions ${REPO_FLAG:+${REPO_FLAG[@]}}
@@ -57,4 +82,3 @@ if [[ $MISSING -ne 0 ]]; then
 fi
 
 echo "All secrets set. Done."
-
