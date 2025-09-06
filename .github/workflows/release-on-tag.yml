@@ -40,12 +40,15 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
 
-      - name: Build and Deploy to Central
+      - name: Build and Deploy to Central (release profile)
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
         run: |
-          mvn -B -ntp -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" clean deploy
+          mvn -B -ntp \
+            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+            -Dgpg.keyname="${{ secrets.GPG_KEYNAME }}" \
+            -P release clean deploy
 
       - name: Configure Git identity
         run: |

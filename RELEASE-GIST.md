@@ -35,11 +35,15 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-      - name: Build and Deploy to Central
+      - name: Build and Deploy to Central (release profile)
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
-        run: mvn -B -ntp -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" clean deploy
+        run: |
+          mvn -B -ntp \
+            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
+            -Dgpg.keyname="${{ secrets.GPG_KEYNAME }}" \
+            -P release clean deploy
       - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"
@@ -61,6 +65,7 @@ jobs:
 
 - CENTRAL_USERNAME, CENTRAL_PASSWORD (Central Portal token)
 - GPG_PRIVATE_KEY (ASCII-armored secret key), GPG_PASSPHRASE
+- GPG_KEYNAME (fingerprint of the signing key; set by helper script)
 
 zsh helper (uses gh, gpg) — auto-detects a signing key if not provided:
 
