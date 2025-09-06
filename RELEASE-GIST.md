@@ -40,10 +40,8 @@ jobs:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
         run: |
-          mvn -B -ntp \
-            -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
-            -Dgpg.keyname="${{ secrets.GPG_KEYNAME }}" \
-            -P release clean deploy
+          KN="${{ secrets.GPG_KEYNAME }}"; EXTRA=""; [ -n "$KN" ] && EXTRA="-Dgpg.keyname=$KN";
+          mvn -B -ntp -P release -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" $EXTRA clean deploy
       - name: Configure Git identity
         run: |
           git config user.name "github-actions[bot]"
@@ -65,7 +63,7 @@ jobs:
 
 - CENTRAL_USERNAME, CENTRAL_PASSWORD (Central Portal token)
 - GPG_PRIVATE_KEY (ASCII-armored secret key), GPG_PASSPHRASE
-- GPG_KEYNAME (fingerprint of the signing key; set by helper script)
+- GPG_KEYNAME (optional; fingerprint of signing key — helper script sets it; if absent, default key is used)
 
 zsh helper (uses gh, gpg) — auto-detects a signing key if not provided:
 

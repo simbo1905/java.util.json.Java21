@@ -45,10 +45,13 @@ jobs:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
         run: |
-          mvn -B -ntp \
+          KN="${{ secrets.GPG_KEYNAME }}"
+          EXTRA=""
+          if [ -n "$KN" ]; then EXTRA="-Dgpg.keyname=$KN"; fi
+          mvn -B -ntp -P release \
             -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
-            -Dgpg.keyname="${{ secrets.GPG_KEYNAME }}" \
-            -P release clean deploy
+            $EXTRA \
+            clean deploy
 
       - name: Configure Git identity
         run: |
