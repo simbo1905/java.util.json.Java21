@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>java.util.json Java21 Backport (Core)</name>
-    <description>Backport of the OpenJDK sandbox java.util.json API for Java 21+. Immutable JSON value types and parsing utilities aligned with the future JDK standard library.</description>
+    <description>Backport of the OpenJDK sandbox java.util.json API adapted for Java 21+. Experimental; APIs and behavior may change as upstream evolves.</description>
 
     <dependencies>
         <dependency>

@@ -1,7 +1,7 @@
-# java.util.json – Official JSON API Backport for Java 21
+# java.util.json – Backport for Java 21 (OpenJDK sandbox)
 
-Early access backport of the proposed `java.util.json` JDK API (from the OpenJDK jdk‑sandbox “json” branch) for use on Java 21+.
-This project provides the standard JSON API for Java ahead of time: immutable JSON value types, parsing utilities, and examples aligned with a potential future JEP.
+Experimental backport of the proposed `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21+.
+This project is not an official release; APIs and behavior may change as upstream evolves.
 
 References:
 - OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/master/src/java.json
