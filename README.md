@@ -1,6 +1,11 @@
-# java.util.json Backport for JDK 21
+# java.util.json – Backport for Java 21 (OpenJDK sandbox)
 
-Early access to the unstable `java.util.json` API — taken from the OpenJDK jdk-sandbox “json” branch as of 2025-09-04.
+Experimental backport of the proposed `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21+.
+This project is not an official release; APIs and behavior may change as upstream evolves.
+
+References:
+- OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/master/src/java.json
+- Design paper: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
 ## Quick Start
 
@@ -43,7 +48,7 @@ JsonValue backToJson = Json.fromUntyped(Map.of(
 ));
 ```
 
-## Back Port Project Goals
+## Backport Project Goals
 
 - **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
 - **✅API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed. 
@@ -82,7 +87,7 @@ This is a simplified backport with the following changes from the original:
 
 These vulnerabilities exist in the upstream OpenJDK sandbox implementation and are reported here for transparency.
 
-## JSON Schema Validator
+## JSON Schema Validator (2020-12)
 
 By including a basic schema validator that demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
 
@@ -99,7 +104,7 @@ var result = schema.validate(
 // result.valid() => true
 ```
 
-Compatibility: we run the official 2020-12 JSON Schema Test Suite on verify; in strict mode it currently passes about 71% of applicable cases.
+Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; in strict mode it currently passes about 71% of applicable cases.
 
 ## Building
 

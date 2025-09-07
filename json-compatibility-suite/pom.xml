@@ -6,19 +6,20 @@
 
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
-        <artifactId>json-java21-parent</artifactId>
+        <artifactId>parent</artifactId>
         <version>0.1.0</version>
     </parent>
 
     <artifactId>json-compatibility-suite</artifactId>
     <packaging>jar</packaging>
 
-    <name>JSON Compatibility Suite</name>
+    <name>java.util.json Java21 Backport – JSON Test Suite</name>
+    <description>Runs the official JSON Test Suite against the java.util.json Java 21 backport to track conformance with JSON standards.</description>
 
     <dependencies>
         <dependency>
             <groupId>io.github.simbo1905.json</groupId>
-            <artifactId>json-java21</artifactId>
+            <artifactId>java.util.json</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- JUnit 5 for testing -->

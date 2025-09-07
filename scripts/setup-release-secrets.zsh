@@ -65,6 +65,13 @@ else
   fi
 fi
 
+# Also persist a key name (fingerprint) for maven-gpg-plugin selection
+KEY_FPR=$(gpg --with-colons --list-secret-keys "$GPG_KEY_ID" 2>/dev/null | awk -F: '$1=="fpr"{print $10; exit}')
+if [[ -n "$KEY_FPR" ]]; then
+  echo "Setting GPG_KEYNAME (fingerprint) for CI: $KEY_FPR"
+  print -r -- "$KEY_FPR" | gh secret set GPG_KEYNAME --app actions ${REPO_FLAG:+${REPO_FLAG[@]}} || true
+fi
+
 print -r -- "$GPG_PASSPHRASE" | gh secret set GPG_PASSPHRASE --app actions ${REPO_FLAG:+${REPO_FLAG[@]}}
 
 echo "Validating secrets presence..."

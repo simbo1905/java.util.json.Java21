@@ -6,14 +6,15 @@
 
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
-        <artifactId>json-java21-parent</artifactId>
+        <artifactId>parent</artifactId>
         <version>0.1.0</version>
     </parent>
 
     <artifactId>json-java21-api-tracker</artifactId>
     <packaging>jar</packaging>
 
-    <name>API Tracker</name>
+    <name>java.util.json Java21 Backport Upstream API Tracker</name>
+    <description>Compares the OpenJDK sandbox java.util.json API to this Java 21 backport and reports differences to track upstream changes. Experimental tooling.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>
@@ -22,7 +23,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.simbo1905.json</groupId>
-            <artifactId>json-java21</artifactId>
+            <artifactId>java.util.json</artifactId>
             <version>${project.version}</version>
         </dependency>
         <!-- JUnit 5 for testing -->

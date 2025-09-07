@@ -5,12 +5,12 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>io.github.simbo1905.json</groupId>
-    <artifactId>json-java21-parent</artifactId>
+    <artifactId>parent</artifactId>
     <version>0.1.0</version>
     <packaging>pom</packaging>
 
-    <name>java.util.json Backport Parent</name>
-    <description>A backport of the upcoming java.util.json API for Java 21+</description>
+    <name>java.util.json Java21 Backport Parent</name>
+    <description>Backport of the OpenJDK jdk-sandbox java.util.json sources adapted for Java 21+. Experimental and subject to change; not an official OpenJDK release.</description>
     <url>https://simbo1905.github.io/java.util.json.Java21/</url>
 
     <licenses>
