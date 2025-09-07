@@ -312,24 +312,39 @@ PY
 
 ## Semi-Manual Release (Deferred Automation)
 
-The project currently uses a simple, guarded, semi-manual release. Automation via tags is deferred until upstream activity picks up.
+The project currently uses a simple, guarded, semi-manual release. Automation via tags is deferred until upstream activity picks up, at which point there is a draft github action that needs finishing off.
 
 Steps (run each line individually)
-- set -euo pipefail
-- test -z "$(git status --porcelain)"
-- VERSION="$(awk -F= '/^VERSION=/{print $2; exit}' .env)"; echo "$VERSION"
-- git checkout -b "rel-$VERSION"
-- mvn -q versions:set -DnewVersion="$VERSION"
-- git commit -am "chore: release $VERSION (branch-local version bump)"
-- git tag -a "release/$VERSION" -m "release $VERSION"
-- test "$(git cat-file -t "release/$VERSION")" = "tag"
-- test "$(git rev-parse "release/$VERSION^{commit}")" = "$(git rev-parse HEAD)"
-- git push origin "release/$VERSION"
-- gh release create "release/$VERSION" --generate-notes -t "release $VERSION"
-- set -a; . ./.env; set +a
-- KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
-- mvn -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy
-- git push -u origin "rel-$VERSION"  # optional; useful for PRs or provenance
+```shell
+test -z "$(git status --porcelain)" && echo "✅ Success" || echo "🛑 Working tree not clean; commit or stash changes first"
+
+VERSION="$(awk -F= '/^VERSION=/{print $2; exit}' .env)"; echo "$VERSION"
+
+git checkout -b "rel-$VERSION"  && echo "✅ Success" || echo "🛑 Branch already exists did you bump the version after you completed the last release?"
+
+mvn -q versions:set -DnewVersion="$VERSION"  && echo "✅ Success" || echo "🛑 Unable to set the new versions"
+
+git commit -am "chore: release $VERSION (branch-local version bump)" && echo "✅ Success" || echo "🛑 Nothing to commit; did you set the same version as already in the POM?"
+
+git tag -a "release/$VERSION" -m "release $VERSION"  && echo "✅ Success" || echo "🛑 Tag already exists; did you bump the version after you completed the last release?"
+
+test "$(git cat-file -t "release/$VERSION")" = "tag" && echo "✅ Success" || echo "🛑 Tag not found; did you mistype the version?"
+
+test "$(git rev-parse "release/$VERSION^{commit}")" = "$(git rev-parse HEAD)" && echo "✅ Success" || echo "🛑 Tag does not point to HEAD; did you mistype the version?"
+ 
+git push origin "release/$VERSION" && echo "✅ Success" || echo "🛑 Unable to push tag; do you have permission to push to this repo?"
+
+gh release create "release/$VERSION" --generate-notes -t "release $VERSION" && echo "✅ Success" || echo "🛑 Unable to create the GitHub Release; do you have permission to push to this repo?"
+
+set -a; . ./.env; set +a
+
+KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
+
+mvn -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy && echo "✅ Success" || echo "🛑 Unable to deploy to Maven Central; check the output for details"
+
+git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to push branch; do you have permission to push to this repo?"
+
+```
 
 If fixes occur after tagging
 - git tag -d "release/$VERSION"
