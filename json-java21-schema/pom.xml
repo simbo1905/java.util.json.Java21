@@ -31,7 +31,7 @@
     <dependencies>
         <dependency>
             <groupId>io.github.simbo1905.json</groupId>
-            <artifactId>json-java21</artifactId>
+            <artifactId>java.util.json</artifactId>
             <version>${project.version}</version>
         </dependency>
 
