@@ -14,6 +14,13 @@
     <packaging>jar</packaging>
 
     <name>java.util.json Java21 Backport Upstream API Tracker</name>
+    <url>https://simbo1905.github.io/java.util.json.Java21/</url>
+    <scm>
+        <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
+        <developerConnection>scm:git:git@github.com:simbo1905/java.util.json.Java21.git</developerConnection>
+        <url>https://github.com/simbo1905/java.util.json.Java21</url>
+        <tag>HEAD</tag>
+    </scm>
     <description>Compares the OpenJDK sandbox java.util.json API to this Java 21 backport and reports differences to track upstream changes. Experimental tooling.</description>
 
     <properties>

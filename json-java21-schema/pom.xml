@@ -14,6 +14,13 @@
     <artifactId>java.util.json.schema</artifactId>
     <packaging>jar</packaging>
     <name>java.util.json Java21 Backport – JSON Schema Validator (2020-12)</name>
+    <url>https://simbo1905.github.io/java.util.json.Java21/</url>
+    <scm>
+        <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
+        <developerConnection>scm:git:git@github.com:simbo1905/java.util.json.Java21.git</developerConnection>
+        <url>https://github.com/simbo1905/java.util.json.Java21</url>
+        <tag>HEAD</tag>
+    </scm>
     <description>Experimental JSON Schema 2020-12 validator built using the java.util.json Java 21 backport; includes integration tests running the official JSON Schema Test Suite.</description>
 
     <properties>
