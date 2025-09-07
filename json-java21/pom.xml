@@ -13,7 +13,7 @@
     <artifactId>java.util.json</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Java21 Backport (Core)</name>
+    <name>java.util.json Java21 Backport</name>
     <description>Backport of the OpenJDK sandbox java.util.json API adapted for Java 21+. Experimental; APIs and behavior may change as upstream evolves.</description>
 
     <dependencies>
