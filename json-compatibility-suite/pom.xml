@@ -13,11 +13,8 @@
     <artifactId>json-compatibility-suite</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Java21 Backport JSONTestSuite</name>
-
-    <description>
-        A module to run the official JSON Test Suite against the java.util.json backport for Java 21.
-    </description>
+    <name>java.util.json Java21 Backport – JSON Test Suite</name>
+    <description>Runs the official JSON Test Suite against the java.util.json Java 21 backport to track conformance with JSON standards.</description>
 
     <dependencies>
         <dependency>

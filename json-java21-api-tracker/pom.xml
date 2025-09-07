@@ -14,6 +14,7 @@
     <packaging>jar</packaging>
 
     <name>java.util.json Java21 Backport Upstream API Tracker</name>
+    <description>Compares the OpenJDK sandbox java.util.json API to this Java 21 backport and reports differences to maintain alignment with upstream.</description>
 
     <properties>
         <maven.compiler.release>21</maven.compiler.release>

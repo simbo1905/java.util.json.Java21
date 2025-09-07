@@ -13,12 +13,8 @@
 
     <artifactId>java.util.json.schema</artifactId>
     <packaging>jar</packaging>
-    <name>java.util.json Java21 Backport JSON Schema Validator</name>
-
-    <description>
-        A JSON Schema validator implementation written with the experiment java.util.json API backport for Java 21.
-        This module includes an integration test suite that runs the official JSON Schema Test Suite.
-    </description>
+    <name>java.util.json Java21 Backport – JSON Schema Validator (2020-12)</name>
+    <description>Experimental JSON Schema 2020-12 validator built using the java.util.json Java 21 backport; includes integration tests running the official JSON Schema Test Suite.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
