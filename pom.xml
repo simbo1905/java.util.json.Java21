@@ -30,9 +30,10 @@
     </developers>
 
     <scm>
-        <connection>scm:git:git://github.com/simbo1905/java.util.json.Java21.git</connection>
-        <developerConnection>scm:git:ssh://github.com:simbo1905/java.util.json.Java21.git</developerConnection>
-        <url>https://github.com/simbo1905/java.util.json.Java21/tree/main</url>
+        <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
+        <developerConnection>scm:git:git@github.com:simbo1905/java.util.json.Java21.git</developerConnection>
+        <url>https://github.com/simbo1905/java.util.json.Java21</url>
+        <tag>HEAD</tag>
     </scm>
 
     <modules>
