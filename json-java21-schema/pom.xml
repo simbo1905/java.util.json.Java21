@@ -7,13 +7,18 @@
 
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
-        <artifactId>json-java21-parent</artifactId>
+        <artifactId>parent</artifactId>
         <version>0.1.0</version>
     </parent>
 
-    <artifactId>json-java21-schema</artifactId>
+    <artifactId>java.util.json.schema</artifactId>
     <packaging>jar</packaging>
-    <name>JSON Schema Validator</name>
+    <name>java.util.json Java21 Backport JSON Schema Validator</name>
+
+    <description>
+        A JSON Schema validator implementation written with the experiment java.util.json API backport for Java 21.
+        This module includes an integration test suite that runs the official JSON Schema Test Suite.
+    </description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>

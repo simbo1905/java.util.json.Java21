@@ -6,14 +6,14 @@
 
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
-        <artifactId>json-java21-parent</artifactId>
+        <artifactId>parent</artifactId>
         <version>0.1.0</version>
     </parent>
 
-    <artifactId>json-java21</artifactId>
+    <artifactId>java.util.json</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Backport</name>
+    <name>java.util.json Java21 Backport</name>
 
     <dependencies>
         <dependency>
