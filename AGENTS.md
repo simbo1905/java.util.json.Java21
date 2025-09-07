@@ -308,3 +308,35 @@ PY
 * MUST include additional tests in the CI checks that MUST be documented in the PR description.
 * MUST be changed to status `Draft` if the PR checks fail.
 </PULL_REQUESTS>
+
+
+## Semi-Manual Release (Deferred Automation)
+
+The project currently uses a simple, guarded, semi-manual release. Automation via tags is deferred until upstream activity picks up.
+
+Steps (run each line individually)
+- set -euo pipefail
+- test -z "$(git status --porcelain)"
+- VERSION="$(awk -F= '/^VERSION=/{print $2; exit}' .env)"; echo "$VERSION"
+- git checkout -b "rel-$VERSION"
+- mvn -q versions:set -DnewVersion="$VERSION"
+- git commit -am "chore: release $VERSION (branch-local version bump)"
+- git tag -a "release/$VERSION" -m "release $VERSION"
+- test "$(git cat-file -t "release/$VERSION")" = "tag"
+- test "$(git rev-parse "release/$VERSION^{commit}")" = "$(git rev-parse HEAD)"
+- git push origin "release/$VERSION"
+- gh release create "release/$VERSION" --generate-notes -t "release $VERSION"
+- set -a; . ./.env; set +a
+- KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
+- mvn -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy
+- git push -u origin "rel-$VERSION"  # optional; useful for PRs or provenance
+
+If fixes occur after tagging
+- git tag -d "release/$VERSION"
+- git tag -a "release/$VERSION" -m "release $VERSION"
+- git push -f origin "release/$VERSION"
+
+Notes
+- .env holds VERSION, GPG_PASSPHRASE, and optionally GPG_KEYNAME. It should not be committed.
+- No SNAPSHOT bump to main. Version selection is driven by the tag and GitHub Release.
+- The release profile (-P release) scopes signing/publishing; daily jobs don’t invoke GPG.
