@@ -13,7 +13,7 @@
     <artifactId>json-java21-api-tracker</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Java21 Backport Upstream API Tracker</name>
+    <name>java.util.json Java21 Backport API Tracker</name>
     <url>https://simbo1905.github.io/java.util.json.Java21/</url>
     <scm>
         <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>

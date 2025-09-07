@@ -13,7 +13,7 @@
     <artifactId>java.util.json</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Java21 Backport</name>
+    <name>java.util.json Java21 Backport Distribution</name>
     <url>https://simbo1905.github.io/java.util.json.Java21/</url>
     <scm>
         <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>

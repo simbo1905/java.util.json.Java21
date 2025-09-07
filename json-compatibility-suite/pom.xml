@@ -13,7 +13,7 @@
     <artifactId>json-compatibility-suite</artifactId>
     <packaging>jar</packaging>
 
-    <name>java.util.json Java21 Backport – JSON Test Suite</name>
+    <name>java.util.json Java21 Backport Compatibility Suite</name>
     <url>https://simbo1905.github.io/java.util.json.Java21/</url>
     <scm>
         <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
