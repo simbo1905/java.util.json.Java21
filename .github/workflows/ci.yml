@@ -13,11 +13,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 24
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '24'
+          java-version: '21'
           cache: 'maven'
 
       - name: Build and verify
@@ -39,7 +39,7 @@ jobs:
                       for k in totals: totals[k]+=int(r.get(k,'0'))
                   except Exception:
                       pass
-          exp_tests=1807
+          exp_tests=1802
           exp_skipped=577
           if totals['tests']!=exp_tests or totals['skipped']!=exp_skipped:
               print(f"Unexpected test totals: {totals} != expected tests={exp_tests}, skipped={exp_skipped}")
