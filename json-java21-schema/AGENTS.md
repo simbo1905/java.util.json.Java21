@@ -47,6 +47,32 @@ The project uses `java.util.logging` with levels:
 - **JSON Schema Test Suite**: Official tests from json-schema-org
 - **Real-world schemas**: Complex nested validation scenarios
 - **Performance tests**: Large schema compilation
+- **Metrics reporting**: Comprehensive compatibility statistics with detailed skip categorization
+
+### JSON Schema Test Suite Metrics
+
+The integration test now provides defensible compatibility metrics:
+
+```bash
+# Run with console metrics (default)
+mvnd verify -pl json-java21-schema
+
+# Export detailed JSON metrics
+mvnd verify -pl json-java21-schema -Djson.schema.metrics=json
+
+# Export CSV metrics for analysis
+mvnd verify -pl json-java21-schema -Djson.schema.metrics=csv
+```
+
+**Current measured compatibility** (as of implementation):
+- **Overall**: 63.3% (1,153 of 1,822 tests pass)
+- **Test coverage**: 420 test groups, 1,657 validation attempts
+- **Skip breakdown**: 70 unsupported schema groups, 2 test exceptions, 504 lenient mismatches
+
+The metrics distinguish between:
+- **unsupportedSchemaGroup**: Whole groups skipped due to unsupported features (e.g., $ref, anchors)
+- **testException**: Individual tests that threw exceptions during validation
+- **lenientMismatch**: Expected≠actual results in lenient mode (counted as failures in strict mode)
 
 #### Annotation Tests (`JsonSchemaAnnotationsTest.java`)
 - **Annotation processing**: Compile-time schema generation
