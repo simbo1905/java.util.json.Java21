@@ -50,7 +50,8 @@ public sealed interface JsonSchema
             JsonSchema.ConditionalSchema,
             JsonSchema.ConstSchema,
             JsonSchema.NotSchema,
-            JsonSchema.RootRef {
+            JsonSchema.RootRef,
+            JsonSchema.EnumSchema {
 
     Logger LOG = Logger.getLogger(JsonSchema.class.getName());
 
@@ -158,7 +159,12 @@ public sealed interface JsonSchema
         JsonSchema items,
         Integer minItems,
         Integer maxItems,
-        Boolean uniqueItems
+        Boolean uniqueItems,
+        // NEW: Pack 2 array features
+        List<JsonSchema> prefixItems,
+        JsonSchema contains,
+        Integer minContains,
+        Integer maxContains
     ) implements JsonSchema {
 
         @Override
@@ -180,25 +186,79 @@ public sealed interface JsonSchema
                 errors.add(new ValidationError(path, "Too many items: expected at most " + maxItems));
             }
 
-            // Check uniqueness if required
+            // Check uniqueness if required (structural equality)
             if (uniqueItems != null && uniqueItems) {
                 Set<String> seen = new HashSet<>();
                 for (JsonValue item : arr.values()) {
-                    String itemStr = item.toString();
-                    if (!seen.add(itemStr)) {
+                    String canonicalKey = canonicalize(item);
+                    if (!seen.add(canonicalKey)) {
                         errors.add(new ValidationError(path, "Array items must be unique"));
                         break;
                     }
                 }
             }
 
-            // Validate items
-            if (items != null && items != AnySchema.INSTANCE) {
+            // Validate prefixItems + items (tuple validation)
+            if (prefixItems != null && !prefixItems.isEmpty()) {
+                // Validate prefix items - fail if not enough items for all prefix positions
+                for (int i = 0; i < prefixItems.size(); i++) {
+                    if (i >= itemCount) {
+                        errors.add(new ValidationError(path, "Array has too few items for prefixItems validation"));
+                        break;
+                    }
+                    String itemPath = path + "[" + i + "]";
+                    // Validate prefix items immediately to capture errors
+                    ValidationResult prefixResult = prefixItems.get(i).validateAt(itemPath, arr.values().get(i), stack);
+                    if (!prefixResult.valid()) {
+                        errors.addAll(prefixResult.errors());
+                    }
+                }
+                // Validate remaining items with items schema if present
+                if (items != null && items != AnySchema.INSTANCE) {
+                    for (int i = prefixItems.size(); i < itemCount; i++) {
+                        String itemPath = path + "[" + i + "]";
+                        stack.push(new ValidationFrame(itemPath, items, arr.values().get(i)));
+                    }
+                }
+            } else if (items != null && items != AnySchema.INSTANCE) {
+                // Original items validation (no prefixItems)
                 int index = 0;
                 for (JsonValue item : arr.values()) {
                     String itemPath = path + "[" + index + "]";
                     stack.push(new ValidationFrame(itemPath, items, item));
                     index++;
+                }
+            }
+
+            // Validate contains / minContains / maxContains
+            if (contains != null) {
+                int matchCount = 0;
+                for (JsonValue item : arr.values()) {
+                    // Create isolated validation to check if item matches contains schema
+                    Deque<ValidationFrame> tempStack = new ArrayDeque<>();
+                    List<ValidationError> tempErrors = new ArrayList<>();
+                    tempStack.push(new ValidationFrame("", contains, item));
+                    
+                    while (!tempStack.isEmpty()) {
+                        ValidationFrame frame = tempStack.pop();
+                        ValidationResult result = frame.schema().validateAt(frame.path(), frame.json(), tempStack);
+                        if (!result.valid()) {
+                            tempErrors.addAll(result.errors());
+                        }
+                    }
+                    
+                    if (tempErrors.isEmpty()) {
+                        matchCount++;
+                    }
+                }
+                
+                int min = (minContains != null ? minContains : 1); // default min=1
+                int max = (maxContains != null ? maxContains : Integer.MAX_VALUE); // default max=∞
+                
+                if (matchCount < min) {
+                    errors.add(new ValidationError(path, "Array must contain at least " + min + " matching element(s)"));
+                } else if (matchCount > max) {
+                    errors.add(new ValidationError(path, "Array must contain at most " + max + " matching element(s)"));
                 }
             }
 
@@ -210,8 +270,7 @@ public sealed interface JsonSchema
     record StringSchema(
         Integer minLength,
         Integer maxLength,
-        Pattern pattern,
-        Set<String> enumValues
+        Pattern pattern
     ) implements JsonSchema {
 
         @Override
@@ -234,14 +293,9 @@ public sealed interface JsonSchema
                 errors.add(new ValidationError(path, "String too long: expected at most " + maxLength + " characters"));
             }
 
-            // Check pattern
-            if (pattern != null && !pattern.matcher(value).matches()) {
+            // Check pattern (unanchored matching - uses find() instead of matches())
+            if (pattern != null && !pattern.matcher(value).find()) {
                 errors.add(new ValidationError(path, "Pattern mismatch"));
-            }
-
-            // Check enum
-            if (enumValues != null && !enumValues.contains(value)) {
-                errors.add(new ValidationError(path, "Not in enum"));
             }
 
             return errors.isEmpty() ? ValidationResult.success() : ValidationResult.failure(errors);
@@ -433,6 +487,71 @@ public sealed interface JsonSchema
     /// Validation frame for stack-based processing
     record ValidationFrame(String path, JsonSchema schema, JsonValue json) {}
 
+    /// Canonicalization helper for structural equality in uniqueItems
+    private static String canonicalize(JsonValue v) {
+        if (v instanceof JsonObject o) {
+            var keys = new ArrayList<>(o.members().keySet());
+            Collections.sort(keys);
+            var sb = new StringBuilder("{");
+            for (int i = 0; i < keys.size(); i++) {
+                String k = keys.get(i);
+                if (i > 0) sb.append(',');
+                sb.append('"').append(escapeJsonString(k)).append("\":").append(canonicalize(o.members().get(k)));
+            }
+            return sb.append('}').toString();
+        } else if (v instanceof JsonArray a) {
+            var sb = new StringBuilder("[");
+            for (int i = 0; i < a.values().size(); i++) {
+                if (i > 0) sb.append(',');
+                sb.append(canonicalize(a.values().get(i)));
+            }
+            return sb.append(']').toString();
+        } else if (v instanceof JsonString s) {
+            return "\"" + escapeJsonString(s.value()) + "\"";
+        } else {
+            // numbers/booleans/null: rely on stable toString from the Json* impls
+            return v.toString();
+        }
+    }
+    
+    private static String escapeJsonString(String s) {
+        if (s == null) return "null";
+        StringBuilder result = new StringBuilder();
+        for (int i = 0; i < s.length(); i++) {
+            char ch = s.charAt(i);
+            switch (ch) {
+                case '"':
+                    result.append("\\\"");
+                    break;
+                case '\\':
+                    result.append("\\\\");
+                    break;
+                case '\b':
+                    result.append("\\b");
+                    break;
+                case '\f':
+                    result.append("\\f");
+                    break;
+                case '\n':
+                    result.append("\\n");
+                    break;
+                case '\r':
+                    result.append("\\r");
+                    break;
+                case '\t':
+                    result.append("\\t");
+                    break;
+                default:
+                    if (ch < 0x20 || ch > 0x7e) {
+                        result.append("\\u").append(String.format("%04x", (int) ch));
+                    } else {
+                        result.append(ch);
+                    }
+            }
+        }
+        return result.toString();
+    }
+
     /// Internal schema compiler
     final class SchemaCompiler {
         private static final Map<String, JsonSchema> definitions = new HashMap<>();
@@ -543,24 +662,62 @@ public sealed interface JsonSchema
                 return new NotSchema(inner);
             }
 
-            // If object-like keywords are present without explicit type, treat as object schema
+            // Detect keyword-based schema types for use in enum handling and fallback
             boolean hasObjectKeywords = obj.members().containsKey("properties")
                     || obj.members().containsKey("required")
                     || obj.members().containsKey("additionalProperties")
                     || obj.members().containsKey("minProperties")
                     || obj.members().containsKey("maxProperties");
 
-            // If array-like keywords are present without explicit type, treat as array schema
             boolean hasArrayKeywords = obj.members().containsKey("items")
                     || obj.members().containsKey("minItems")
                     || obj.members().containsKey("maxItems")
-                    || obj.members().containsKey("uniqueItems");
+                    || obj.members().containsKey("uniqueItems")
+                    || obj.members().containsKey("prefixItems")
+                    || obj.members().containsKey("contains")
+                    || obj.members().containsKey("minContains")
+                    || obj.members().containsKey("maxContains");
 
-            // If string-like keywords are present without explicit type, treat as string schema
             boolean hasStringKeywords = obj.members().containsKey("pattern")
                     || obj.members().containsKey("minLength")
-                    || obj.members().containsKey("maxLength")
-                    || obj.members().containsKey("enum");
+                    || obj.members().containsKey("maxLength");
+
+            // Handle enum early (before type-specific compilation)
+            JsonValue enumValue = obj.members().get("enum");
+            if (enumValue instanceof JsonArray enumArray) {
+                // Build base schema from type or heuristics
+                JsonSchema baseSchema;
+                
+                // If type is specified, use it; otherwise infer from keywords
+                JsonValue typeValue = obj.members().get("type");
+                if (typeValue instanceof JsonString typeStr) {
+                    baseSchema = switch (typeStr.value()) {
+                        case "object" -> compileObjectSchema(obj);
+                        case "array" -> compileArraySchema(obj);
+                        case "string" -> compileStringSchema(obj);
+                        case "number", "integer" -> compileNumberSchema(obj);
+                        case "boolean" -> new BooleanSchema();
+                        case "null" -> new NullSchema();
+                        default -> AnySchema.INSTANCE;
+                    };
+                } else if (hasObjectKeywords) {
+                    baseSchema = compileObjectSchema(obj);
+                } else if (hasArrayKeywords) {
+                    baseSchema = compileArraySchema(obj);
+                } else if (hasStringKeywords) {
+                    baseSchema = compileStringSchema(obj);
+                } else {
+                    baseSchema = AnySchema.INSTANCE;
+                }
+                
+                // Build enum values set
+                Set<JsonValue> allowedValues = new LinkedHashSet<>();
+                for (JsonValue item : enumArray.values()) {
+                    allowedValues.add(item);
+                }
+                
+                return new EnumSchema(baseSchema, allowedValues);
+            }
 
             // Handle type-based schemas
             JsonValue typeValue = obj.members().get("type");
@@ -575,6 +732,33 @@ public sealed interface JsonSchema
                     case "null" -> new NullSchema();
                     default -> AnySchema.INSTANCE;
                 };
+            } else if (typeValue instanceof JsonArray typeArray) {
+                // Handle type arrays: ["string", "null", ...] - treat as anyOf
+                List<JsonSchema> typeSchemas = new ArrayList<>();
+                for (JsonValue item : typeArray.values()) {
+                    if (item instanceof JsonString typeStr) {
+                        JsonSchema typeSchema = switch (typeStr.value()) {
+                            case "object" -> compileObjectSchema(obj);
+                            case "array" -> compileArraySchema(obj);
+                            case "string" -> compileStringSchema(obj);
+                            case "number" -> compileNumberSchema(obj);
+                            case "integer" -> compileNumberSchema(obj);
+                            case "boolean" -> new BooleanSchema();
+                            case "null" -> new NullSchema();
+                            default -> AnySchema.INSTANCE;
+                        };
+                        typeSchemas.add(typeSchema);
+                    } else {
+                        throw new IllegalArgumentException("Type array must contain only strings");
+                    }
+                }
+                if (typeSchemas.isEmpty()) {
+                    return AnySchema.INSTANCE;
+                } else if (typeSchemas.size() == 1) {
+                    return typeSchemas.get(0);
+                } else {
+                    return new AnyOfSchema(typeSchemas);
+                }
             } else {
                 if (hasObjectKeywords) {
                     return compileObjectSchema(obj);
@@ -628,11 +812,33 @@ public sealed interface JsonSchema
                 items = compileInternal(itemsValue);
             }
 
+            // Parse prefixItems (tuple validation)
+            List<JsonSchema> prefixItems = null;
+            JsonValue prefixItemsVal = obj.members().get("prefixItems");
+            if (prefixItemsVal instanceof JsonArray arr) {
+                prefixItems = new ArrayList<>(arr.values().size());
+                for (JsonValue v : arr.values()) {
+                    prefixItems.add(compileInternal(v));
+                }
+                prefixItems = List.copyOf(prefixItems);
+            }
+
+            // Parse contains schema
+            JsonSchema contains = null;
+            JsonValue containsVal = obj.members().get("contains");
+            if (containsVal != null) {
+                contains = compileInternal(containsVal);
+            }
+
+            // Parse minContains / maxContains
+            Integer minContains = getInteger(obj, "minContains");
+            Integer maxContains = getInteger(obj, "maxContains");
+
             Integer minItems = getInteger(obj, "minItems");
             Integer maxItems = getInteger(obj, "maxItems");
             Boolean uniqueItems = getBoolean(obj, "uniqueItems");
 
-            return new ArraySchema(items, minItems, maxItems, uniqueItems);
+            return new ArraySchema(items, minItems, maxItems, uniqueItems, prefixItems, contains, minContains, maxContains);
         }
 
         private static JsonSchema compileStringSchema(JsonObject obj) {
@@ -645,18 +851,7 @@ public sealed interface JsonSchema
                 pattern = Pattern.compile(patternStr.value());
             }
 
-            Set<String> enumValues = null;
-            JsonValue enumValue = obj.members().get("enum");
-            if (enumValue instanceof JsonArray enumArray) {
-                enumValues = new LinkedHashSet<>();
-                for (JsonValue item : enumArray.values()) {
-                    if (item instanceof JsonString str) {
-                        enumValues.add(str.value());
-                    }
-                }
-            }
-
-            return new StringSchema(minLength, maxLength, pattern, enumValues);
+            return new StringSchema(minLength, maxLength, pattern);
         }
 
         private static JsonSchema compileNumberSchema(JsonObject obj) {
@@ -665,6 +860,20 @@ public sealed interface JsonSchema
             BigDecimal multipleOf = getBigDecimal(obj, "multipleOf");
             Boolean exclusiveMinimum = getBoolean(obj, "exclusiveMinimum");
             Boolean exclusiveMaximum = getBoolean(obj, "exclusiveMaximum");
+            
+            // Handle numeric exclusiveMinimum/exclusiveMaximum (2020-12 spec)
+            BigDecimal exclusiveMinValue = getBigDecimal(obj, "exclusiveMinimum");
+            BigDecimal exclusiveMaxValue = getBigDecimal(obj, "exclusiveMaximum");
+            
+            // Normalize: if numeric exclusives are present, convert to boolean form
+            if (exclusiveMinValue != null) {
+                minimum = exclusiveMinValue;
+                exclusiveMinimum = true;
+            }
+            if (exclusiveMaxValue != null) {
+                maximum = exclusiveMaxValue;
+                exclusiveMaximum = true;
+            }
 
             return new NumberSchema(minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum);
         }
@@ -707,6 +916,25 @@ public sealed interface JsonSchema
             return json.equals(constValue) ?
                 ValidationResult.success() :
                 ValidationResult.failure(List.of(new ValidationError(path, "Value must equal const value")));
+        }
+    }
+
+    /// Enum schema - validates that a value is in a set of allowed values
+    record EnumSchema(JsonSchema baseSchema, Set<JsonValue> allowedValues) implements JsonSchema {
+        @Override
+        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            // First validate against base schema
+            ValidationResult baseResult = baseSchema.validateAt(path, json, stack);
+            if (!baseResult.valid()) {
+                return baseResult;
+            }
+            
+            // Then check if value is in enum
+            if (!allowedValues.contains(json)) {
+                return ValidationResult.failure(List.of(new ValidationError(path, "Not in enum")));
+            }
+            
+            return ValidationResult.success();
         }
     }
 

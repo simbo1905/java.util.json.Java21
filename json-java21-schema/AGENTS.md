@@ -64,10 +64,12 @@ mvnd verify -pl json-java21-schema -Djson.schema.metrics=json
 mvnd verify -pl json-java21-schema -Djson.schema.metrics=csv
 ```
 
-**Current measured compatibility** (as of implementation):
-- **Overall**: 63.3% (1,153 of 1,822 tests pass)
-- **Test coverage**: 420 test groups, 1,657 validation attempts
-- **Skip breakdown**: 70 unsupported schema groups, 2 test exceptions, 504 lenient mismatches
+**Current measured compatibility** (as of Pack 2 - Arrays core implementation):
+- **Overall**: 65.9% (1,200 of 1,822 tests pass)
+- **Test coverage**: 420 test groups, 1,649 validation attempts  
+- **Skip breakdown**: 72 unsupported schema groups, 2 test exceptions, 449 lenient mismatches
+
+**Improvement from Pack 1**: +1.3% (from 64.6% to 65.9%)
 
 The metrics distinguish between:
 - **unsupportedSchemaGroup**: Whole groups skipped due to unsupported features (e.g., $ref, anchors)
@@ -84,6 +86,12 @@ The metrics distinguish between:
 - **Custom constraints**: Business rule validation
 - **Error reporting**: Detailed validation messages
 
+#### Array Keywords Tests (`JsonSchemaArrayKeywordsTest.java`) - Pack 2
+- **Contains validation**: `contains` with `minContains`/`maxContains` constraints
+- **Unique items**: Structural equality using canonicalization for objects/arrays
+- **Prefix items**: Tuple validation with `prefixItems` + trailing `items` validation
+- **Combined features**: Complex schemas using all array constraints together
+
 ### Development Workflow
 
 1. **TDD Approach**: All tests must pass before claiming completion
@@ -98,6 +106,8 @@ The metrics distinguish between:
 - **Conditional validation**: if/then/else supported via `ConditionalSchema`
 - **Composition**: allOf, anyOf, not patterns implemented
 - **Error paths**: JSON Pointer style paths in validation errors
+- **Array validation**: Draft 2020-12 array features (contains, uniqueItems, prefixItems)
+- **Structural equality**: Canonical JSON serialization for uniqueItems validation
 
 ### Testing Best Practices
 
