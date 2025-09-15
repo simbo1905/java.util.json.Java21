@@ -34,6 +34,13 @@ mvn -pl json-java21-schema -am verify
 mvn -Djson.schema.strict=true -pl json-java21-schema -am verify
 ```
 
+OpenRPC validation
+
+- Additional integration test validates OpenRPC documents using a minimal, self‑contained schema:
+  - Test: `src/test/java/io/github/simbo1905/json/schema/OpenRPCSchemaValidationIT.java`
+  - Resources: `src/test/resources/openrpc/` (schema and examples)
+  - Thanks to OpenRPC meta-schema and examples (Apache-2.0): https://github.com/open-rpc/meta-schema and https://github.com/open-rpc/examples
+
 ## API Design
 
 Single public interface with all schema types as inner records:

@@ -258,6 +258,7 @@ PY
 ### json-java21-schema
 - **Validator** for JSON Schema 2020-12 features
 - **Tests** include unit, integration, and annotation-based checks (see module guide)
+- **OpenRPC IT**: See `json-java21-schema/src/test/java/io/github/simbo1905/json/schema/OpenRPCSchemaValidationIT.java` and resources under `json-java21-schema/src/test/resources/openrpc/` (thanks to OpenRPC meta-schema and examples, Apache-2.0).
 
 ## Security Notes
 - **Stack exhaustion attacks**: Deep nesting can cause StackOverflowError

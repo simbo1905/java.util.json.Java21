@@ -48,6 +48,11 @@ The project uses `java.util.logging` with levels:
 - **Real-world schemas**: Complex nested validation scenarios
 - **Performance tests**: Large schema compilation
 
+#### OpenRPC Validation (`OpenRPCSchemaValidationIT.java`)
+- **Location**: `json-java21-schema/src/test/java/io/github/simbo1905/json/schema/OpenRPCSchemaValidationIT.java`
+- **Resources**: `src/test/resources/openrpc/schema.json` and `openrpc/examples/*.json`
+- **Thanks**: OpenRPC meta-schema and examples (Apache-2.0). Sources: https://github.com/open-rpc/meta-schema and https://github.com/open-rpc/examples
+
 #### Annotation Tests (`JsonSchemaAnnotationsTest.java`)
 - **Annotation processing**: Compile-time schema generation
 - **Custom constraints**: Business rule validation
