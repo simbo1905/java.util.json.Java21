@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Assumptions;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
@@ -165,7 +166,7 @@ public class JsonSchemaCheckIT {
         if (!METRICS_FMT.isEmpty()) {
             var outDir = java.nio.file.Path.of("target");
             java.nio.file.Files.createDirectories(outDir);
-            var ts = java.time.OffsetDateTime.now().toString();
+            var ts = java.time.Instant.now();
             if ("json".equalsIgnoreCase(METRICS_FMT)) {
                 var json = buildJsonSummary(strict, ts);
                 java.nio.file.Files.writeString(outDir.resolve("json-schema-compat.json"), json);
@@ -176,7 +177,7 @@ public class JsonSchemaCheckIT {
         }
     }
 
-    private static String buildJsonSummary(boolean strict, String timestamp) {
+    private static String buildJsonSummary(boolean strict, java.time.Instant timestamp) {
         var totals = new StringBuilder();
         totals.append("{\n");
         totals.append("  \"mode\": \"").append(strict ? "STRICT" : "LENIENT").append("\",\n");
@@ -203,7 +204,7 @@ public class JsonSchemaCheckIT {
             if (!first) totals.append(",\n");
             first = false;
             totals.append("    {\n");
-            totals.append("      \"file\": \"").append(file).append("\",\n");
+            totals.append("      \"file\": ").append(escapeJson(file)).append(",\n");
             totals.append("      \"groups\": ").append(counters.groups.sum()).append(",\n");
             totals.append("      \"tests\": ").append(counters.tests.sum()).append(",\n");
             totals.append("      \"run\": ").append(counters.run.sum()).append(",\n");
@@ -219,7 +220,7 @@ public class JsonSchemaCheckIT {
         return totals.toString();
     }
 
-    private static String buildCsvSummary(boolean strict, String timestamp) {
+    private static String buildCsvSummary(boolean strict, java.time.Instant timestamp) {
         var csv = new StringBuilder();
         csv.append("mode,timestamp,groupsDiscovered,testsDiscovered,validationsRun,passed,failed,skipUnsupportedGroup,skipTestException,skipLenientMismatch\n");
         csv.append(strict ? "STRICT" : "LENIENT").append(",");
@@ -240,7 +241,7 @@ public class JsonSchemaCheckIT {
         java.util.Collections.sort(files);
         for (String file : files) {
             var counters = METRICS.perFile.get(file);
-            csv.append(file).append(",");
+            csv.append(escapeCsv(file)).append(",");
             csv.append(counters.groups.sum()).append(",");
             csv.append(counters.tests.sum()).append(",");
             csv.append(counters.run.sum()).append(",");
@@ -251,6 +252,88 @@ public class JsonSchemaCheckIT {
             csv.append(counters.skipMismatch.sum()).append("\n");
         }
         return csv.toString();
+    }
+
+    /**
+     * Escapes a string for safe inclusion in JSON output.
+     * Handles quotes, backslashes, and control characters.
+     */
+    private static String escapeJson(String input) {
+        if (input == null) {
+            return "null";
+        }
+        
+        StringBuilder result = new StringBuilder();
+        result.append('"');
+        
+        for (int i = 0; i < input.length(); i++) {
+            char ch = input.charAt(i);
+            switch (ch) {
+                case '"':
+                    result.append("\\\"");
+                    break;
+                case '\\':
+                    result.append("\\\\");
+                    break;
+                case '\b':
+                    result.append("\\b");
+                    break;
+                case '\f':
+                    result.append("\\f");
+                    break;
+                case '\n':
+                    result.append("\\n");
+                    break;
+                case '\r':
+                    result.append("\\r");
+                    break;
+                case '\t':
+                    result.append("\\t");
+                    break;
+                default:
+                    if (ch < 0x20 || ch > 0x7e) {
+                        // Unicode escape for control characters and non-ASCII
+                        result.append("\\u").append(String.format("%04x", (int) ch));
+                    } else {
+                        result.append(ch);
+                    }
+            }
+        }
+        
+        result.append('"');
+        return result.toString();
+    }
+
+    /**
+     * Escapes a string for safe inclusion in CSV output.
+     * Handles commas, quotes, and newlines by wrapping in quotes if needed.
+     */
+    private static String escapeCsv(String input) {
+        if (input == null) {
+            return "";
+        }
+        
+        // Check if escaping is needed
+        boolean needsEscaping = input.contains(",") || input.contains("\"") || 
+                               input.contains("\n") || input.contains("\r");
+        
+        if (!needsEscaping) {
+            return input;
+        }
+        
+        // Wrap in quotes and escape internal quotes
+        StringBuilder result = new StringBuilder();
+        result.append('"');
+        for (int i = 0; i < input.length(); i++) {
+            char ch = input.charAt(i);
+            if (ch == '"') {
+                result.append("\"\""); // Double quotes to escape
+            } else {
+                result.append(ch);
+            }
+        }
+        result.append('"');
+        return result.toString();
     }
 }
 
