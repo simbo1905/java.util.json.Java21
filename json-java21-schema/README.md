@@ -2,7 +2,7 @@
 
 Stack-based JSON Schema validator using sealed interface pattern with inner record types.
 
-- Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, $defs and local $ref (including root "#")
+- Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, format (11 validators), $defs and local $ref (including root "#")
 - Thread-safe compiled schemas; immutable results with error paths/messages
 
 Quick usage
@@ -23,8 +23,8 @@ Compatibility and verify
 - The module runs the official JSON Schema Test Suite during Maven verify.
 - Default mode is lenient: unsupported groups/tests are skipped to avoid build breaks while still logging.
 - Strict mode: enable with -Djson.schema.strict=true to enforce full assertions.
-- **Measured compatibility**: 64.6% (1,177 of 1,822 tests pass in lenient mode)
-- **Test coverage**: 420 test groups, 1,657 validation attempts, 70 unsupported schema groups, 2 test exceptions, 480 lenient mismatches
+- **Measured compatibility**: 54.4% (992 of 1,822 tests pass in lenient mode)
+- **Test coverage**: 420 test groups, 1,628 validation attempts, 73 unsupported schema groups, 0 test exceptions, 638 lenient mismatches
 - Detailed metrics available via `-Djson.schema.metrics=json|csv`
 
 How to run
@@ -154,4 +154,31 @@ if (!result.valid()) {
         System.out.println(error.path() + ": " + error.message());
     }
 }
+```
+
+### Format Validation
+
+The validator supports JSON Schema 2020-12 format validation with opt-in assertion mode:
+
+- **Built-in formats**: uuid, email, ipv4, ipv6, uri, uri-reference, hostname, date, time, date-time, regex
+- **Annotation by default**: Format validation is annotation-only (always passes) unless format assertion is enabled
+- **Opt-in assertion**: Enable format validation via:
+  - `JsonSchema.Options(true)` parameter in `compile()`
+  - System property: `-Djsonschema.format.assertion=true`
+  - Root schema flag: `"formatAssertion": true`
+- **Unknown formats**: Gracefully handled with logged warnings (no validation errors)
+
+```java
+// Format validation disabled (default) - always passes
+var schema = JsonSchema.compile(Json.parse("""
+  {"type": "string", "format": "email"}
+"""));
+schema.validate(Json.parse("\"invalid-email\"")); // passes
+
+// Format validation enabled - validates format
+var schema = JsonSchema.compile(Json.parse("""
+  {"type": "string", "format": "email"}
+"""), new JsonSchema.Options(true));
+schema.validate(Json.parse("\"invalid-email\"")); // fails
+schema.validate(Json.parse("\"user@example.com\"")); // passes
 ```

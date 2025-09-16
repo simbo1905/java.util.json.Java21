@@ -47,6 +47,7 @@ public sealed interface JsonSchema
             JsonSchema.RefSchema,
             JsonSchema.AllOfSchema,
             JsonSchema.AnyOfSchema,
+            JsonSchema.OneOfSchema,
             JsonSchema.ConditionalSchema,
             JsonSchema.ConstSchema,
             JsonSchema.NotSchema,
@@ -65,6 +66,14 @@ public sealed interface JsonSchema
         }
     }
 
+    /// Options for schema compilation
+    ///
+    /// @param assertFormats whether to enable format assertion validation
+    record Options(boolean assertFormats) {
+        /// Default options with format assertion disabled
+        static final Options DEFAULT = new Options(false);
+    }
+
     /// Factory method to create schema from JSON Schema document
     ///
     /// @param schemaJson JSON Schema document as JsonValue
@@ -72,7 +81,19 @@ public sealed interface JsonSchema
     /// @throws IllegalArgumentException if schema is invalid
     static JsonSchema compile(JsonValue schemaJson) {
         Objects.requireNonNull(schemaJson, "schemaJson");
-        return SchemaCompiler.compile(schemaJson);
+        return SchemaCompiler.compile(schemaJson, Options.DEFAULT);
+    }
+
+    /// Factory method to create schema from JSON Schema document with options
+    ///
+    /// @param schemaJson JSON Schema document as JsonValue
+    /// @param options compilation options
+    /// @return Immutable JsonSchema instance
+    /// @throws IllegalArgumentException if schema is invalid
+    static JsonSchema compile(JsonValue schemaJson, Options options) {
+        Objects.requireNonNull(schemaJson, "schemaJson");
+        Objects.requireNonNull(options, "options");
+        return SchemaCompiler.compile(schemaJson, options);
     }
 
     /// Validates JSON document against this schema
@@ -107,7 +128,11 @@ public sealed interface JsonSchema
         Set<String> required,
         JsonSchema additionalProperties,
         Integer minProperties,
-        Integer maxProperties
+        Integer maxProperties,
+        Map<Pattern, JsonSchema> patternProperties,
+        JsonSchema propertyNames,
+        Map<String, Set<String>> dependentRequired,
+        Map<String, JsonSchema> dependentSchemas
     ) implements JsonSchema {
 
         @Override
@@ -136,17 +161,93 @@ public sealed interface JsonSchema
                 }
             }
 
-            // Validate properties
+            // Handle dependentRequired
+            if (dependentRequired != null) {
+                for (var entry : dependentRequired.entrySet()) {
+                    String triggerProp = entry.getKey();
+                    Set<String> requiredDeps = entry.getValue();
+                    
+                    // If trigger property is present, check all dependent properties
+                    if (obj.members().containsKey(triggerProp)) {
+                        for (String depProp : requiredDeps) {
+                            if (!obj.members().containsKey(depProp)) {
+                                errors.add(new ValidationError(path, "Property '" + triggerProp + "' requires property '" + depProp + "' (dependentRequired)"));
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Handle dependentSchemas
+            if (dependentSchemas != null) {
+                for (var entry : dependentSchemas.entrySet()) {
+                    String triggerProp = entry.getKey();
+                    JsonSchema depSchema = entry.getValue();
+                    
+                    // If trigger property is present, apply the dependent schema
+                    if (obj.members().containsKey(triggerProp)) {
+                        if (depSchema == BooleanSchema.FALSE) {
+                            errors.add(new ValidationError(path, "Property '" + triggerProp + "' forbids object unless its dependent schema is satisfied (dependentSchemas=false)"));
+                        } else if (depSchema != BooleanSchema.TRUE) {
+                            // Apply the dependent schema to the entire object
+                            stack.push(new ValidationFrame(path, depSchema, json));
+                        }
+                    }
+                }
+            }
+
+            // Validate property names if specified
+            if (propertyNames != null) {
+                for (String propName : obj.members().keySet()) {
+                    String namePath = path.isEmpty() ? propName : path + "." + propName;
+                    JsonValue nameValue = Json.parse("\"" + propName + "\"");
+                    ValidationResult nameResult = propertyNames.validateAt(namePath + "(name)", nameValue, stack);
+                    if (!nameResult.valid()) {
+                        errors.add(new ValidationError(namePath, "Property name violates propertyNames"));
+                    }
+                }
+            }
+
+            // Validate each property with correct precedence
             for (var entry : obj.members().entrySet()) {
                 String propName = entry.getKey();
                 JsonValue propValue = entry.getValue();
                 String propPath = path.isEmpty() ? propName : path + "." + propName;
 
+                // Track if property was handled by properties or patternProperties
+                boolean handledByProperties = false;
+                boolean handledByPattern = false;
+
+                // 1. Check if property is in properties (highest precedence)
                 JsonSchema propSchema = properties.get(propName);
                 if (propSchema != null) {
                     stack.push(new ValidationFrame(propPath, propSchema, propValue));
-                } else if (additionalProperties != null && additionalProperties != AnySchema.INSTANCE) {
-                    stack.push(new ValidationFrame(propPath, additionalProperties, propValue));
+                    handledByProperties = true;
+                }
+
+                // 2. Check all patternProperties that match this property name
+                if (patternProperties != null) {
+                    for (var patternEntry : patternProperties.entrySet()) {
+                        Pattern pattern = patternEntry.getKey();
+                        JsonSchema patternSchema = patternEntry.getValue();
+                        if (pattern.matcher(propName).find()) { // unanchored find semantics
+                            stack.push(new ValidationFrame(propPath, patternSchema, propValue));
+                            handledByPattern = true;
+                        }
+                    }
+                }
+
+                // 3. If property wasn't handled by properties or patternProperties, apply additionalProperties
+                if (!handledByProperties && !handledByPattern) {
+                    if (additionalProperties != null) {
+                        if (additionalProperties == BooleanSchema.FALSE) {
+                            // Handle additionalProperties: false - reject unmatched properties
+                            errors.add(new ValidationError(propPath, "Additional properties not allowed"));
+                        } else if (additionalProperties != BooleanSchema.TRUE) {
+                            // Apply the additionalProperties schema (not true/false boolean schemas)
+                            stack.push(new ValidationFrame(propPath, additionalProperties, propValue));
+                        }
+                    }
                 }
             }
 
@@ -270,7 +371,9 @@ public sealed interface JsonSchema
     record StringSchema(
         Integer minLength,
         Integer maxLength,
-        Pattern pattern
+        Pattern pattern,
+        FormatValidator formatValidator,
+        boolean assertFormats
     ) implements JsonSchema {
 
         @Override
@@ -296,6 +399,14 @@ public sealed interface JsonSchema
             // Check pattern (unanchored matching - uses find() instead of matches())
             if (pattern != null && !pattern.matcher(value).find()) {
                 errors.add(new ValidationError(path, "Pattern mismatch"));
+            }
+
+            // Check format validation (only when format assertion is enabled)
+            if (formatValidator != null && assertFormats) {
+                if (!formatValidator.test(value)) {
+                    String formatName = formatValidator instanceof Format format ? format.name().toLowerCase().replace("_", "-") : "unknown";
+                    errors.add(new ValidationError(path, "Invalid format '" + formatName + "'"));
+                }
             }
 
             return errors.isEmpty() ? ValidationResult.success() : ValidationResult.failure(errors);
@@ -354,10 +465,24 @@ public sealed interface JsonSchema
         }
     }
 
-    /// Boolean schema - always valid for boolean values
+    /// Boolean schema - validates boolean values
     record BooleanSchema() implements JsonSchema {
+        /// Singleton instances for boolean sub-schema handling
+        static final BooleanSchema TRUE = new BooleanSchema();
+        static final BooleanSchema FALSE = new BooleanSchema();
+        
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            // For boolean subschemas, FALSE always fails, TRUE always passes
+            if (this == FALSE) {
+                return ValidationResult.failure(List.of(
+                    new ValidationError(path, "Schema should not match")
+                ));
+            }
+            if (this == TRUE) {
+                return ValidationResult.success();
+            }
+            // Regular boolean validation for normal boolean schemas
             if (!(json instanceof JsonBoolean)) {
                 return ValidationResult.failure(List.of(
                     new ValidationError(path, "Expected boolean")
@@ -442,6 +567,81 @@ public sealed interface JsonSchema
             }
 
             return anyValid ? ValidationResult.success() : ValidationResult.failure(collected);
+        }
+    }
+
+    /// OneOf composition - must satisfy exactly one schema
+    record OneOfSchema(List<JsonSchema> schemas) implements JsonSchema {
+        @Override
+        public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            List<ValidationError> collected = new ArrayList<>();
+            int validCount = 0;
+            List<ValidationError> minimalErrors = null;
+
+            for (JsonSchema schema : schemas) {
+                // Create a separate validation stack for this branch
+                Deque<ValidationFrame> branchStack = new ArrayDeque<>();
+                List<ValidationError> branchErrors = new ArrayList<>();
+
+                LOG.finest(() -> "ONEOF BRANCH START: " + schema.getClass().getSimpleName());
+                branchStack.push(new ValidationFrame(path, schema, json));
+
+                while (!branchStack.isEmpty()) {
+                    ValidationFrame frame = branchStack.pop();
+                    ValidationResult result = frame.schema().validateAt(frame.path(), frame.json(), branchStack);
+                    if (!result.valid()) {
+                        branchErrors.addAll(result.errors());
+                    }
+                }
+
+                if (branchErrors.isEmpty()) {
+                    validCount++;
+                } else {
+                    // Track minimal error set for zero-valid case
+                    // Prefer errors that don't start with "Expected" (type mismatches) if possible
+                    // In case of ties, prefer later branches (they tend to be more specific)
+                    if (minimalErrors == null || 
+                        (branchErrors.size() < minimalErrors.size()) ||
+                        (branchErrors.size() == minimalErrors.size() && 
+                         hasBetterErrorType(branchErrors, minimalErrors))) {
+                        minimalErrors = branchErrors;
+                    }
+                }
+                LOG.finest(() -> "ONEOF BRANCH END: " + branchErrors.size() + " errors, valid=" + branchErrors.isEmpty());
+            }
+
+            // Exactly one must be valid
+            if (validCount == 1) {
+                return ValidationResult.success();
+            } else if (validCount == 0) {
+                // Zero valid - return minimal error set
+                return ValidationResult.failure(minimalErrors != null ? minimalErrors : List.of());
+            } else {
+                // Multiple valid - single error
+                return ValidationResult.failure(List.of(
+                    new ValidationError(path, "oneOf: multiple schemas matched (" + validCount + ")")
+                ));
+            }
+        }
+        
+        private boolean hasBetterErrorType(List<ValidationError> newErrors, List<ValidationError> currentErrors) {
+            // Prefer errors that don't start with "Expected" (type mismatches)
+            boolean newHasTypeMismatch = newErrors.stream().anyMatch(e -> e.message().startsWith("Expected"));
+            boolean currentHasTypeMismatch = currentErrors.stream().anyMatch(e -> e.message().startsWith("Expected"));
+            
+            // If new has type mismatch and current doesn't, current is better (keep current)
+            if (newHasTypeMismatch && !currentHasTypeMismatch) {
+                return false;
+            }
+            
+            // If current has type mismatch and new doesn't, new is better (replace current)
+            if (currentHasTypeMismatch && !newHasTypeMismatch) {
+                return true;
+            }
+            
+            // If both have type mismatches or both don't, prefer later branches
+            // This is a simple heuristic
+            return true;
         }
     }
 
@@ -556,6 +756,7 @@ public sealed interface JsonSchema
     final class SchemaCompiler {
         private static final Map<String, JsonSchema> definitions = new HashMap<>();
         private static JsonSchema currentRootSchema;
+        private static Options currentOptions;
 
         private static void trace(String stage, JsonValue fragment) {
             if (LOG.isLoggable(Level.FINER)) {
@@ -565,8 +766,34 @@ public sealed interface JsonSchema
         }
 
         static JsonSchema compile(JsonValue schemaJson) {
+            return compile(schemaJson, Options.DEFAULT);
+        }
+
+        static JsonSchema compile(JsonValue schemaJson, Options options) {
             definitions.clear(); // Clear any previous definitions
             currentRootSchema = null;
+            currentOptions = options;
+            
+            // Handle format assertion controls
+            boolean assertFormats = options.assertFormats();
+            
+            // Check system property first (read once during compile)
+            String systemProp = System.getProperty("jsonschema.format.assertion");
+            if (systemProp != null) {
+                assertFormats = Boolean.parseBoolean(systemProp);
+            }
+            
+            // Check root schema flag (highest precedence)
+            if (schemaJson instanceof JsonObject obj) {
+                JsonValue formatAssertionValue = obj.members().get("formatAssertion");
+                if (formatAssertionValue instanceof JsonBoolean formatAssertionBool) {
+                    assertFormats = formatAssertionBool.value();
+                }
+            }
+            
+            // Update options with final assertion setting
+            currentOptions = new Options(assertFormats);
+            
             trace("compile-start", schemaJson);
             JsonSchema schema = compileInternal(schemaJson);
             currentRootSchema = schema; // Store the root schema for self-references
@@ -628,6 +855,16 @@ public sealed interface JsonSchema
                 return new AnyOfSchema(schemas);
             }
 
+            JsonValue oneOfValue = obj.members().get("oneOf");
+            if (oneOfValue instanceof JsonArray oneOfArr) {
+                trace("compile-oneof", oneOfValue);
+                List<JsonSchema> schemas = new ArrayList<>();
+                for (JsonValue item : oneOfArr.values()) {
+                    schemas.add(compileInternal(item));
+                }
+                return new OneOfSchema(schemas);
+            }
+
             // Handle if/then/else
             JsonValue ifValue = obj.members().get("if");
             if (ifValue != null) {
@@ -667,7 +904,11 @@ public sealed interface JsonSchema
                     || obj.members().containsKey("required")
                     || obj.members().containsKey("additionalProperties")
                     || obj.members().containsKey("minProperties")
-                    || obj.members().containsKey("maxProperties");
+                    || obj.members().containsKey("maxProperties")
+                    || obj.members().containsKey("patternProperties")
+                    || obj.members().containsKey("propertyNames")
+                    || obj.members().containsKey("dependentRequired")
+                    || obj.members().containsKey("dependentSchemas");
 
             boolean hasArrayKeywords = obj.members().containsKey("items")
                     || obj.members().containsKey("minItems")
@@ -680,7 +921,8 @@ public sealed interface JsonSchema
 
             boolean hasStringKeywords = obj.members().containsKey("pattern")
                     || obj.members().containsKey("minLength")
-                    || obj.members().containsKey("maxLength");
+                    || obj.members().containsKey("maxLength")
+                    || obj.members().containsKey("format");
 
             // Handle enum early (before type-specific compilation)
             JsonValue enumValue = obj.members().get("enum");
@@ -794,15 +1036,77 @@ public sealed interface JsonSchema
             JsonSchema additionalProperties = AnySchema.INSTANCE;
             JsonValue addPropsValue = obj.members().get("additionalProperties");
             if (addPropsValue instanceof JsonBoolean addPropsBool) {
-                additionalProperties = addPropsBool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
+                additionalProperties = addPropsBool.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
             } else if (addPropsValue instanceof JsonObject addPropsObj) {
                 additionalProperties = compileInternal(addPropsObj);
+            }
+
+            // Handle patternProperties
+            Map<Pattern, JsonSchema> patternProperties = null;
+            JsonValue patternPropsValue = obj.members().get("patternProperties");
+            if (patternPropsValue instanceof JsonObject patternPropsObj) {
+                patternProperties = new LinkedHashMap<>();
+                for (var entry : patternPropsObj.members().entrySet()) {
+                    String patternStr = entry.getKey();
+                    Pattern pattern = Pattern.compile(patternStr);
+                    JsonSchema schema = compileInternal(entry.getValue());
+                    patternProperties.put(pattern, schema);
+                }
+            }
+
+            // Handle propertyNames
+            JsonSchema propertyNames = null;
+            JsonValue propNamesValue = obj.members().get("propertyNames");
+            if (propNamesValue != null) {
+                propertyNames = compileInternal(propNamesValue);
             }
 
             Integer minProperties = getInteger(obj, "minProperties");
             Integer maxProperties = getInteger(obj, "maxProperties");
 
-            return new ObjectSchema(properties, required, additionalProperties, minProperties, maxProperties);
+            // Handle dependentRequired
+            Map<String, Set<String>> dependentRequired = null;
+            JsonValue depReqValue = obj.members().get("dependentRequired");
+            if (depReqValue instanceof JsonObject depReqObj) {
+                dependentRequired = new LinkedHashMap<>();
+                for (var entry : depReqObj.members().entrySet()) {
+                    String triggerProp = entry.getKey();
+                    JsonValue depsValue = entry.getValue();
+                    if (depsValue instanceof JsonArray depsArray) {
+                        Set<String> requiredProps = new LinkedHashSet<>();
+                        for (JsonValue depItem : depsArray.values()) {
+                            if (depItem instanceof JsonString depStr) {
+                                requiredProps.add(depStr.value());
+                            } else {
+                                throw new IllegalArgumentException("dependentRequired values must be arrays of strings");
+                            }
+                        }
+                        dependentRequired.put(triggerProp, requiredProps);
+                    } else {
+                        throw new IllegalArgumentException("dependentRequired values must be arrays");
+                    }
+                }
+            }
+
+            // Handle dependentSchemas
+            Map<String, JsonSchema> dependentSchemas = null;
+            JsonValue depSchValue = obj.members().get("dependentSchemas");
+            if (depSchValue instanceof JsonObject depSchObj) {
+                dependentSchemas = new LinkedHashMap<>();
+                for (var entry : depSchObj.members().entrySet()) {
+                    String triggerProp = entry.getKey();
+                    JsonValue schemaValue = entry.getValue();
+                    JsonSchema schema;
+                    if (schemaValue instanceof JsonBoolean boolValue) {
+                        schema = boolValue.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
+                    } else {
+                        schema = compileInternal(schemaValue);
+                    }
+                    dependentSchemas.put(triggerProp, schema);
+                }
+            }
+
+            return new ObjectSchema(properties, required, additionalProperties, minProperties, maxProperties, patternProperties, propertyNames, dependentRequired, dependentSchemas);
         }
 
         private static JsonSchema compileArraySchema(JsonObject obj) {
@@ -851,7 +1155,22 @@ public sealed interface JsonSchema
                 pattern = Pattern.compile(patternStr.value());
             }
 
-            return new StringSchema(minLength, maxLength, pattern);
+            // Handle format keyword
+            FormatValidator formatValidator = null;
+            boolean assertFormats = currentOptions != null && currentOptions.assertFormats();
+            
+            if (assertFormats) {
+                JsonValue formatValue = obj.members().get("format");
+                if (formatValue instanceof JsonString formatStr) {
+                    String formatName = formatStr.value();
+                    formatValidator = Format.byName(formatName);
+                    if (formatValidator == null) {
+                        LOG.fine("Unknown format: " + formatName);
+                    }
+                }
+            }
+
+            return new StringSchema(minLength, maxLength, pattern, formatValidator, assertFormats);
         }
 
         private static JsonSchema compileNumberSchema(JsonObject obj) {
@@ -959,6 +1278,182 @@ public sealed interface JsonSchema
                 return ValidationResult.success();
             }
             return root.validate(json); // Direct validation against root schema
+        }
+    }
+
+    /// Format validator interface for string format validation
+    sealed interface FormatValidator {
+        /// Test if the string value matches the format
+        /// @param s the string to test
+        /// @return true if the string matches the format, false otherwise
+        boolean test(String s);
+    }
+
+    /// Built-in format validators
+    enum Format implements FormatValidator {
+        UUID {
+            @Override
+            public boolean test(String s) {
+                try {
+                    java.util.UUID.fromString(s);
+                    return true;
+                } catch (IllegalArgumentException e) {
+                    return false;
+                }
+            }
+        },
+        
+        EMAIL {
+            @Override
+            public boolean test(String s) {
+                // Pragmatic RFC-5322-lite regex: reject whitespace, require TLD, no consecutive dots
+                return s.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") && !s.contains("..");
+            }
+        },
+        
+        IPV4 {
+            @Override
+            public boolean test(String s) {
+                String[] parts = s.split("\\.");
+                if (parts.length != 4) return false;
+                
+                for (String part : parts) {
+                    try {
+                        int num = Integer.parseInt(part);
+                        if (num < 0 || num > 255) return false;
+                        // Check for leading zeros (except for 0 itself)
+                        if (part.length() > 1 && part.startsWith("0")) return false;
+                    } catch (NumberFormatException e) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        },
+        
+        IPV6 {
+            @Override
+            public boolean test(String s) {
+                try {
+                    // Use InetAddress to validate, but also check it contains ':' to distinguish from IPv4
+                    java.net.InetAddress addr = java.net.InetAddress.getByName(s);
+                    return s.contains(":");
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        },
+        
+        URI {
+            @Override
+            public boolean test(String s) {
+                try {
+                    java.net.URI uri = new java.net.URI(s);
+                    return uri.isAbsolute() && uri.getScheme() != null;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        },
+        
+        URI_REFERENCE {
+            @Override
+            public boolean test(String s) {
+                try {
+                    new java.net.URI(s);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        },
+        
+        HOSTNAME {
+            @Override
+            public boolean test(String s) {
+                // Basic hostname validation: labels a-zA-Z0-9-, no leading/trailing -, label 1-63, total ≤255
+                if (s.isEmpty() || s.length() > 255) return false;
+                if (!s.contains(".")) return false; // Must have at least one dot
+                
+                String[] labels = s.split("\\.");
+                for (String label : labels) {
+                    if (label.isEmpty() || label.length() > 63) return false;
+                    if (label.startsWith("-") || label.endsWith("-")) return false;
+                    if (!label.matches("^[a-zA-Z0-9-]+$")) return false;
+                }
+                return true;
+            }
+        },
+        
+        DATE {
+            @Override
+            public boolean test(String s) {
+                try {
+                    java.time.LocalDate.parse(s);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        },
+        
+        TIME {
+            @Override
+            public boolean test(String s) {
+                try {
+                    // Try OffsetTime first (with timezone)
+                    java.time.OffsetTime.parse(s);
+                    return true;
+                } catch (Exception e) {
+                    try {
+                        // Try LocalTime (without timezone)
+                        java.time.LocalTime.parse(s);
+                        return true;
+                    } catch (Exception e2) {
+                        return false;
+                    }
+                }
+            }
+        },
+        
+        DATE_TIME {
+            @Override
+            public boolean test(String s) {
+                try {
+                    // Try OffsetDateTime first (with timezone)
+                    java.time.OffsetDateTime.parse(s);
+                    return true;
+                } catch (Exception e) {
+                    try {
+                        // Try LocalDateTime (without timezone)
+                        java.time.LocalDateTime.parse(s);
+                        return true;
+                    } catch (Exception e2) {
+                        return false;
+                    }
+                }
+            }
+        },
+        
+        REGEX {
+            @Override
+            public boolean test(String s) {
+                try {
+                    java.util.regex.Pattern.compile(s);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            }
+        };
+        
+        /// Get format validator by name (case-insensitive)
+        static FormatValidator byName(String name) {
+            try {
+                return Format.valueOf(name.toUpperCase().replace("-", "_"));
+            } catch (IllegalArgumentException e) {
+                return null; // Unknown format
+            }
         }
     }
 }
