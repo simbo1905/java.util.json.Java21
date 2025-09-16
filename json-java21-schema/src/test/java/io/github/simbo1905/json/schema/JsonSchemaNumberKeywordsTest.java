@@ -6,7 +6,50 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class JsonSchemaNumberKeywordsTest extends JsonSchemaLoggingConfig {
+  @Test
+  void testExclusiveMinimum_numericForm_strict() {
+    final var schemaJson = """
+        { "type": "number", "exclusiveMinimum": 5 }
+        """;
+    final var schema = JsonSchema.compile(Json.parse(schemaJson));
 
+    // 5 is NOT allowed when exclusiveMinimum is a number
+    assertThat(schema.validate(Json.parse("5")).valid()).isFalse();
+    assertThat(schema.validate(Json.parse("5.0")).valid()).isFalse();
+
+    // Greater-than 5 are allowed
+    assertThat(schema.validate(Json.parse("5.0000001")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("6")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("5.1")).valid()).isTrue();
+  }
+
+  @Test
+  void testExclusiveMaximum_numericForm_strict() {
+    final var schemaJson = """
+        { "type": "number", "exclusiveMaximum": 3 }
+        """;
+    final var schema = JsonSchema.compile(Json.parse(schemaJson));
+
+    // 3 is NOT allowed when exclusiveMaximum is a number
+    assertThat(schema.validate(Json.parse("3")).valid()).isFalse();
+    assertThat(schema.validate(Json.parse("3.0")).valid()).isFalse();
+
+    // Less-than 3 are allowed
+    assertThat(schema.validate(Json.parse("2.9999")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("2")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("2.9")).valid()).isTrue();
+  }
+
+  @Test
+  void testExclusiveMinimum_booleanForm_backCompat() {
+    final var schemaJson = """
+        { "type": "number", "minimum": 5, "exclusiveMinimum": true }
+        """;
+    final var schema = JsonSchema.compile(Json.parse(schemaJson));
+
+    assertThat(schema.validate(Json.parse("5")).valid()).isFalse(); // exclusive
+    assertThat(schema.validate(Json.parse("6")).valid()).isTrue();  // greater is ok
+  }
     @Test
     void exclusiveMinimumAndMaximumAreHonored() {
         String schemaJson = """

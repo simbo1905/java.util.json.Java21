@@ -8,7 +8,54 @@ import org.junit.jupiter.api.BeforeAll;
 import static org.assertj.core.api.Assertions.*;
 
 class JsonSchemaFormatTest extends JsonSchemaLoggingConfig {
+  @Test
+  void testCommonFormats_whenAssertionOn_invalidsFail_validsPass() {
+    // Toggle "assert formats" ON (wire however your implementation exposes it).
+    // If you use a system property, ensure it’s read at compile() time.
+    System.setProperty("json.schema.format.assert", "true");
 
+    // Invalids must FAIL when assertion is on
+    final var uuidSchema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"uuid" }
+        """));
+    assertThat(uuidSchema.validate(Json.parse("\"not-a-uuid\"")).valid()).isFalse();
+
+    final var emailSchema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"email" }
+        """));
+    assertThat(emailSchema.validate(Json.parse("\"no-at-sign\"")).valid()).isFalse();
+
+    final var ipv4Schema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"ipv4" }
+        """));
+    assertThat(ipv4Schema.validate(Json.parse("\"999.0.0.1\"")).valid()).isFalse();
+
+    // Valids must PASS
+    assertThat(uuidSchema.validate(Json.parse("\"123e4567-e89b-12d3-a456-426614174000\"")).valid()).isTrue();
+    assertThat(emailSchema.validate(Json.parse("\"user@example.com\"")).valid()).isTrue();
+    assertThat(ipv4Schema.validate(Json.parse("\"192.168.0.1\"")).valid()).isTrue();
+  }
+
+  @Test
+  void testFormats_whenAssertionOff_areAnnotationsOnly() {
+    // Toggle "assert formats" OFF (annotation-only)
+    System.setProperty("json.schema.format.assert", "false");
+
+    final var uuidSchema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"uuid" }
+        """));
+    final var emailSchema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"email" }
+        """));
+    final var ipv4Schema = JsonSchema.compile(Json.parse("""
+        { "type":"string", "format":"ipv4" }
+        """));
+
+    // Invalid instances should PASS schema when assertion is off
+    assertThat(uuidSchema.validate(Json.parse("\"not-a-uuid\"")).valid()).isTrue();
+    assertThat(emailSchema.validate(Json.parse("\"no-at-sign\"")).valid()).isTrue();
+    assertThat(ipv4Schema.validate(Json.parse("\"999.0.0.1\"")).valid()).isTrue();
+  }
     @Test
     void testUuidFormat() {
         /// Test UUID format validation

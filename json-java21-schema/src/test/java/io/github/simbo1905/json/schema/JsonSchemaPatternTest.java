@@ -5,6 +5,30 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 class JsonSchemaPatternTest extends JsonSchemaLoggingConfig {
+  @Test
+  void testPattern_unanchored_singleChar_findVsMatches() {
+    // Unanchored semantics: pattern "a" must validate any string that CONTAINS 'a',
+    // not just strings that ARE exactly "a".
+    final var schemaJson = """
+        {
+          "type": "string",
+          "pattern": "a"
+        }
+        """;
+
+    final var schema = JsonSchema.compile(Json.parse(schemaJson));
+
+    // ✅ Should PASS — 'a' appears somewhere in the string (proves find() semantics)
+    assertThat(schema.validate(Json.parse("\"a\"")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("\"ba\"")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("\"ab\"")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("\"baa\"")).valid()).isTrue();
+    assertThat(schema.validate(Json.parse("\"xyzaxyz\"")).valid()).isTrue();
+
+    // ❌ Should FAIL — no 'a' present
+    assertThat(schema.validate(Json.parse("\"bbb\"")).valid()).isFalse();
+    assertThat(schema.validate(Json.parse("\"\"")).valid()).isFalse();
+  }
 
     @Test
     void testPattern_unanchored_contains() {
