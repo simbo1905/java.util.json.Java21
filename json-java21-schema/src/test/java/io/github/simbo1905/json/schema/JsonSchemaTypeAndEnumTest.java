@@ -6,6 +6,44 @@ import static org.assertj.core.api.Assertions.*;
 
 class JsonSchemaTypeAndEnumTest extends JsonSchemaLoggingConfig {
 
+  @Test
+  void testEnum_strict_noTypeCoercion_edgeCases() {
+    // Heterogeneous enum must compare with strict JSON equality (no string/number/boolean coercion)
+    final var schemaJson = """
+        {
+          "enum": ["1", 1, true, false, 0, null, {"a":1}, [1]]
+        }
+        """;
+
+    final var schema = JsonSchema.compile(Json.parse(schemaJson));
+
+    // ✅ Exact matches (should PASS)
+    assertThat(schema.validate(Json.parse("\"1\"")).valid()).isTrue();     // string "1"
+    assertThat(schema.validate(Json.parse("1")).valid()).isTrue();         // number 1
+    assertThat(schema.validate(Json.parse("true")).valid()).isTrue();      // boolean true
+    assertThat(schema.validate(Json.parse("false")).valid()).isTrue();     // boolean false
+    assertThat(schema.validate(Json.parse("0")).valid()).isTrue();         // number 0
+    assertThat(schema.validate(Json.parse("null")).valid()).isTrue();      // null
+    assertThat(schema.validate(Json.parse("{\"a\":1}")).valid()).isTrue();  // object
+    assertThat(schema.validate(Json.parse("[1]")).valid()).isTrue();        // array
+
+    // ❌ Look-alikes (should FAIL — ensure no coercion)
+    assertThat(schema.validate(Json.parse("\"true\"")).valid()).isFalse();  // string "true" ≠ true
+    assertThat(schema.validate(Json.parse("\"false\"")).valid()).isFalse(); // string "false" ≠ false
+    assertThat(schema.validate(Json.parse("\"0\"")).valid()).isFalse();     // string "0" ≠ 0 (already covered positive for "1")
+    assertThat(schema.validate(Json.parse("0.0")).valid()).isFalse();       // 0.0 ≠ 0 if enum stores exact numeric identity
+    assertThat(schema.validate(Json.parse("1.0")).valid()).isFalse();       // 1.0 ≠ 1 if equality is strict (no coercion)
+    assertThat(schema.validate(Json.parse("false")).valid()).isTrue();      // sanity: false is in enum (contrast with failures above)
+
+    // ❌ Structural near-misses
+    assertThat(schema.validate(Json.parse("{\"a\":2}")).valid()).isFalse(); // object value differs
+    assertThat(schema.validate(Json.parse("[1,2]")).valid()).isFalse();     // array contents differ
+
+    // Optional: key order should not matter for object equality (document your intended policy).
+    // If your validator treats {"a":1} equal regardless of key order, this should PASS.
+    assertThat(schema.validate(Json.parse("{\"a\":1}")).valid()).isTrue();
+  }
+
     @Test
     void testTypeArray_anyOfSemantics() {
         String schemaJson = """
