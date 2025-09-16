@@ -516,10 +516,14 @@ public sealed interface JsonSchema
     }
 
     /// Reference schema for JSON Schema $ref
-    record RefSchema(String ref) implements JsonSchema {
+    record RefSchema(String ref, java.util.function.Supplier<JsonSchema> targetSupplier) implements JsonSchema {
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            throw new UnsupportedOperationException("$ref resolution not implemented");
+            JsonSchema target = targetSupplier.get();
+            if (target == null) {
+                return ValidationResult.failure(List.of(new ValidationError(path, "Unresolved $ref: " + ref)));
+            }
+            return target.validateAt(path, json, stack);
         }
     }
 
@@ -757,11 +761,123 @@ public sealed interface JsonSchema
         private static final Map<String, JsonSchema> definitions = new HashMap<>();
         private static JsonSchema currentRootSchema;
         private static Options currentOptions;
+        private static final Map<String, JsonSchema> compiledByPointer = new HashMap<>();
+        private static final Map<String, JsonValue> rawByPointer = new HashMap<>();
+        private static final Deque<String> resolutionStack = new ArrayDeque<>();
 
         private static void trace(String stage, JsonValue fragment) {
             if (LOG.isLoggable(Level.FINER)) {
                 LOG.finer(() ->
                     String.format("[%s] %s", stage, fragment.toString()));
+            }
+        }
+
+        /// JSON Pointer utility for RFC-6901 fragment navigation
+        static Optional<JsonValue> navigatePointer(JsonValue root, String pointer) {
+            if (pointer.isEmpty() || pointer.equals("#")) {
+                return Optional.of(root);
+            }
+            
+            // Remove leading # if present
+            String path = pointer.startsWith("#") ? pointer.substring(1) : pointer;
+            if (path.isEmpty()) {
+                return Optional.of(root);
+            }
+            
+            // Must start with /
+            if (!path.startsWith("/")) {
+                return Optional.empty();
+            }
+            
+            JsonValue current = root;
+            String[] tokens = path.substring(1).split("/");
+            
+            for (String token : tokens) {
+                // Unescape ~1 -> / and ~0 -> ~
+                String unescaped = token.replace("~1", "/").replace("~0", "~");
+                
+                if (current instanceof JsonObject obj) {
+                    current = obj.members().get(unescaped);
+                    if (current == null) {
+                        return Optional.empty();
+                    }
+                } else if (current instanceof JsonArray arr) {
+                    try {
+                        int index = Integer.parseInt(unescaped);
+                        if (index < 0 || index >= arr.values().size()) {
+                            return Optional.empty();
+                        }
+                        current = arr.values().get(index);
+                    } catch (NumberFormatException e) {
+                        return Optional.empty();
+                    }
+                } else {
+                    return Optional.empty();
+                }
+            }
+            
+            return Optional.of(current);
+        }
+
+        /// Resolve $ref with cycle detection and memoization
+        static JsonSchema resolveRef(String ref) {
+            // Check for cycles
+            if (resolutionStack.contains(ref)) {
+                throw new IllegalArgumentException("Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + ref);
+            }
+            
+            // Check memoized results
+            JsonSchema cached = compiledByPointer.get(ref);
+            if (cached != null) {
+                return cached;
+            }
+            
+            if (ref.equals("#")) {
+                // Root reference - return RootRef instead of RefSchema to avoid cycles
+                return new RootRef(() -> currentRootSchema);
+            }
+            
+            // Resolve via JSON Pointer
+            Optional<JsonValue> target = navigatePointer(rawByPointer.get(""), ref);
+            if (target.isEmpty()) {
+                throw new IllegalArgumentException("Unresolved $ref: " + ref);
+            }
+            
+            // Check if it's a boolean schema
+            JsonValue targetValue = target.get();
+            if (targetValue instanceof JsonBoolean bool) {
+                JsonSchema schema = bool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
+                compiledByPointer.put(ref, schema);
+                return new RefSchema(ref, () -> schema);
+            }
+            
+            // Push to resolution stack for cycle detection
+            resolutionStack.push(ref);
+            try {
+                JsonSchema compiled = compileInternal(targetValue);
+                compiledByPointer.put(ref, compiled);
+                final JsonSchema finalCompiled = compiled;
+                return new RefSchema(ref, () -> finalCompiled);
+            } finally {
+                resolutionStack.pop();
+            }
+        }
+
+        /// Index schema fragments by JSON Pointer for efficient lookup
+        static void indexSchemaByPointer(String pointer, JsonValue value) {
+            rawByPointer.put(pointer, value);
+            
+            if (value instanceof JsonObject obj) {
+                for (var entry : obj.members().entrySet()) {
+                    String key = entry.getKey();
+                    // Escape special characters in key
+                    String escapedKey = key.replace("~", "~0").replace("/", "~1");
+                    indexSchemaByPointer(pointer + "/" + escapedKey, entry.getValue());
+                }
+            } else if (value instanceof JsonArray arr) {
+                for (int i = 0; i < arr.values().size(); i++) {
+                    indexSchemaByPointer(pointer + "/" + i, arr.values().get(i));
+                }
             }
         }
 
@@ -771,6 +887,9 @@ public sealed interface JsonSchema
 
         static JsonSchema compile(JsonValue schemaJson, Options options) {
             definitions.clear(); // Clear any previous definitions
+            compiledByPointer.clear();
+            rawByPointer.clear();
+            resolutionStack.clear();
             currentRootSchema = null;
             currentOptions = options;
             
@@ -794,6 +913,9 @@ public sealed interface JsonSchema
             // Update options with final assertion setting
             currentOptions = new Options(assertFormats);
             
+            // Index the raw schema by JSON Pointer
+            indexSchemaByPointer("", schemaJson);
+            
             trace("compile-start", schemaJson);
             JsonSchema schema = compileInternal(schemaJson);
             currentRootSchema = schema; // Store the root schema for self-references
@@ -814,7 +936,10 @@ public sealed interface JsonSchema
             if (defsValue instanceof JsonObject defsObj) {
                 trace("compile-defs", defsValue);
                 for (var entry : defsObj.members().entrySet()) {
-                    definitions.put("#/$defs/" + entry.getKey(), compileInternal(entry.getValue()));
+                    String pointer = "#/$defs/" + entry.getKey();
+                    JsonSchema compiled = compileInternal(entry.getValue());
+                    definitions.put(pointer, compiled);
+                    compiledByPointer.put(pointer, compiled);
                 }
             }
 
@@ -823,15 +948,7 @@ public sealed interface JsonSchema
             if (refValue instanceof JsonString refStr) {
                 String ref = refStr.value();
                 trace("compile-ref", refValue);
-                if (ref.equals("#")) {
-                    // Lazily resolve to whatever the root schema becomes after compilation
-                    return new RootRef(() -> currentRootSchema);
-                }
-                JsonSchema resolved = definitions.get(ref);
-                if (resolved == null) {
-                    throw new IllegalArgumentException("Unresolved $ref: " + ref);
-                }
-                return resolved;
+                return resolveRef(ref);
             }
 
             // Handle composition keywords
@@ -1270,6 +1387,10 @@ public sealed interface JsonSchema
 
     /// Root reference schema that refers back to the root schema
     record RootRef(java.util.function.Supplier<JsonSchema> rootSupplier) implements JsonSchema {
+        // Track recursion depth per thread to avoid infinite loops
+        private static final ThreadLocal<Integer> recursionDepth = ThreadLocal.withInitial(() -> 0);
+        private static final int MAX_RECURSION_DEPTH = 50;
+        
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
             JsonSchema root = rootSupplier.get();
@@ -1277,7 +1398,19 @@ public sealed interface JsonSchema
                 // No root yet (should not happen during validation), accept for now
                 return ValidationResult.success();
             }
-            return root.validate(json); // Direct validation against root schema
+            
+            // Check recursion depth to prevent infinite loops
+            int depth = recursionDepth.get();
+            if (depth >= MAX_RECURSION_DEPTH) {
+                return ValidationResult.success(); // Break the cycle
+            }
+            
+            try {
+                recursionDepth.set(depth + 1);
+                return root.validate(json);
+            } finally {
+                recursionDepth.set(depth);
+            }
         }
     }
 
