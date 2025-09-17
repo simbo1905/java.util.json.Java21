@@ -29,8 +29,41 @@ mvnd verify -pl json-java21-schema
 ### Logging Configuration
 The project uses `java.util.logging` with levels:
 - `FINE` - Schema compilation and validation flow
-- `FINER` - Conditional validation branches
+- `FINER` - Conditional validation branches  
 - `FINEST` - Stack frame operations
+
+#### Two-Level Logging Strategy
+Use **FINE** for general flow visibility and **FINER** for detailed debugging:
+```bash
+# General flow - good for understanding compilation/validation patterns
+mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest#testMethod -Djava.util.logging.ConsoleHandler.level=FINE
+
+# Detailed debugging - use when tracing specific execution paths
+mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest#testMethod -Djava.util.logging.ConsoleHandler.level=FINER
+```
+
+#### Systematic Debugging Approach
+When code isn't being reached, use systematic logging rather than guessing:
+1. Add FINE or logging at entry points
+2. Add FINER logging at key decision points in the call stack
+3. Use binary search approach - add logging halfway between working and non-working code
+4. Text-based minds excel at processing log output systematically
+
+You also need to ensure that the test class extends `JsonSchemaLoggingConfig` to honour the system property:
+```java
+/// Test local reference resolution for JSON Schema 2020-12
+class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
+  ...
+}
+```
+
+IMPORTANT: 
+
+- Always adjust the logging levels to be balanced  before committing code. 
+- NEVER comment out code. 
+- NEVER use System.out.println or e.printStackTrace(). 
+- ALWAYS use lamba based JUL logging.
+- NEVER filter logging output with head, tail, grep, etc. You shoould set the logging to the correct level of INFO, FINE, FINER, FINEST and run just the one test or method with the correct logging level to control token output.
 
 ### Test Organization
 

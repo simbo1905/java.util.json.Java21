@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /// Test local reference resolution for JSON Schema 2020-12
-class JsonSchemaRefLocalTest {
+class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
 
     @Test
     void testRootReference() {
@@ -65,7 +65,8 @@ class JsonSchemaRefLocalTest {
     @Test
     void testNestedPointer() {
         /// Schema with nested pointer #/properties/...
-        var schema = JsonSchema.compile(Json.parse("""
+        System.out.println("testNestedPointer: Starting test");
+        var schemaJson = Json.parse("""
             {
               "type":"object",
               "properties":{
@@ -78,7 +79,10 @@ class JsonSchemaRefLocalTest {
                 "refUser": { "$ref":"#/properties/user" }
               }
             }
-            """));
+            """);
+        System.out.println("testNestedPointer: Schema JSON: " + schemaJson);
+        var schema = JsonSchema.compile(schemaJson);
+        System.out.println("testNestedPointer: Compiled schema: " + schema);
         
         // { "refUser": { "id":"aa" } } valid
         var result1 = schema.validate(Json.parse("{ \"refUser\": { \"id\":\"aa\" } }"));
