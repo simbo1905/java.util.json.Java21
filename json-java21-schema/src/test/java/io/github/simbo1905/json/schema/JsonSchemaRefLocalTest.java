@@ -65,7 +65,10 @@ class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
     @Test
     void testNestedPointer() {
         /// Schema with nested pointer #/properties/...
-        System.out.println("testNestedPointer: Starting test");
+      JsonSchema.LOG.fine("testNestedPointer: Starting detailed logging");
+      JsonSchema.LOG.finer("testNestedPointer: About to parse schema JSON");
+        JsonSchema.LOG.info("Starting test: testNestedPointer XXX");
+
         var schemaJson = Json.parse("""
             {
               "type":"object",
@@ -80,16 +83,23 @@ class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
               }
             }
             """);
-        System.out.println("testNestedPointer: Schema JSON: " + schemaJson);
+        JsonSchema.LOG.finer("testNestedPointer: Schema JSON parsed successfully");
+        JsonSchema.LOG.fine("testNestedPointer: Schema JSON parsed: " + schemaJson);
+        JsonSchema.LOG.finer("testNestedPointer: About to compile schema");
         var schema = JsonSchema.compile(schemaJson);
-        System.out.println("testNestedPointer: Compiled schema: " + schema);
+        JsonSchema.LOG.finer("testNestedPointer: Schema compiled successfully");
+        JsonSchema.LOG.fine("testNestedPointer: Compiled schema: " + schema);
         
         // { "refUser": { "id":"aa" } } valid
+        JsonSchema.LOG.fine("testNestedPointer: Validating first case - should pass");
         var result1 = schema.validate(Json.parse("{ \"refUser\": { \"id\":\"aa\" } }"));
+        JsonSchema.LOG.finest("testNestedPointer: First validation result: " + result1);
         assertThat(result1.valid()).isTrue();
         
         // { "refUser": { "id":"a" } } invalid (minLength)
+        JsonSchema.LOG.fine("testNestedPointer: Validating second case - should fail");
         var result2 = schema.validate(Json.parse("{ \"refUser\": { \"id\":\"a\" } }"));
+        JsonSchema.LOG.finest("testNestedPointer: Second validation result: " + result2);
         assertThat(result2.valid()).isFalse();
         assertThat(result2.errors()).hasSize(1);
         assertThat(result2.errors().get(0).message()).contains("String too short");

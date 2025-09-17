@@ -64,6 +64,8 @@ IMPORTANT:
 - NEVER use System.out.println or e.printStackTrace(). 
 - ALWAYS use lamba based JUL logging.
 - NEVER filter logging output with head, tail, grep, etc. You shoould set the logging to the correct level of INFO, FINE, FINER, FINEST and run just the one test or method with the correct logging level to control token output.
+- ALWAYS add a INFO level logging line at the top of each `@Test` method so that we can log at INFO level and see which tests might hang forever. 
+- You SHOULD run tests as `timeout 30 mvnd test ...` to ensure that no test can hang forever and the timeout should not be too long.
 
 ### Test Organization
 

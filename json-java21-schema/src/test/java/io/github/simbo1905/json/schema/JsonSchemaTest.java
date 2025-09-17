@@ -8,7 +8,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
 
     @Test
     void testStringTypeValidation() {
-        String schemaJson = """
+        JsonSchema.LOG.info("Starting test: testStringTypeValidation");        String schemaJson = """
             {
                 "type": "string"
             }
@@ -448,6 +448,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
                 "required": ["id", "name"]
             }
             """;
+        JsonSchema.LOG.info("Starting test: testComplexRecursiveSchema");
 
         JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson));
 
@@ -563,6 +564,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
           {"value":1,"next":{"value":2,"next":{"value":3}}}
         """)).valid()).isTrue();            // ✓ valid
 
+        JsonSchema.LOG.info("Starting test: linkedListRecursion");
         assertThat(s.validate(Json.parse("""
           {"value":1,"next":{"next":{"value":3}}}
         """)).valid()).isFalse();           // ✗ missing value
@@ -570,7 +572,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
 
     @Test
     void binaryTreeRecursion() {
-        String schema = """
+        JsonSchema.LOG.info("Starting test: binaryTreeRecursion");        String schema = """
           {
             "type":"object",
             "properties":{
