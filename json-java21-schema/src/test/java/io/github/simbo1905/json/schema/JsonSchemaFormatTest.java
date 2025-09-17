@@ -3,6 +3,7 @@ package io.github.simbo1905.json.schema;
 import jdk.sandbox.java.util.json.Json;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 
 import static org.assertj.core.api.Assertions.*;
@@ -11,8 +12,8 @@ class JsonSchemaFormatTest extends JsonSchemaLoggingConfig {
   @Test
   void testCommonFormats_whenAssertionOn_invalidsFail_validsPass() {
     // Toggle "assert formats" ON (wire however your implementation exposes it).
-    // If you use a system property, ensure it’s read at compile() time.
-    System.setProperty("json.schema.format.assert", "true");
+    // If you use a system property, ensure it's read at compile() time.
+    System.setProperty("jsonschema.format.assertion", "true");
 
     // Invalids must FAIL when assertion is on
     final var uuidSchema = JsonSchema.compile(Json.parse("""
@@ -39,7 +40,7 @@ class JsonSchemaFormatTest extends JsonSchemaLoggingConfig {
   @Test
   void testFormats_whenAssertionOff_areAnnotationsOnly() {
     // Toggle "assert formats" OFF (annotation-only)
-    System.setProperty("json.schema.format.assert", "false");
+    System.setProperty("jsonschema.format.assertion", "false");
 
     final var uuidSchema = JsonSchema.compile(Json.parse("""
         { "type":"string", "format":"uuid" }
@@ -336,6 +337,16 @@ class JsonSchemaFormatTest extends JsonSchemaLoggingConfig {
         }
     }
 
+    @AfterEach
+    void resetSystemProperty() {
+        // Reset to default state after each test that might change it
+        if (originalSystemProperty != null) {
+            System.setProperty("jsonschema.format.assertion", originalSystemProperty);
+        } else {
+            System.clearProperty("jsonschema.format.assertion");
+        }
+    }
+    
     @Test
     void testFormatAssertionSystemProperty() {
         /// Test format assertion via system property
