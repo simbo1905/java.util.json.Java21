@@ -84,8 +84,19 @@ public sealed interface JsonSchema
         Deque<ValidationFrame> stack = new ArrayDeque<>();
         stack.push(new ValidationFrame("", this, json));
 
+        int frameCount = 0;
+        final int performanceThreshold = 1000; // Reasonable threshold for stack processing
+        
         while (!stack.isEmpty()) {
             ValidationFrame frame = stack.pop();
+            frameCount++;
+            
+            // Performance warning for deep validation trees
+            if (frameCount == performanceThreshold) {
+                LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + frameCount + 
+                    " items exceeds recommended threshold of " + performanceThreshold);
+            }
+            
             LOG.finest(() -> "POP " + frame.path() +
                           "   schema=" + frame.schema().getClass().getSimpleName());
             ValidationResult result = frame.schema.validateAt(frame.path, frame.json, stack);
@@ -448,9 +459,12 @@ public sealed interface JsonSchema
         static JsonSchema compile(JsonValue schemaJson) {
             definitions.clear(); // Clear any previous definitions
             currentRootSchema = null;
+            LOG.config(() -> "Compiling JSON Schema with " + 
+                (schemaJson instanceof JsonObject obj ? obj.members().size() + " properties" : "boolean schema"));
             trace("compile-start", schemaJson);
             JsonSchema schema = compileInternal(schemaJson);
             currentRootSchema = schema; // Store the root schema for self-references
+            LOG.config(() -> "JSON Schema compilation completed - type: " + schema.getClass().getSimpleName());
             return schema;
         }
 

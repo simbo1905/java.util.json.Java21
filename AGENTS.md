@@ -64,6 +64,77 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ./mvn-test-no-boilerplate.sh -Dtest=JsonParserTests -Djava.util.logging.ConsoleHandler.level=FINER
 ```
 
+## Logging Strategy
+
+This project uses `java.util.logging` (JUL) following Oracle's official guidelines with practical compatibility enhancements for cloud monitoring and SLF4J/Log4j bridge users.
+
+### Key Principles
+
+#### 1. Lambda-Based Logging Only
+**ALL logging must use lambda expressions** for zero runtime overhead when log levels are disabled:
+```java
+// ✅ Correct - JVM optimizes away unused lambda branches
+LOGGER.fine(() -> "Debug info: " + expensiveOperation());
+
+// ❌ Wrong - string concatenation always executes
+LOGGER.fine("Debug info: " + expensiveOperation());
+```
+
+#### 2. ERROR Prefix for Cloud Monitoring
+SEVERE level messages that warrant cloud log monitoring include `"ERROR:"` prefix for SLF4J/Log4j bridge compatibility:
+```java
+// Security vulnerabilities, parse failures preventing normal execution
+LOGGER.severe(() -> "ERROR: StackOverflowError security vulnerability on file: " + filename);
+LOGGER.severe(() -> "ERROR: Failed to compile JSON schema: " + schemaUri);
+```
+
+#### 3. Performance Warning Prefix
+Performance threshold violations use `"PERFORMANCE WARNING:"` prefix at FINE level:
+```java
+LOGGER.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + 
+    " items exceeds recommended threshold of " + threshold);
+```
+
+#### 4. Oracle JUL Level Hierarchy
+- **SEVERE (1000)**: Serious failures preventing normal execution (+ ERROR prefix when appropriate)
+- **WARNING (900)**: Potential problems for end users/system managers  
+- **INFO (800)**: Significant messages for end users/administrators (use sparingly)
+- **CONFIG (700)**: Static configuration information for debugging setup issues
+- **FINE (500)**: Developer debugging info, minor recoverable failures, performance warnings
+- **FINER (400)**: Detailed tracing, method entry/exit, conditional validation branches
+- **FINEST (300)**: Maximum detail debugging, stack operations, branch processing
+
+#### 5. Hierarchical Logger Naming
+All loggers use fully-qualified class names:
+```java
+private static final Logger LOGGER = Logger.getLogger(MyClass.class.getName());
+```
+
+### Example Usage
+```java
+// SEVERE with ERROR prefix - prevents normal execution
+LOGGER.severe(() -> "ERROR: Failed to parse JSON document: " + error);
+
+// WARNING - recoverable issue
+LOGGER.warning(() -> "Deprecated encoding detected, using compatibility mode");
+
+// INFO - significant but not noisy
+LOGGER.info(() -> "JSON parser initialized with " + features.size() + " features");
+
+// CONFIG - configuration details
+LOGGER.config(() -> "Validation features enabled: " + Arrays.toString(enabledFeatures));
+
+// FINE - developer debugging and performance warnings  
+LOGGER.fine(() -> "PERFORMANCE WARNING: Deep recursion detected at depth " + depth);
+LOGGER.fine(() -> "Cache miss for schema: " + schemaId);
+
+// FINER - detailed tracing
+LOGGER.finer(() -> "Entering validation method for schema: " + schemaType);
+
+// FINEST - maximum detail (JVM optimizes away when disabled)
+LOGGER.finest(() -> "Stack frame: " + frameDetails);
+```
+
 ## Releasing to Maven Central
 
 Prerequisites

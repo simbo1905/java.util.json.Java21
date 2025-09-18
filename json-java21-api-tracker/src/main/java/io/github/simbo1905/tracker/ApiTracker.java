@@ -94,7 +94,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// Discovers all classes in the local JSON API packages
     /// @return sorted set of classes from jdk.sandbox.java.util.json and jdk.sandbox.internal.util.json
     static Set<Class<?>> discoverLocalJsonClasses() {
-        LOGGER.info("Starting class discovery for JSON API packages");
+        LOGGER.info(() -> "Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>(Comparator.comparing(Class::getName));
 
         // Packages to scan - only public API, not internal implementation
@@ -122,11 +122,11 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                     }
                 }
             } catch (Exception e) {
-                LOGGER.log(Level.WARNING, "Error scanning package: " + packageName, e);
+                LOGGER.warning(() -> "ERROR: Error scanning package: " + packageName + " - " + e.getMessage());
             }
         }
 
-        LOGGER.info("Discovered " + classes.size() + " classes in JSON API packages: " +
+        LOGGER.info(() -> "Discovered " + classes.size() + " classes in JSON API packages: " +
             classes.stream().map(Class::getName).sorted().collect(Collectors.joining(", ")));
         return Collections.unmodifiableSet(classes);
     }
@@ -151,7 +151,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 try {
                     final var clazz = Class.forName(className);
                     classes.add(clazz);
-                    LOGGER.info("Found class: " + className);
+                    LOGGER.info(() -> "Found class: " + className);
                 } catch (ClassNotFoundException | NoClassDefFoundError e) {
                     LOGGER.fine(() -> "Could not load class: " + className);
                 }
@@ -189,7 +189,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                         try {
                             final var clazz = Class.forName(className);
                             classes.add(clazz);
-                            LOGGER.info("Found class in JAR: " + className);
+                            LOGGER.info(() -> "Found class in JAR: " + className);
                         } catch (ClassNotFoundException | NoClassDefFoundError e) {
                             LOGGER.fine(() -> "Could not load class from JAR: " + className);
                         }
@@ -197,7 +197,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 }
             }
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error scanning JAR: " + jarUrl, e);
+            LOGGER.warning(() -> "ERROR: Error scanning JAR: " + jarUrl + " - " + e.getMessage());
         }
     }
 
@@ -206,7 +206,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// @return map of className to source code (or error message if fetch failed)
     static Map<String, String> fetchUpstreamSources(Set<Class<?>> localClasses) {
         Objects.requireNonNull(localClasses, "localClasses must not be null");
-        LOGGER.info("Fetching upstream sources for " + localClasses.size() + " classes");
+        LOGGER.info(() -> "Fetching upstream sources for " + localClasses.size() + " classes");
 
         final var results = new LinkedHashMap<String, String>();
         final var httpClient = HttpClient.newBuilder()
@@ -227,7 +227,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             final var upstreamPath = mapToUpstreamPath(className);
             final var url = GITHUB_BASE_URL + upstreamPath;
 
-            LOGGER.info("Fetching upstream source: " + url);
+            LOGGER.info(() -> "Fetching upstream source: " + url);
 
             try {
                 final var request = HttpRequest.newBuilder()
@@ -242,20 +242,20 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                     final var body = response.body();
                     FETCH_CACHE.put(className, body);
                     results.put(className, body);
-                    LOGGER.info("Successfully fetched " + body.length() + " chars for: " + className);
+                    LOGGER.info(() -> "Successfully fetched " + body.length() + " chars for: " + className);
                 } else if (response.statusCode() == 404) {
                     final var error = "NOT_FOUND: Upstream file not found (possibly deleted or renamed)";
                     results.put(className, error);
-                    LOGGER.info("404 Not Found for upstream: " + className + " at " + url);
+                    LOGGER.info(() -> "404 Not Found for upstream: " + className + " at " + url);
                 } else {
                     final var error = "HTTP_ERROR: Status " + response.statusCode();
                     results.put(className, error);
-                    LOGGER.info("HTTP error " + response.statusCode() + " for " + className + " at " + url);
+                    LOGGER.info(() -> "HTTP error " + response.statusCode() + " for " + className + " at " + url);
                 }
             } catch (Exception e) {
                 final var error = "FETCH_ERROR: " + e.getMessage();
                 results.put(className, error);
-                LOGGER.info("Fetch error for " + className + " at " + url + ": " + e.getMessage());
+                LOGGER.info(() -> "Fetch error for " + className + " at " + url + ": " + e.getMessage());
             }
         }
 
@@ -306,7 +306,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             return JsonObject.of(errorMap);
         }
 
-        LOGGER.info("Extracting upstream API for: " + className);
+        LOGGER.info(() -> "Extracting upstream API for: " + className);
 
         final var compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
@@ -367,7 +367,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             ));
 
         } catch (Exception e) {
-            LOGGER.log(Level.WARNING, "Error parsing upstream source for " + className, e);
+            LOGGER.warning(() -> "ERROR: Error parsing upstream source for " + className + " - " + e.getMessage());
             return JsonObject.of(Map.of(
                 "error", JsonString.of("Parse error: " + e.getMessage()),
                 "className", JsonString.of(className)
@@ -376,7 +376,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             try {
                 fileManager.close();
             } catch (IOException e) {
-                LOGGER.log(Level.FINE, "Error closing file manager", e);
+                LOGGER.fine(() -> "Error closing file manager: " + e.getMessage());
             }
         }
     }
@@ -877,7 +877,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// Runs source-to-source comparison for fair parameter name comparison
     /// @return complete comparison report as JSON
     static JsonObject runFullComparison() {
-        LOGGER.info("Starting full API comparison");
+        LOGGER.info(() -> "Starting full API comparison");
         final var startTime = Instant.now();
 
         final var reportMap = new LinkedHashMap<String, JsonValue>();
@@ -887,7 +887,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
         // Discover local classes
         final var localClasses = discoverLocalJsonClasses();
-        LOGGER.info("Found " + localClasses.size() + " local classes");
+        LOGGER.info(() -> "Found " + localClasses.size() + " local classes");
 
         // Extract and compare APIs
         final var differences = new ArrayList<JsonValue>();
@@ -927,7 +927,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var duration = Duration.between(startTime, Instant.now());
         reportMap.put("durationMs", JsonNumber.of(duration.toMillis()));
 
-        LOGGER.info("Comparison completed in " + duration.toMillis() + "ms");
+        LOGGER.info(() -> "Comparison completed in " + duration.toMillis() + "ms");
 
         return JsonObject.of(reportMap);
     }

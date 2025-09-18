@@ -106,7 +106,7 @@ public class JsonTestSuiteSummary {
                 content = Files.readString(file, StandardCharsets.UTF_8);
                 charContent = content.toCharArray();
             } catch (MalformedInputException e) {
-                LOGGER.warning("UTF-8 failed for " + filename + ", using robust encoding detection");
+                LOGGER.warning(() -> "UTF-8 failed for " + filename + ", using robust encoding detection");
                 try {
                     byte[] rawBytes = Files.readAllBytes(file);
                     charContent = RobustCharDecoder.decodeToChars(rawBytes, filename);
@@ -123,7 +123,7 @@ public class JsonTestSuiteSummary {
             } catch (JsonParseException e) {
                 parseSucceeded = false;
             } catch (StackOverflowError e) {
-                LOGGER.warning("StackOverflowError on file: " + filename);
+                LOGGER.severe(() -> "ERROR: StackOverflowError security vulnerability on file: " + filename);
                 parseSucceeded = false; // Treat as parse failure
             }
             
