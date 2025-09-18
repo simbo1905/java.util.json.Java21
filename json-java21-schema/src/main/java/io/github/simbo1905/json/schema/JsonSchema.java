@@ -124,10 +124,16 @@ public sealed interface JsonSchema
         Objects.requireNonNull(json, "json");
         List<ValidationError> errors = new ArrayList<>();
         Deque<ValidationFrame> stack = new ArrayDeque<>();
+        Set<ValidationKey> visited = new HashSet<>();
         stack.push(new ValidationFrame("", this, json));
 
         while (!stack.isEmpty()) {
             ValidationFrame frame = stack.pop();
+            ValidationKey key = new ValidationKey(frame.schema(), frame.json(), frame.path());
+            if (!visited.add(key)) {
+                LOG.finest(() -> "SKIP " + frame.path() + "   schema=" + frame.schema().getClass().getSimpleName());
+                continue;
+            }
             LOG.finest(() -> "POP " + frame.path() +
                           "   schema=" + frame.schema().getClass().getSimpleName());
             ValidationResult result = frame.schema.validateAt(frame.path, frame.json, stack);
@@ -719,6 +725,40 @@ public sealed interface JsonSchema
     /// Validation frame for stack-based processing
     record ValidationFrame(String path, JsonSchema schema, JsonValue json) {}
 
+    /// Internal key used to detect and break validation cycles
+    final class ValidationKey {
+        private final JsonSchema schema;
+        private final JsonValue json;
+        private final String path;
+
+        ValidationKey(JsonSchema schema, JsonValue json, String path) {
+            this.schema = schema;
+            this.json = json;
+            this.path = path;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            if (this == obj) {
+                return true;
+            }
+            if (!(obj instanceof ValidationKey other)) {
+                return false;
+            }
+            return this.schema == other.schema &&
+                   this.json == other.json &&
+                   Objects.equals(this.path, other.path);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = System.identityHashCode(schema);
+            result = 31 * result + System.identityHashCode(json);
+            result = 31 * result + (path != null ? path.hashCode() : 0);
+            return result;
+        }
+    }
+
     /// Canonicalization helper for structural equality in uniqueItems
     private static String canonicalize(JsonValue v) {
         if (v instanceof JsonObject o) {
@@ -1155,24 +1195,36 @@ public sealed interface JsonSchema
                             throw new IllegalArgumentException("Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer);
                         }
                         
-                        // Push to resolution stack for cycle detection
-                        resolutionStack.push(pointer);
-                        try {
-                            // Try to get from local pointer index first (for already compiled definitions)
-                            JsonSchema cached = localPointerIndex.get(pointer);
-                            if (cached != null) {
-                                return cached;
+                        // Try to get from local pointer index first (for already compiled definitions)
+                        JsonSchema cached = localPointerIndex.get(pointer);
+                        if (cached != null) {
+                            return cached;
+                        }
+                        
+                        // Otherwise, resolve via JSON Pointer and compile
+                        Optional<JsonValue> target = navigatePointer(rawByPointer.get(""), pointer);
+                        if (target.isPresent()) {
+                            // Check if the target itself contains a $ref that would create a cycle
+                            JsonValue targetValue = target.get();
+                            if (targetValue instanceof JsonObject targetObj) {
+                                JsonValue targetRef = targetObj.members().get("$ref");
+                                if (targetRef instanceof JsonString targetRefStr) {
+                                    String targetRefPointer = targetRefStr.value();
+                                    if (resolutionStack.contains(targetRefPointer)) {
+                                        throw new IllegalArgumentException("Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer + " -> " + targetRefPointer);
+                                    }
+                                }
                             }
                             
-                            // Otherwise, resolve via JSON Pointer and compile
-                            Optional<JsonValue> target = navigatePointer(rawByPointer.get(""), pointer);
-                            if (target.isPresent()) {
-                                JsonSchema compiled = compileInternalWithContext(target.get(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+                            // Push to resolution stack for cycle detection before compiling
+                            resolutionStack.push(pointer);
+                            try {
+                                JsonSchema compiled = compileInternalWithContext(targetValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
                                 localPointerIndex.put(pointer, compiled);
                                 return compiled;
+                            } finally {
+                                resolutionStack.pop();
                             }
-                        } finally {
-                            resolutionStack.pop();
                         }
                     }
                     
