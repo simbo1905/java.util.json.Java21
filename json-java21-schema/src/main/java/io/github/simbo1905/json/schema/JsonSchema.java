@@ -62,6 +62,7 @@ public sealed interface JsonSchema
 
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            LOG.severe(() -> "ERROR: Nothing enum validateAt called - this should never happen");
             throw new UnsupportedOperationException("Nothing enum should not be used for validation");
         }
     }
@@ -146,6 +147,7 @@ public sealed interface JsonSchema
 
         static RemoteFetcher disallowed() {
             return (uri, policy) -> {
+                LOG.severe(() -> "ERROR: Remote fetching disabled but requested for URI: " + uri);
                 throw new RemoteResolutionException(
                     Objects.requireNonNull(uri, "uri"),
                     RemoteResolutionException.Reason.POLICY_DENIED,
@@ -176,6 +178,7 @@ public sealed interface JsonSchema
             return new RefRegistry() {
                 @Override
                 public boolean markInFlight(RefKey key) {
+                    LOG.severe(() -> "ERROR: Remote references disabled but markInFlight called for: " + key);
                     throw new RemoteResolutionException(key.documentUri(), RemoteResolutionException.Reason.POLICY_DENIED, "Remote references are disabled");
                 }
 
@@ -190,6 +193,7 @@ public sealed interface JsonSchema
 
                 @Override
                 public JsonSchema computeIfAbsent(RefKey key, java.util.function.Supplier<JsonSchema> loader) {
+                    LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
                     throw new RemoteResolutionException(key.documentUri(), RemoteResolutionException.Reason.POLICY_DENIED, "Remote references are disabled");
                 }
             };
@@ -340,7 +344,10 @@ public sealed interface JsonSchema
     /// @throws IllegalArgumentException if schema is invalid
     static JsonSchema compile(JsonValue schemaJson) {
         Objects.requireNonNull(schemaJson, "schemaJson");
-        return compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
+        LOG.fine(() -> "compile: Starting schema compilation with default options, schema type: " + schemaJson.getClass().getSimpleName());
+        JsonSchema result = compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
+        LOG.fine(() -> "compile: Completed schema compilation, result type: " + result.getClass().getSimpleName());
+        return result;
     }
 
     /// Factory method to create schema from JSON Schema document with options
@@ -352,7 +359,10 @@ public sealed interface JsonSchema
     static JsonSchema compile(JsonValue schemaJson, Options options) {
         Objects.requireNonNull(schemaJson, "schemaJson");
         Objects.requireNonNull(options, "options");
-        return compile(schemaJson, options, CompileOptions.DEFAULT);
+        LOG.fine(() -> "compile: Starting schema compilation with custom options, schema type: " + schemaJson.getClass().getSimpleName());
+        JsonSchema result = compile(schemaJson, options, CompileOptions.DEFAULT);
+        LOG.fine(() -> "compile: Completed schema compilation with custom options, result type: " + result.getClass().getSimpleName());
+        return result;
     }
 
     /// Factory method to create schema with explicit compile options
@@ -360,7 +370,11 @@ public sealed interface JsonSchema
         Objects.requireNonNull(schemaJson, "schemaJson");
         Objects.requireNonNull(options, "options");
         Objects.requireNonNull(compileOptions, "compileOptions");
-        return SchemaCompiler.compile(schemaJson, options, compileOptions);
+        LOG.fine(() -> "compile: Starting schema compilation with full options, schema type: " + schemaJson.getClass().getSimpleName() + 
+                        ", options.assertFormats=" + options.assertFormats() + ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
+        JsonSchema result = SchemaCompiler.compile(schemaJson, options, compileOptions);
+        LOG.fine(() -> "compile: Completed schema compilation with full options, result type: " + result.getClass().getSimpleName());
+        return result;
     }
 
     /// Validates JSON document against this schema
@@ -373,8 +387,18 @@ public sealed interface JsonSchema
         Deque<ValidationFrame> stack = new ArrayDeque<>();
         Set<ValidationKey> visited = new HashSet<>();
         stack.push(new ValidationFrame("", this, json));
+        
+        int iterationCount = 0;
+        final int WARNING_THRESHOLD = 1000; // Warn after 1000 iterations
 
         while (!stack.isEmpty()) {
+            iterationCount++;
+            if (iterationCount % WARNING_THRESHOLD == 0) {
+                final int count = iterationCount;
+                LOG.warning(() -> "PERFORMANCE WARNING: Validation stack processing " + count + 
+                                " iterations - possible infinite recursion or deeply nested schema");
+            }
+            
             ValidationFrame frame = stack.pop();
             ValidationKey key = new ValidationKey(frame.schema(), frame.json(), frame.path());
             if (!visited.add(key)) {
@@ -795,6 +819,8 @@ public sealed interface JsonSchema
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
             LOG.finest(() -> "RefSchema.validateAt: " + refToken + " at path: " + path + " with json=" + json);
+            LOG.fine(() -> "RefSchema.validateAt: Using resolver context with roots.size=" + resolverContext.roots().size() + 
+                          " localPointerIndex.size=" + resolverContext.localPointerIndex().size());
             JsonSchema target = resolverContext.resolve(refToken);
             LOG.finest(() -> "RefSchema.validateAt: Resolved target=" + target);
             if (target == null) {
@@ -1113,7 +1139,21 @@ public sealed interface JsonSchema
             JsonValue current = root;
             String[] tokens = path.substring(1).split("/");
             
-            for (String token : tokens) {
+            // Performance warning for deeply nested pointers
+            if (tokens.length > 50) {
+                final int tokenCount = tokens.length;
+                LOG.warning(() -> "PERFORMANCE WARNING: Navigating deeply nested JSON pointer with " + tokenCount + 
+                                " segments - possible performance impact");
+            }
+            
+            for (int i = 0; i < tokens.length; i++) {
+                if (i > 0 && i % 25 == 0) {
+                    final int segment = i;
+                    final int total = tokens.length;
+                    LOG.warning(() -> "PERFORMANCE WARNING: JSON pointer navigation at segment " + segment + " of " + total);
+                }
+                
+                String token = tokens[i];
                 // Unescape ~1 -> / and ~0 -> ~
                 String unescaped = token.replace("~1", "/").replace("~0", "~");
                 final var currentFinal = current;
@@ -1185,64 +1225,6 @@ public sealed interface JsonSchema
             }
         }
 
-        /// Legacy resolveRef method for backward compatibility during refactor
-        static JsonSchema resolveRef(String ref) {
-            RefToken refToken = classifyRef(ref, java.net.URI.create("urn:inmemory:root"));
-            return resolveRefLegacy(refToken);
-        }
-
-        /// Legacy resolveRef for local refs only - maintains existing behavior
-        static JsonSchema resolveRefLegacy(RefToken refToken) {
-            // Handle RemoteRef - should not happen in legacy path but explicit
-            if (refToken instanceof RefToken.RemoteRef remoteRef) {
-                throw new UnsupportedOperationException("Remote $ref not supported in legacy path: " + remoteRef.target());
-            }
-            
-            // Handle LocalRef - existing behavior
-            RefToken.LocalRef localRef = (RefToken.LocalRef) refToken;
-            String ref = localRef.pointerOrAnchor();
-            
-            // Check memoized results
-            JsonSchema cached = compiledByPointer.get(ref);
-            if (cached != null) {
-                LOG.finer(() -> "Found cached ref: " + ref);
-                return cached;
-            }
-            
-            if (ref.equals("#")) {
-                // Root reference - return RootRef instead of RefSchema to avoid cycles
-                LOG.finer(() -> "Root reference detected: " + ref);
-                return new RootRef(() -> currentRootSchema);
-            }
-            
-            // Resolve via JSON Pointer
-            LOG.finer(() -> "Navigating pointer for ref: " + ref);
-            Optional<JsonValue> target = navigatePointer(rawByPointer.get(""), ref);
-            if (target.isEmpty()) {
-                throw new IllegalArgumentException("Unresolved $ref: " + ref);
-            }
-            
-            // Check if it's a boolean schema
-            JsonValue targetValue = target.get();
-            if (targetValue instanceof JsonBoolean bool) {
-                LOG.finer(() -> "Resolved to boolean schema: " + bool.value());
-                JsonSchema schema = bool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
-                compiledByPointer.put(ref, schema);
-                return schema;
-            }
-            
-            // Push to resolution stack for cycle detection
-            resolutionStack.push(ref);
-            try {
-                LOG.finer(() -> "Compiling target for ref: " + ref);
-                JsonSchema compiled = compileInternalLegacy(targetValue);
-                compiledByPointer.put(ref, compiled);
-                return compiled;
-            } finally {
-                resolutionStack.pop();
-            }
-        }
-
         /// Index schema fragments by JSON Pointer for efficient lookup
         static void indexSchemaByPointer(String pointer, JsonValue value) {
             rawByPointer.put(pointer, value);
@@ -1262,27 +1244,39 @@ public sealed interface JsonSchema
         }
 
         static JsonSchema compile(JsonValue schemaJson) {
-            return compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
+            LOG.fine(() -> "SchemaCompiler.compile: Starting with default options, schema type: " + schemaJson.getClass().getSimpleName());
+            JsonSchema result = compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
+            LOG.fine(() -> "SchemaCompiler.compile: Completed compilation, result type: " + result.getClass().getSimpleName());
+            return result;
         }
 
         static JsonSchema compile(JsonValue schemaJson, Options options) {
-            return compile(schemaJson, options, CompileOptions.DEFAULT);
+            LOG.fine(() -> "SchemaCompiler.compile: Starting with custom options, schema type: " + schemaJson.getClass().getSimpleName());
+            JsonSchema result = compile(schemaJson, options, CompileOptions.DEFAULT);
+            LOG.fine(() -> "SchemaCompiler.compile: Completed compilation with custom options, result type: " + result.getClass().getSimpleName());
+            return result;
         }
 
         static JsonSchema compile(JsonValue schemaJson, Options options, CompileOptions compileOptions) {
             Objects.requireNonNull(schemaJson, "schemaJson");
             Objects.requireNonNull(options, "options");
             Objects.requireNonNull(compileOptions, "compileOptions");
+            LOG.fine(() -> "SchemaCompiler.compile: Starting with full options, schema type: " + schemaJson.getClass().getSimpleName() + 
+                            ", options.assertFormats=" + options.assertFormats() + ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
             
             // Build compilation bundle using new architecture
+            LOG.fine(() -> "SchemaCompiler.compile: Building compilation bundle");
             CompilationBundle bundle = compileBundle(schemaJson, options, compileOptions);
             
             // Return entry schema (maintains existing public API)
-            return bundle.entry().schema();
+            JsonSchema result = bundle.entry().schema();
+            LOG.fine(() -> "SchemaCompiler.compile: Completed compilation with full options, result type: " + result.getClass().getSimpleName());
+            return result;
         }
 
         /// New stack-driven compilation method that creates CompilationBundle
         static CompilationBundle compileBundle(JsonValue schemaJson, Options options, CompileOptions compileOptions) {
+            LOG.fine(() -> "compileBundle: Starting with remote compilation enabled");
             LOG.finest(() -> "compileBundle: Starting with schema: " + schemaJson);
             
             // Work stack for documents to compile
@@ -1296,15 +1290,27 @@ public sealed interface JsonSchema
             workStack.push(new WorkItem(entryUri));
             seenUris.add(entryUri);
             
+            LOG.fine(() -> "compileBundle: Initialized work stack with entry URI: " + entryUri + ", workStack size: " + workStack.size());
+            
             // Process work stack
+            int processedCount = 0;
+            final int WORK_WARNING_THRESHOLD = 16; // Warn after processing 16 documents
+            
             while (!workStack.isEmpty()) {
+                processedCount++;
+                if (processedCount % WORK_WARNING_THRESHOLD == 0) {
+                    final int count = processedCount;
+                    LOG.warning(() -> "PERFORMANCE WARNING: compileBundle processing document " + count + 
+                                    " - large document chains may impact performance");
+                }
+                
                 WorkItem workItem = workStack.pop();
                 java.net.URI currentUri = workItem.docUri();
-                LOG.finest(() -> "compileBundle: Processing URI: " + currentUri);
+                LOG.finer(() -> "compileBundle: Processing URI: " + currentUri + " (processed count: " + processedCount + ")");
                 
                 // Skip if already compiled
                 if (compiled.containsKey(currentUri)) {
-                    LOG.finest(() -> "compileBundle: Already compiled, skipping: " + currentUri);
+                    LOG.finer(() -> "compileBundle: Already compiled, skipping: " + currentUri);
                     continue;
                 }
                 
@@ -1313,9 +1319,10 @@ public sealed interface JsonSchema
                 if (currentUri.equals(entryUri)) {
                     // Entry document - use provided schema
                     documentToCompile = schemaJson;
+                    LOG.finer(() -> "compileBundle: Using entry document for URI: " + currentUri);
                 } else {
                     // Remote document - fetch it
-                    LOG.finest(() -> "compileBundle: Fetching remote URI: " + currentUri);
+                    LOG.finer(() -> "compileBundle: Fetching remote URI: " + currentUri);
                     
                     // Remove fragment from URI to get document URI
                     String fragment = currentUri.getFragment();
@@ -1323,65 +1330,62 @@ public sealed interface JsonSchema
                         java.net.URI.create(currentUri.toString().substring(0, currentUri.toString().indexOf('#'))) : 
                         currentUri;
                     
+                    LOG.finest(() -> "compileBundle: Document URI after fragment removal: " + docUri);
+                    
                     try {
                         RemoteFetcher.FetchResult fetchResult = compileOptions.remoteFetcher().fetch(docUri, compileOptions.fetchPolicy());
                         documentToCompile = fetchResult.document();
-                        LOG.finest(() -> "compileBundle: Fetched document: " + documentToCompile);
+                        LOG.fine(() -> "compileBundle: Successfully fetched document: " + docUri + ", document type: " + documentToCompile.getClass().getSimpleName());
                     } catch (RemoteResolutionException e) {
-                        LOG.finest(() -> "compileBundle: Failed to fetch: " + e.getMessage());
+                        LOG.severe(() -> "ERROR: compileBundle failed to fetch remote document: " + docUri + ", reason: " + e.reason());
                         throw e;
                     }
                 }
                 
                 // Compile the schema
+                LOG.finest(() -> "compileBundle: Compiling document for URI: " + currentUri);
                 CompilationResult result = compileSingleDocument(documentToCompile, options, compileOptions, currentUri, workStack, seenUris);
+                LOG.finest(() -> "compileBundle: Document compilation completed for URI: " + currentUri + ", schema type: " + result.schema().getClass().getSimpleName());
                 
                 // Create compiled root and add to map
                 CompiledRoot compiledRoot = new CompiledRoot(currentUri, result.schema(), result.pointerIndex());
                 compiled.put(currentUri, compiledRoot);
-                LOG.finest(() -> "compileBundle: Compiled root for URI: " + currentUri);
+                LOG.fine(() -> "compileBundle: Added compiled root for URI: " + currentUri + 
+                                " with " + result.pointerIndex().size() + " pointer index entries");
             }
             
             // Create compilation bundle
             CompiledRoot entryRoot = compiled.get(entryUri);
+            if (entryRoot == null) {
+                LOG.severe(() -> "ERROR: Entry root must exist but was null for URI: " + entryUri);
+            }
             assert entryRoot != null : "Entry root must exist";
             List<CompiledRoot> allRoots = List.copyOf(compiled.values());
             
+            LOG.fine(() -> "compileBundle: Creating compilation bundle with " + allRoots.size() + " total compiled roots");
+            
             // Create a map of compiled roots for resolver context
             Map<java.net.URI, CompiledRoot> rootsMap = new HashMap<>();
+            LOG.finest(() -> "compileBundle: Creating rootsMap from " + allRoots.size() + " compiled roots");
             for (CompiledRoot root : allRoots) {
+                LOG.finest(() -> "compileBundle: Adding root to map: " + root.docUri());
                 // Add both with and without fragment for lookup flexibility
                 rootsMap.put(root.docUri(), root);
                 // Also add the base URI without fragment if it has one
                 if (root.docUri().getFragment() != null) {
                     java.net.URI baseUri = java.net.URI.create(root.docUri().toString().substring(0, root.docUri().toString().indexOf('#')));
                     rootsMap.put(baseUri, root);
+                    LOG.finest(() -> "compileBundle: Also adding base URI: " + baseUri);
                 }
             }
+            LOG.finest(() -> "compileBundle: Final rootsMap keys: " + rootsMap.keySet());
             
-            // Update all RefSchemas with proper resolver contexts that include all roots
-            List<CompiledRoot> updatedRoots = new ArrayList<>();
-            CompiledRoot finalEntryRoot = entryRoot; // Make final for lambda
-            for (CompiledRoot root : allRoots) {
-                // Create resolver context for this root with access to all compiled roots
-                ResolverContext resolverContext = new ResolverContext(
-                    Map.copyOf(rootsMap),
-                    Map.of(), // TODO: populate with local pointer index for each document
-                    root.schema()
-                );
-                
-                // Update RefSchemas in this root
-                JsonSchema updatedSchema = updateRefSchemaContexts(root.schema(), resolverContext);
-                CompiledRoot updatedRoot = new CompiledRoot(root.docUri(), updatedSchema, root.pointerIndex());
-                updatedRoots.add(updatedRoot);
-            }
+            // Create compilation bundle with compiled roots
+            List<CompiledRoot> updatedRoots = List.copyOf(compiled.values());
+            CompiledRoot updatedEntryRoot = compiled.get(entryUri);
             
-            // Find the updated entry root
-            CompiledRoot updatedEntryRoot = updatedRoots.stream()
-                .filter(root -> root.docUri().equals(entryUri))
-                .findFirst()
-                .orElse(entryRoot);
-            
+            LOG.fine(() -> "compileBundle: Successfully created compilation bundle with " + updatedRoots.size() + 
+                            " total documents compiled, entry root type: " + updatedEntryRoot.schema().getClass().getSimpleName());
             LOG.finest(() -> "compileBundle: Completed with entry root: " + updatedEntryRoot);
             return new CompilationBundle(updatedEntryRoot, updatedRoots);
         }
@@ -1389,7 +1393,7 @@ public sealed interface JsonSchema
         /// Compile a single document using new architecture
         static CompilationResult compileSingleDocument(JsonValue schemaJson, Options options, CompileOptions compileOptions, 
                                                  java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris) {
-            LOG.finest(() -> "compileSingleDocument: Starting with docUri: " + docUri + ", schema: " + schemaJson);
+            LOG.fine(() -> "compileSingleDocument: Starting compilation for docUri: " + docUri + ", schema type: " + schemaJson.getClass().getSimpleName());
             
             // Reset global state
             definitions.clear();
@@ -1400,6 +1404,8 @@ public sealed interface JsonSchema
             currentOptions = options;
             currentCompileOptions = compileOptions;
             
+            LOG.finest(() -> "compileSingleDocument: Reset global state, definitions cleared, pointer indexes cleared");
+            
             // Handle format assertion controls
             boolean assertFormats = options.assertFormats();
             
@@ -1407,6 +1413,7 @@ public sealed interface JsonSchema
             String systemProp = System.getProperty("jsonschema.format.assertion");
             if (systemProp != null) {
                 assertFormats = Boolean.parseBoolean(systemProp);
+                LOG.finest(() -> "compileSingleDocument: Format assertion overridden by system property: " + assertFormats);
             }
             
             // Check root schema flag (highest precedence)
@@ -1414,11 +1421,13 @@ public sealed interface JsonSchema
                 JsonValue formatAssertionValue = obj.members().get("formatAssertion");
                 if (formatAssertionValue instanceof JsonBoolean formatAssertionBool) {
                     assertFormats = formatAssertionBool.value();
+                    LOG.finest(() -> "compileSingleDocument: Format assertion overridden by root schema flag: " + assertFormats);
                 }
             }
             
             // Update options with final assertion setting
             currentOptions = new Options(assertFormats);
+            LOG.finest(() -> "compileSingleDocument: Final format assertion setting: " + assertFormats);
             
             // Index the raw schema by JSON Pointer
             LOG.finest(() -> "compileSingleDocument: Indexing schema by pointer");
@@ -1428,27 +1437,14 @@ public sealed interface JsonSchema
             Map<String, JsonSchema> localPointerIndex = new HashMap<>();
             
             trace("compile-start", schemaJson);
+            LOG.finer(() -> "compileSingleDocument: Calling compileInternalWithContext for docUri: " + docUri);
             JsonSchema schema = compileInternalWithContext(schemaJson, docUri, workStack, seenUris, null, localPointerIndex);
-            
-            // Now create the resolver context with the populated localPointerIndex
-            Map<java.net.URI, CompiledRoot> roots = new HashMap<>();
-            final var resolverContext = new ResolverContext(Map.copyOf(roots), localPointerIndex, schema);
-            
-            // Update any RefSchema instances to use the proper resolver context
-            schema = updateRefSchemaContexts(schema, resolverContext);
+            LOG.finer(() -> "compileSingleDocument: compileInternalWithContext completed, schema type: " + schema.getClass().getSimpleName());
             
             currentRootSchema = schema; // Store the root schema for self-references
+            LOG.fine(() -> "compileSingleDocument: Completed compilation for docUri: " + docUri + 
+                            ", schema type: " + schema.getClass().getSimpleName() + ", local pointer index size: " + localPointerIndex.size());
             return new CompilationResult(schema, Map.copyOf(localPointerIndex));
-        }
-
-        /// Update RefSchema instances to use the proper resolver context
-        private static JsonSchema updateRefSchemaContexts(JsonSchema schema, ResolverContext resolverContext) {
-            if (schema instanceof RefSchema refSchema) {
-                return new RefSchema(refSchema.refToken(), resolverContext);
-            }
-            // For now, we only handle RefSchema. In a complete implementation,
-            // we would recursively update all nested schemas.
-            return schema;
         }
 
         private static JsonSchema compileInternalWithContext(JsonValue schemaJson, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex) {
@@ -1475,10 +1471,16 @@ public sealed interface JsonSchema
                             LOG.finer(() -> "Added to work stack: " + targetDocUri);
                         }
                         LOG.finest(() -> "compileInternalWithContext: Creating RefSchema for remote ref " + remoteRef.target());
-                        // Return RefSchema with remote token - will throw at runtime
-                        // Use a temporary resolver context that will be updated later
-                        // For now, use a placeholder root schema (AnySchema.INSTANCE)
-                        var refSchema = new RefSchema(refToken, new ResolverContext(Map.of(), localPointerIndex, AnySchema.INSTANCE));
+                        
+                        // Create temporary resolver context with current document's pointer index
+                        // The roots map will be populated later when the compilation bundle is created
+                        Map<java.net.URI, CompiledRoot> tempRoots = new HashMap<>();
+                        tempRoots.put(docUri, new CompiledRoot(docUri, AnySchema.INSTANCE, localPointerIndex));
+                        
+                        LOG.fine(() -> "Creating temporary RefSchema for remote ref " + remoteRef.target() + 
+                                        " with " + localPointerIndex.size() + " local pointer entries");
+                        
+                        var refSchema = new RefSchema(refToken, new ResolverContext(tempRoots, localPointerIndex, AnySchema.INSTANCE));
                         LOG.finest(() -> "compileInternalWithContext: Created RefSchema " + refSchema);
                         return refSchema;
                     }
@@ -1550,10 +1552,16 @@ public sealed interface JsonSchema
                         });
                     }
                     
+                    // Create temporary resolver context with current document's pointer index
+                    Map<java.net.URI, CompiledRoot> tempRoots = new HashMap<>();
+                    tempRoots.put(docUri, new CompiledRoot(docUri, AnySchema.INSTANCE, localPointerIndex));
+                    
+                    LOG.fine(() -> "Creating temporary RefSchema for local ref " + refToken.pointer() + 
+                                    " with " + localPointerIndex.size() + " local pointer entries");
+                    
                     // For other references, use RefSchema with deferred resolution
                     // Use a temporary resolver context that will be updated later
-                    // For now, use a placeholder root schema (AnySchema.INSTANCE)
-                    return new RefSchema(refToken, new ResolverContext(Map.of(), localPointerIndex, AnySchema.INSTANCE));
+                    return new RefSchema(refToken, new ResolverContext(tempRoots, localPointerIndex, AnySchema.INSTANCE));
                 }
             }
             
@@ -1768,398 +1776,6 @@ public sealed interface JsonSchema
             return AnySchema.INSTANCE;
         }
 
-        /// Legacy compileInternal method for backward compatibility
-        private static JsonSchema compileInternal(JsonValue schemaJson) {
-            // Create minimal context for legacy compatibility
-            Map<String, JsonSchema> localPointerIndex = new HashMap<>();
-            Map<java.net.URI, CompiledRoot> roots = new HashMap<>();
-            
-            // First compile with null context to build the schema and pointer index
-            JsonSchema schema = compileInternalWithContext(schemaJson, java.net.URI.create("urn:inmemory:root"), new ArrayDeque<>(), new HashSet<>(), null, localPointerIndex);
-            
-            // Then create proper resolver context and update RefSchemas
-            final var resolverContext = new ResolverContext(Map.copyOf(roots), localPointerIndex, schema);
-            return updateRefSchemaContexts(schema, resolverContext);
-        }
-
-        /// Legacy compilation logic for non-ref schemas with $ref support
-        private static JsonSchema compileInternalLegacy(JsonValue schemaJson) {
-            LOG.finest(() -> "compileInternalLegacy: Starting with schema: " + schemaJson);
-            
-            // Handle $ref at this level too - delegate to new system
-            if (schemaJson instanceof JsonObject obj) {
-                JsonValue refValue = obj.members().get("$ref");
-                if (refValue instanceof JsonString refStr) {
-                    LOG.fine(() -> "compileInternalLegacy: Found $ref in nested object: " + refStr.value());
-                    RefToken refToken = classifyRef(refStr.value(), java.net.URI.create("urn:inmemory:root"));
-                    
-                    // Handle remote refs by adding to work stack
-                    if (refToken instanceof RefToken.RemoteRef remoteRef) {
-                        LOG.finer(() -> "Remote ref detected in legacy: " + remoteRef.target());
-                        throw new UnsupportedOperationException("Remote $ref not yet implemented in legacy path: " + remoteRef.target());
-                    }
-                    
-                    // For local refs, we need to resolve them immediately for legacy compatibility
-                    // This maintains the existing behavior for local $ref
-                    return resolveRefLegacy(refToken);
-                }
-            }
-            
-            if (schemaJson instanceof JsonBoolean bool) {
-                return bool.value() ? AnySchema.INSTANCE : new NotSchema(AnySchema.INSTANCE);
-            }
-
-            if (!(schemaJson instanceof JsonObject obj)) {
-                throw new IllegalArgumentException("Schema must be an object or boolean");
-            }
-
-            // Handle composition keywords
-            JsonValue allOfValue = obj.members().get("allOf");
-            if (allOfValue instanceof JsonArray allOfArr) {
-                trace("compile-allof", allOfValue);
-                List<JsonSchema> schemas = new ArrayList<>();
-                for (JsonValue item : allOfArr.values()) {
-                    schemas.add(compileInternalLegacy(item));
-                }
-                return new AllOfSchema(schemas);
-            }
-
-            JsonValue anyOfValue = obj.members().get("anyOf");
-            if (anyOfValue instanceof JsonArray anyOfArr) {
-                trace("compile-anyof", anyOfValue);
-                List<JsonSchema> schemas = new ArrayList<>();
-                for (JsonValue item : anyOfArr.values()) {
-                    schemas.add(compileInternalLegacy(item));
-                }
-                return new AnyOfSchema(schemas);
-            }
-
-            JsonValue oneOfValue = obj.members().get("oneOf");
-            if (oneOfValue instanceof JsonArray oneOfArr) {
-                trace("compile-oneof", oneOfValue);
-                List<JsonSchema> schemas = new ArrayList<>();
-                for (JsonValue item : oneOfArr.values()) {
-                    schemas.add(compileInternalLegacy(item));
-                }
-                return new OneOfSchema(schemas);
-            }
-
-            // Handle if/then/else
-            JsonValue ifValue = obj.members().get("if");
-            if (ifValue != null) {
-                trace("compile-conditional", obj);
-                JsonSchema ifSchema = compileInternalLegacy(ifValue);
-                JsonSchema thenSchema = null;
-                JsonSchema elseSchema = null;
-
-                JsonValue thenValue = obj.members().get("then");
-                if (thenValue != null) {
-                    thenSchema = compileInternalLegacy(thenValue);
-                }
-
-                JsonValue elseValue = obj.members().get("else");
-                if (elseValue != null) {
-                    elseSchema = compileInternalLegacy(elseValue);
-                }
-
-                return new ConditionalSchema(ifSchema, thenSchema, elseSchema);
-            }
-
-            // Handle const
-            JsonValue constValue = obj.members().get("const");
-            if (constValue != null) {
-                return new ConstSchema(constValue);
-            }
-
-            // Handle not
-            JsonValue notValue = obj.members().get("not");
-            if (notValue != null) {
-                JsonSchema inner = compileInternalLegacy(notValue);
-                return new NotSchema(inner);
-            }
-
-            // Detect keyword-based schema types for use in enum handling and fallback
-            boolean hasObjectKeywords = obj.members().containsKey("properties")
-                    || obj.members().containsKey("required")
-                    || obj.members().containsKey("additionalProperties")
-                    || obj.members().containsKey("minProperties")
-                    || obj.members().containsKey("maxProperties")
-                    || obj.members().containsKey("patternProperties")
-                    || obj.members().containsKey("propertyNames")
-                    || obj.members().containsKey("dependentRequired")
-                    || obj.members().containsKey("dependentSchemas");
-
-            boolean hasArrayKeywords = obj.members().containsKey("items")
-                    || obj.members().containsKey("minItems")
-                    || obj.members().containsKey("maxItems")
-                    || obj.members().containsKey("uniqueItems")
-                    || obj.members().containsKey("prefixItems")
-                    || obj.members().containsKey("contains")
-                    || obj.members().containsKey("minContains")
-                    || obj.members().containsKey("maxContains");
-
-            boolean hasStringKeywords = obj.members().containsKey("pattern")
-                    || obj.members().containsKey("minLength")
-                    || obj.members().containsKey("maxLength")
-                    || obj.members().containsKey("format");
-
-            // Handle enum early (before type-specific compilation)
-            JsonValue enumValue = obj.members().get("enum");
-            if (enumValue instanceof JsonArray enumArray) {
-                // Build base schema from type or heuristics
-                JsonSchema baseSchema;
-                
-                // If type is specified, use it; otherwise infer from keywords
-                JsonValue typeValue = obj.members().get("type");
-                if (typeValue instanceof JsonString typeStr) {
-                    baseSchema = switch (typeStr.value()) {
-                        case "object" -> compileObjectSchemaLegacy(obj);
-                        case "array" -> compileArraySchemaLegacy(obj);
-                        case "string" -> compileStringSchemaLegacy(obj);
-                        case "number", "integer" -> compileNumberSchemaLegacy(obj);
-                        case "boolean" -> new BooleanSchema();
-                        case "null" -> new NullSchema();
-                        default -> AnySchema.INSTANCE;
-                    };
-                } else if (hasObjectKeywords) {
-                    baseSchema = compileObjectSchemaLegacy(obj);
-                } else if (hasArrayKeywords) {
-                    baseSchema = compileArraySchemaLegacy(obj);
-                } else if (hasStringKeywords) {
-                    baseSchema = compileStringSchemaLegacy(obj);
-                } else {
-                    baseSchema = AnySchema.INSTANCE;
-                }
-                
-                // Build enum values set
-                Set<JsonValue> allowedValues = new LinkedHashSet<>();
-                for (JsonValue item : enumArray.values()) {
-                    allowedValues.add(item);
-                }
-                
-                return new EnumSchema(baseSchema, allowedValues);
-            }
-
-            // Handle type-based schemas
-            JsonValue typeValue = obj.members().get("type");
-            if (typeValue instanceof JsonString typeStr) {
-                return switch (typeStr.value()) {
-                    case "object" -> compileObjectSchemaLegacy(obj);
-                    case "array" -> compileArraySchemaLegacy(obj);
-                    case "string" -> compileStringSchemaLegacy(obj);
-                    case "number" -> compileNumberSchemaLegacy(obj);
-                    case "integer" -> compileNumberSchemaLegacy(obj); // For now, treat integer as number
-                    case "boolean" -> new BooleanSchema();
-                    case "null" -> new NullSchema();
-                    default -> AnySchema.INSTANCE;
-                };
-            } else if (typeValue instanceof JsonArray typeArray) {
-                // Handle type arrays: ["string", "null", ...] - treat as anyOf
-                List<JsonSchema> typeSchemas = new ArrayList<>();
-                for (JsonValue item : typeArray.values()) {
-                    if (item instanceof JsonString typeStr) {
-                        JsonSchema typeSchema = switch (typeStr.value()) {
-                            case "object" -> compileObjectSchemaLegacy(obj);
-                            case "array" -> compileArraySchemaLegacy(obj);
-                            case "string" -> compileStringSchemaLegacy(obj);
-                            case "number" -> compileNumberSchemaLegacy(obj);
-                            case "integer" -> compileNumberSchemaLegacy(obj);
-                            case "boolean" -> new BooleanSchema();
-                            case "null" -> new NullSchema();
-                            default -> AnySchema.INSTANCE;
-                        };
-                        typeSchemas.add(typeSchema);
-                    } else {
-                        throw new IllegalArgumentException("Type array must contain only strings");
-                    }
-                }
-                if (typeSchemas.isEmpty()) {
-                    return AnySchema.INSTANCE;
-                } else if (typeSchemas.size() == 1) {
-                    return typeSchemas.get(0);
-                } else {
-                    return new AnyOfSchema(typeSchemas);
-                }
-            } else {
-                if (hasObjectKeywords) {
-                    return compileObjectSchemaLegacy(obj);
-                } else if (hasArrayKeywords) {
-                    return compileArraySchemaLegacy(obj);
-                } else if (hasStringKeywords) {
-                    return compileStringSchemaLegacy(obj);
-                }
-            }
-
-            return AnySchema.INSTANCE;
-        }
-
-        /// Legacy object schema compilation (renamed from compileObjectSchema)
-        private static JsonSchema compileObjectSchemaLegacy(JsonObject obj) {
-            LOG.finest(() -> "compileObjectSchemaLegacy: Starting with object: " + obj);
-            Map<String, JsonSchema> properties = new LinkedHashMap<>();
-            JsonValue propsValue = obj.members().get("properties");
-            if (propsValue instanceof JsonObject propsObj) {
-                LOG.finest(() -> "compileObjectSchemaLegacy: Processing properties: " + propsObj);
-                for (var entry : propsObj.members().entrySet()) {
-                    LOG.finest(() -> "compileObjectSchemaLegacy: Compiling property '" + entry.getKey() + "': " + entry.getValue());
-                    JsonSchema propertySchema = compileInternalLegacy(entry.getValue());
-                    LOG.finest(() -> "compileObjectSchemaLegacy: Property '" + entry.getKey() + "' compiled to: " + propertySchema);
-                    properties.put(entry.getKey(), propertySchema);
-                }
-            }
-
-            Set<String> required = new LinkedHashSet<>();
-            JsonValue reqValue = obj.members().get("required");
-            if (reqValue instanceof JsonArray reqArray) {
-                for (JsonValue item : reqArray.values()) {
-                    if (item instanceof JsonString str) {
-                        required.add(str.value());
-                    }
-                }
-            }
-
-            JsonSchema additionalProperties = AnySchema.INSTANCE;
-            JsonValue addPropsValue = obj.members().get("additionalProperties");
-            if (addPropsValue instanceof JsonBoolean addPropsBool) {
-                additionalProperties = addPropsBool.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
-            } else if (addPropsValue instanceof JsonObject addPropsObj) {
-                additionalProperties = compileInternalLegacy(addPropsObj);
-            }
-
-            // Handle patternProperties
-            Map<Pattern, JsonSchema> patternProperties = null;
-            JsonValue patternPropsValue = obj.members().get("patternProperties");
-            if (patternPropsValue instanceof JsonObject patternPropsObj) {
-                patternProperties = new LinkedHashMap<>();
-                for (var entry : patternPropsObj.members().entrySet()) {
-                    String patternStr = entry.getKey();
-                    Pattern pattern = Pattern.compile(patternStr);
-                    JsonSchema schema = compileInternalLegacy(entry.getValue());
-                    patternProperties.put(pattern, schema);
-                }
-            }
-
-            // Handle propertyNames
-            JsonSchema propertyNames = null;
-            JsonValue propNamesValue = obj.members().get("propertyNames");
-            if (propNamesValue != null) {
-                propertyNames = compileInternalLegacy(propNamesValue);
-            }
-
-            Integer minProperties = getInteger(obj, "minProperties");
-            Integer maxProperties = getInteger(obj, "maxProperties");
-
-            // Handle dependentRequired
-            Map<String, Set<String>> dependentRequired = null;
-            JsonValue depReqValue = obj.members().get("dependentRequired");
-            if (depReqValue instanceof JsonObject depReqObj) {
-                dependentRequired = new LinkedHashMap<>();
-                for (var entry : depReqObj.members().entrySet()) {
-                    String triggerProp = entry.getKey();
-                    JsonValue depsValue = entry.getValue();
-                    if (depsValue instanceof JsonArray depsArray) {
-                        Set<String> requiredProps = new LinkedHashSet<>();
-                        for (JsonValue depItem : depsArray.values()) {
-                            if (depItem instanceof JsonString depStr) {
-                                requiredProps.add(depStr.value());
-                            } else {
-                                throw new IllegalArgumentException("dependentRequired values must be arrays of strings");
-                            }
-                        }
-                        dependentRequired.put(triggerProp, requiredProps);
-                    } else {
-                        throw new IllegalArgumentException("dependentRequired values must be arrays");
-                    }
-                }
-            }
-
-            // Handle dependentSchemas
-            Map<String, JsonSchema> dependentSchemas = null;
-            JsonValue depSchValue = obj.members().get("dependentSchemas");
-            if (depSchValue instanceof JsonObject depSchObj) {
-                dependentSchemas = new LinkedHashMap<>();
-                for (var entry : depSchObj.members().entrySet()) {
-                    String triggerProp = entry.getKey();
-                    JsonValue schemaValue = entry.getValue();
-                    JsonSchema schema;
-                    if (schemaValue instanceof JsonBoolean boolValue) {
-                        schema = boolValue.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
-                    } else {
-                        schema = compileInternalLegacy(schemaValue);
-                    }
-                    dependentSchemas.put(triggerProp, schema);
-                }
-            }
-
-            return new ObjectSchema(properties, required, additionalProperties, minProperties, maxProperties, patternProperties, propertyNames, dependentRequired, dependentSchemas);
-        }
-
-        /// Legacy array schema compilation (renamed from compileArraySchema)
-        private static JsonSchema compileArraySchemaLegacy(JsonObject obj) {
-            JsonSchema items = AnySchema.INSTANCE;
-            JsonValue itemsValue = obj.members().get("items");
-            if (itemsValue != null) {
-                items = compileInternalLegacy(itemsValue);
-            }
-
-            // Parse prefixItems (tuple validation)
-            List<JsonSchema> prefixItems = null;
-            JsonValue prefixItemsVal = obj.members().get("prefixItems");
-            if (prefixItemsVal instanceof JsonArray arr) {
-                prefixItems = new ArrayList<>(arr.values().size());
-                for (JsonValue v : arr.values()) {
-                    prefixItems.add(compileInternalLegacy(v));
-                }
-                prefixItems = List.copyOf(prefixItems);
-            }
-
-            // Parse contains schema
-            JsonSchema contains = null;
-            JsonValue containsVal = obj.members().get("contains");
-            if (containsVal != null) {
-                contains = compileInternalLegacy(containsVal);
-            }
-
-            // Parse minContains / maxContains
-            Integer minContains = getInteger(obj, "minContains");
-            Integer maxContains = getInteger(obj, "maxContains");
-
-            Integer minItems = getInteger(obj, "minItems");
-            Integer maxItems = getInteger(obj, "maxItems");
-            Boolean uniqueItems = getBoolean(obj, "uniqueItems");
-
-            return new ArraySchema(items, minItems, maxItems, uniqueItems, prefixItems, contains, minContains, maxContains);
-        }
-
-        /// Legacy string schema compilation (renamed from compileStringSchema)
-        private static JsonSchema compileStringSchemaLegacy(JsonObject obj) {
-            Integer minLength = getInteger(obj, "minLength");
-            Integer maxLength = getInteger(obj, "maxLength");
-
-            Pattern pattern = null;
-            JsonValue patternValue = obj.members().get("pattern");
-            if (patternValue instanceof JsonString patternStr) {
-                pattern = Pattern.compile(patternStr.value());
-            }
-
-            // Handle format keyword
-            FormatValidator formatValidator = null;
-            boolean assertFormats = currentOptions != null && currentOptions.assertFormats();
-            
-            if (assertFormats) {
-                JsonValue formatValue = obj.members().get("format");
-                if (formatValue instanceof JsonString formatStr) {
-                    String formatName = formatStr.value();
-                    formatValidator = Format.byName(formatName);
-                    if (formatValidator == null) {
-                        LOG.fine("Unknown format: " + formatName);
-                    }
-                }
-            }
-
-            return new StringSchema(minLength, maxLength, pattern, formatValidator, assertFormats);
-        }
-
         /// Object schema compilation with context
         private static JsonSchema compileObjectSchemaWithContext(JsonObject obj, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex, Deque<String> resolutionStack) {
             LOG.finest(() -> "compileObjectSchemaWithContext: Starting with object: " + obj);
@@ -2356,31 +1972,6 @@ public sealed interface JsonSchema
             return new NumberSchema(minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum);
         }
 
-        /// Legacy number schema compilation (renamed from compileNumberSchema)
-        private static JsonSchema compileNumberSchemaLegacy(JsonObject obj) {
-            BigDecimal minimum = getBigDecimal(obj, "minimum");
-            BigDecimal maximum = getBigDecimal(obj, "maximum");
-            BigDecimal multipleOf = getBigDecimal(obj, "multipleOf");
-            Boolean exclusiveMinimum = getBoolean(obj, "exclusiveMinimum");
-            Boolean exclusiveMaximum = getBoolean(obj, "exclusiveMaximum");
-            
-            // Handle numeric exclusiveMinimum/exclusiveMaximum (2020-12 spec)
-            BigDecimal exclusiveMinValue = getBigDecimal(obj, "exclusiveMinimum");
-            BigDecimal exclusiveMaxValue = getBigDecimal(obj, "exclusiveMaximum");
-            
-            // Normalize: if numeric exclusives are present, convert to boolean form
-            if (exclusiveMinValue != null) {
-                minimum = exclusiveMinValue;
-                exclusiveMinimum = true;
-            }
-            if (exclusiveMaxValue != null) {
-                maximum = exclusiveMaxValue;
-                exclusiveMaximum = true;
-            }
-
-            return new NumberSchema(minimum, maximum, multipleOf, exclusiveMinimum, exclusiveMaximum);
-        }
-
         private static Integer getInteger(JsonObject obj, String key) {
             JsonValue value = obj.members().get(key);
             if (value instanceof JsonNumber num) {
@@ -2521,6 +2112,7 @@ public sealed interface JsonSchema
         /// Resolve a RefToken to the target schema
         JsonSchema resolve(RefToken token) {
             LOG.finest(() -> "ResolverContext.resolve: " + token);
+            LOG.fine(() -> "ResolverContext.resolve: roots.size=" + roots.size() + ", localPointerIndex.size=" + localPointerIndex.size());
             
             if (token instanceof RefToken.LocalRef localRef) {
                 String pointer = localRef.pointerOrAnchor();
@@ -2558,10 +2150,21 @@ public sealed interface JsonSchema
                 LOG.finest(() -> "ResolverContext.resolve: docUri=" + docUri + ", fragment=" + fragment);
                 
                 // Check if document is already compiled in roots
-                LOG.finest(() -> "ResolverContext.resolve: Looking for root in roots map, keys: " + roots.keySet());
-                CompiledRoot root = roots.get(docUri);
-                LOG.finest(() -> "ResolverContext.resolve: Found root: " + root);
-                if (root != null) {
+                final java.net.URI finalDocUri = docUri;
+                LOG.fine(() -> "ResolverContext.resolve: Looking for root with URI: " + finalDocUri);
+                LOG.fine(() -> "ResolverContext.resolve: Available roots: " + roots.keySet() + " (size=" + roots.size() + ")");
+                LOG.fine(() -> "ResolverContext.resolve: This resolver context belongs to root schema: " + rootSchema.getClass().getSimpleName());
+                CompiledRoot root = roots.get(finalDocUri);
+                if (root == null) {
+                    // Try without fragment if not found
+                    final java.net.URI docUriWithoutFragment = finalDocUri.getFragment() != null ? 
+                        java.net.URI.create(finalDocUri.toString().substring(0, finalDocUri.toString().indexOf('#'))) : finalDocUri;
+                    LOG.fine(() -> "ResolverContext.resolve: Trying without fragment: " + docUriWithoutFragment);
+                    root = roots.get(docUriWithoutFragment);
+                }
+                final CompiledRoot finalRoot = root;
+                LOG.finest(() -> "ResolverContext.resolve: Found root: " + finalRoot);
+                if (finalRoot != null) {
                     LOG.finest(() -> "ResolverContext.resolve: Found compiled root for " + docUri);
                     // Document already compiled - resolve within it
                     if (fragment == null || fragment.isEmpty()) {
@@ -2570,10 +2173,12 @@ public sealed interface JsonSchema
                     }
                     
                     // Resolve fragment within remote document using its pointer index
-                    LOG.finest(() -> "ResolverContext.resolve: Remote document pointer index keys: " + root.pointerIndex().keySet());
-                    JsonSchema target = root.pointerIndex().get(fragment);
+                    final String finalFragment = fragment;
+                    final CompiledRoot finalRootForFragment = root;
+                    LOG.finest(() -> "ResolverContext.resolve: Remote document pointer index keys: " + finalRootForFragment.pointerIndex().keySet());
+                    JsonSchema target = finalRootForFragment.pointerIndex().get(finalFragment);
                     if (target != null) {
-                        LOG.finest(() -> "ResolverContext.resolve: Found fragment " + fragment + " in remote document");
+                        LOG.finest(() -> "ResolverContext.resolve: Found fragment " + finalFragment + " in remote document");
                         return target;
                     } else {
                         LOG.finest(() -> "ResolverContext.resolve: Fragment " + fragment + " not found in remote document");
