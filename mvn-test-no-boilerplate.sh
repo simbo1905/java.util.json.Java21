@@ -20,7 +20,7 @@ else
     MVN_CMD="mvn"
 fi
 
-$MVN_CMD test "$@" 2>&1 | awk '
+timeout 120 $MVN_CMD test "$@" 2>&1 | awk '
 BEGIN { 
     scanning_started = 0
     compilation_section = 0

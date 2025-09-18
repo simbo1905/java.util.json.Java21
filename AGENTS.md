@@ -30,23 +30,42 @@ mvn clean compile -DskipTests
 ```
 
 ### Running Tests
-```bash
-# Run all tests
-mvn test
 
-# Run tests with clean output (recommended)
+You MUST NOT ever filter test output as you are looking for something you do not know what it is that is the nature of debugging.
+
+You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER and FINEST and you SHOULD run at a specific model/test/method level that best zooms in on the issue. 
+
+You MUST NOT add any 'temporary logging' all logging MUST be as above
+
+You SHOULD NOT delete logging as that makes no sense only change the level be finer to turn it down. 
+
+You MUST add a jul log statement at INFO level at the top of each and every test method announcing that it is running. 
+
+You MUST have all new tests extend a class such as ` extends JsonSchemaLoggingConfig` so that the correct env vars set log levels in a way that is compatible with ./mvn-test-no-boilerplate.sh  as outlined below. 
+
+You MUST NOT GUESS you SHOULD add more logging or more test methods you are a text based mind you can see all bugs with appropriate logging. 
+
+You MUST prefer the rich and varied use of ./mvn-test-no-boilerplate.sh as per:
+
+```bash
+# Run tests with clean output (only recommended post all bugs fixed expected to be fixed)
 ./mvn-test-no-boilerplate.sh
 
 # Run specific test class
-./mvn-test-no-boilerplate.sh -Dtest=JsonParserTests
-./mvn-test-no-boilerplate.sh -Dtest=JsonTypedUntypedTests
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
 
 # Run specific test method
-./mvn-test-no-boilerplate.sh -Dtest=JsonParserTests#testParseEmptyObject
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
 
 # Run tests in specific module
-./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest
+./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
+
+
+You MUST NEVER pipe any output to anything that limits visiablity. We only use logging to find what we didn't know. It is an oxymoron to pipe logging to head or tail or grep. 
+
+You MAY opt to log the actual data structures as the come on and off the stack or are reified at `FINEST` as that is trace level for detailed debuging. You should only run one test method at a time at that level. If it is creating vast amounts of output due to infinite loops then this is the ONLY time you may use head or tail yet you MUST head A LARGE ENOUGH SIMPLE OF DATA to see the actual problem it is NOT ACCEPTABLE to create a million line trace file then look at 100 top lines when all of that is mvn start up. The fraction of any log you look at MUST be as large as should be the actual trace log of a good test and you should do 2x that such as thousands of lines. 
+
 
 ### JSON Compatibility Suite
 ```bash
@@ -56,12 +75,6 @@ mvn exec:java -pl json-compatibility-suite
 
 # Run JSON output (dogfoods the API)
 mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
-```
-
-### Debug Logging
-```bash
-# Enable debug logging for specific test
-./mvn-test-no-boilerplate.sh -Dtest=JsonParserTests -Djava.util.logging.ConsoleHandler.level=FINER
 ```
 
 ## Releasing to Maven Central

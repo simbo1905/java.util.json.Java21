@@ -74,23 +74,262 @@ public sealed interface JsonSchema
         static final Options DEFAULT = new Options(false);
     }
 
-    /// Compile-time options (future use; no behavior change now)
+    /// Compile-time options controlling remote resolution and caching
     record CompileOptions(
-        Loader loader,                // present, not used yet
-        boolean cacheEnabled          // present, not used yet
+        UriResolver uriResolver,
+        RemoteFetcher remoteFetcher,
+        RefRegistry refRegistry,
+        FetchPolicy fetchPolicy
     ) {
-        static final CompileOptions DEFAULT = new CompileOptions(Loader.NoIo.NO_IO, true);
+        static final CompileOptions DEFAULT =
+            new CompileOptions(UriResolver.defaultResolver(), RemoteFetcher.disallowed(), RefRegistry.disallowed(), FetchPolicy.defaults());
+
+        static CompileOptions remoteDefaults(RemoteFetcher fetcher) {
+            Objects.requireNonNull(fetcher, "fetcher");
+            return new CompileOptions(UriResolver.defaultResolver(), fetcher, RefRegistry.inMemory(), FetchPolicy.defaults());
+        }
+
+        CompileOptions withUriResolver(UriResolver resolver) {
+            Objects.requireNonNull(resolver, "resolver");
+            return new CompileOptions(resolver, remoteFetcher, refRegistry, fetchPolicy);
+        }
+
+        CompileOptions withRemoteFetcher(RemoteFetcher fetcher) {
+            Objects.requireNonNull(fetcher, "fetcher");
+            return new CompileOptions(uriResolver, fetcher, refRegistry, fetchPolicy);
+        }
+
+        CompileOptions withRefRegistry(RefRegistry registry) {
+            Objects.requireNonNull(registry, "registry");
+            return new CompileOptions(uriResolver, remoteFetcher, registry, fetchPolicy);
+        }
+
+        CompileOptions withFetchPolicy(FetchPolicy policy) {
+            Objects.requireNonNull(policy, "policy");
+            return new CompileOptions(uriResolver, remoteFetcher, refRegistry, policy);
+        }
     }
 
-    /// Loader protocol (future)
-    sealed interface Loader permits Loader.NoIo {
-        JsonValue load(java.net.URI base, java.net.URI ref) throws java.io.IOException;
 
-        enum NoIo implements Loader {
-            NO_IO;
-            @Override public JsonValue load(java.net.URI base, java.net.URI ref) {
-                throw new UnsupportedOperationException("FetchDenied: " + ref);
+    /// URI resolver responsible for base resolution and normalization
+    interface UriResolver {
+        java.net.URI resolve(java.net.URI base, java.net.URI ref);
+        java.net.URI normalize(java.net.URI uri);
+
+        static UriResolver defaultResolver() {
+            return DefaultUriResolver.INSTANCE;
+        }
+
+        enum DefaultUriResolver implements UriResolver {
+            INSTANCE;
+
+            @Override
+            public java.net.URI resolve(java.net.URI base, java.net.URI ref) {
+                Objects.requireNonNull(ref, "ref");
+                if (base == null) {
+                    return normalize(ref);
+                }
+                return normalize(base.resolve(ref));
             }
+
+            @Override
+            public java.net.URI normalize(java.net.URI uri) {
+                Objects.requireNonNull(uri, "uri");
+                return uri.normalize();
+            }
+        }
+    }
+
+    /// Remote fetcher SPI for loading external schema documents
+    interface RemoteFetcher {
+        FetchResult fetch(java.net.URI uri, FetchPolicy policy) throws RemoteResolutionException;
+
+        static RemoteFetcher disallowed() {
+            return (uri, policy) -> {
+                throw new RemoteResolutionException(
+                    Objects.requireNonNull(uri, "uri"),
+                    RemoteResolutionException.Reason.POLICY_DENIED,
+                    "Remote fetching is disabled"
+                );
+            };
+        }
+
+        record FetchResult(JsonValue document, long byteSize, Optional<java.time.Duration> elapsed) {
+            public FetchResult {
+                Objects.requireNonNull(document, "document");
+                if (byteSize < 0L) {
+                    throw new IllegalArgumentException("byteSize must be >= 0");
+                }
+                elapsed = elapsed == null ? Optional.empty() : elapsed;
+            }
+        }
+    }
+
+    /// Registry caching compiled schemas by canonical URI + fragment
+    interface RefRegistry {
+        boolean markInFlight(RefKey key);
+        void unmarkInFlight(RefKey key);
+        Optional<JsonSchema> lookup(RefKey key);
+        JsonSchema computeIfAbsent(RefKey key, java.util.function.Supplier<JsonSchema> loader);
+
+        static RefRegistry disallowed() {
+            return new RefRegistry() {
+                @Override
+                public boolean markInFlight(RefKey key) {
+                    throw new RemoteResolutionException(key.documentUri(), RemoteResolutionException.Reason.POLICY_DENIED, "Remote references are disabled");
+                }
+
+                @Override
+                public void unmarkInFlight(RefKey key) {
+                }
+
+                @Override
+                public Optional<JsonSchema> lookup(RefKey key) {
+                    return Optional.empty();
+                }
+
+                @Override
+                public JsonSchema computeIfAbsent(RefKey key, java.util.function.Supplier<JsonSchema> loader) {
+                    throw new RemoteResolutionException(key.documentUri(), RemoteResolutionException.Reason.POLICY_DENIED, "Remote references are disabled");
+                }
+            };
+        }
+
+        static RefRegistry inMemory() {
+            return new InMemoryRefRegistry();
+        }
+
+        record RefKey(java.net.URI documentUri, String fragment) {
+            public RefKey {
+                Objects.requireNonNull(documentUri, "documentUri");
+                Objects.requireNonNull(fragment, "fragment");
+            }
+        }
+
+        final class InMemoryRefRegistry implements RefRegistry {
+            private final Map<RefKey, JsonSchema> cache = new HashMap<>();
+            private final Set<RefKey> inFlight = new HashSet<>();
+
+            @Override
+            public boolean markInFlight(RefKey key) {
+                Objects.requireNonNull(key, "key");
+                return inFlight.add(key);
+            }
+
+            @Override
+            public void unmarkInFlight(RefKey key) {
+                Objects.requireNonNull(key, "key");
+                inFlight.remove(key);
+            }
+
+            @Override
+            public Optional<JsonSchema> lookup(RefKey key) {
+                Objects.requireNonNull(key, "key");
+                return Optional.ofNullable(cache.get(key));
+            }
+
+            @Override
+            public JsonSchema computeIfAbsent(RefKey key, java.util.function.Supplier<JsonSchema> loader) {
+                Objects.requireNonNull(key, "key");
+                Objects.requireNonNull(loader, "loader");
+                return cache.computeIfAbsent(key, unused -> loader.get());
+            }
+        }
+    }
+
+    /// Fetch policy settings controlling network guardrails
+    record FetchPolicy(
+        Set<String> allowedSchemes,
+        long maxDocumentBytes,
+        long maxTotalBytes,
+        java.time.Duration timeout,
+        int maxRedirects,
+        int maxDocuments,
+        int maxDepth
+    ) {
+        public FetchPolicy {
+            Objects.requireNonNull(allowedSchemes, "allowedSchemes");
+            Objects.requireNonNull(timeout, "timeout");
+            if (allowedSchemes.isEmpty()) {
+                throw new IllegalArgumentException("allowedSchemes must not be empty");
+            }
+            if (maxDocumentBytes <= 0L) {
+                throw new IllegalArgumentException("maxDocumentBytes must be > 0");
+            }
+            if (maxTotalBytes <= 0L) {
+                throw new IllegalArgumentException("maxTotalBytes must be > 0");
+            }
+            if (maxRedirects < 0) {
+                throw new IllegalArgumentException("maxRedirects must be >= 0");
+            }
+            if (maxDocuments <= 0) {
+                throw new IllegalArgumentException("maxDocuments must be > 0");
+            }
+            if (maxDepth <= 0) {
+                throw new IllegalArgumentException("maxDepth must be > 0");
+            }
+        }
+
+        static FetchPolicy defaults() {
+            return new FetchPolicy(Set.of("http", "https"), 1_048_576L, 8_388_608L, java.time.Duration.ofSeconds(5), 3, 64, 64);
+        }
+
+        FetchPolicy withAllowedSchemes(Set<String> schemes) {
+            Objects.requireNonNull(schemes, "schemes");
+            return new FetchPolicy(Set.copyOf(schemes), maxDocumentBytes, maxTotalBytes, timeout, maxRedirects, maxDocuments, maxDepth);
+        }
+
+        FetchPolicy withMaxDocumentBytes(long bytes) {
+            if (bytes <= 0L) {
+                throw new IllegalArgumentException("maxDocumentBytes must be > 0");
+            }
+            return new FetchPolicy(allowedSchemes, bytes, maxTotalBytes, timeout, maxRedirects, maxDocuments, maxDepth);
+        }
+
+        FetchPolicy withTimeout(java.time.Duration newTimeout) {
+            Objects.requireNonNull(newTimeout, "newTimeout");
+            return new FetchPolicy(allowedSchemes, maxDocumentBytes, maxTotalBytes, newTimeout, maxRedirects, maxDocuments, maxDepth);
+        }
+    }
+
+    /// Exception signalling remote resolution failures with typed reasons
+    final class RemoteResolutionException extends RuntimeException {
+        private final java.net.URI uri;
+        private final Reason reason;
+
+        RemoteResolutionException(java.net.URI uri, Reason reason, String message) {
+            super(message);
+            this.uri = Objects.requireNonNull(uri, "uri");
+            this.reason = Objects.requireNonNull(reason, "reason");
+        }
+
+        RemoteResolutionException(java.net.URI uri, Reason reason, String message, Throwable cause) {
+            super(message, cause);
+            this.uri = Objects.requireNonNull(uri, "uri");
+            this.reason = Objects.requireNonNull(reason, "reason");
+        }
+
+        public java.net.URI uri() {
+            return uri;
+        }
+
+        public Reason reason() {
+            return reason;
+        }
+
+        public Reason getReason() {
+            return reason;
+        }
+
+        enum Reason {
+            NETWORK_ERROR,
+            POLICY_DENIED,
+            NOT_FOUND,
+            POINTER_MISSING,
+            ANCHOR_MISSING,
+            CYCLE_DETECTED,
+            PAYLOAD_TOO_LARGE,
+            TIMEOUT
         }
     }
 
@@ -101,7 +340,7 @@ public sealed interface JsonSchema
     /// @throws IllegalArgumentException if schema is invalid
     static JsonSchema compile(JsonValue schemaJson) {
         Objects.requireNonNull(schemaJson, "schemaJson");
-        return SchemaCompiler.compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
+        return compile(schemaJson, Options.DEFAULT, CompileOptions.DEFAULT);
     }
 
     /// Factory method to create schema from JSON Schema document with options
@@ -113,7 +352,15 @@ public sealed interface JsonSchema
     static JsonSchema compile(JsonValue schemaJson, Options options) {
         Objects.requireNonNull(schemaJson, "schemaJson");
         Objects.requireNonNull(options, "options");
-        return SchemaCompiler.compile(schemaJson, options, CompileOptions.DEFAULT);
+        return compile(schemaJson, options, CompileOptions.DEFAULT);
+    }
+
+    /// Factory method to create schema with explicit compile options
+    static JsonSchema compile(JsonValue schemaJson, Options options, CompileOptions compileOptions) {
+        Objects.requireNonNull(schemaJson, "schemaJson");
+        Objects.requireNonNull(options, "options");
+        Objects.requireNonNull(compileOptions, "compileOptions");
+        return SchemaCompiler.compile(schemaJson, options, compileOptions);
     }
 
     /// Validates JSON document against this schema
@@ -450,6 +697,7 @@ public sealed interface JsonSchema
 
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
+            LOG.finest(() -> "NumberSchema.validateAt: " + json + " minimum=" + minimum + " maximum=" + maximum);
             if (!(json instanceof JsonNumber num)) {
                 return ValidationResult.failure(List.of(
                     new ValidationError(path, "Expected number")
@@ -462,6 +710,7 @@ public sealed interface JsonSchema
             // Check minimum
             if (minimum != null) {
                 int comparison = value.compareTo(minimum);
+                LOG.finest(() -> "NumberSchema.validateAt: value=" + value + " minimum=" + minimum + " comparison=" + comparison);
                 if (exclusiveMinimum != null && exclusiveMinimum && comparison <= 0) {
                     errors.add(new ValidationError(path, "Below minimum"));
                 } else if (comparison < 0) {
@@ -545,8 +794,9 @@ public sealed interface JsonSchema
     record RefSchema(RefToken refToken, ResolverContext resolverContext) implements JsonSchema {
         @Override
         public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-            LOG.finest(() -> "RefSchema.validateAt: " + refToken + " at path: " + path);
+            LOG.finest(() -> "RefSchema.validateAt: " + refToken + " at path: " + path + " with json=" + json);
             JsonSchema target = resolverContext.resolve(refToken);
+            LOG.finest(() -> "RefSchema.validateAt: Resolved target=" + target);
             if (target == null) {
                 return ValidationResult.failure(List.of(new ValidationError(path, "Unresolvable $ref: " + refToken)));
             }
@@ -1058,30 +1308,86 @@ public sealed interface JsonSchema
                     continue;
                 }
                 
-                // For this refactor, we only handle the entry URI
-                if (!currentUri.equals(entryUri)) {
-                    LOG.finest(() -> "compileBundle: Remote URI detected but not fetching yet: " + currentUri);
-                    throw new UnsupportedOperationException("Remote $ref not yet implemented: " + currentUri);
+                // Handle remote URIs
+                JsonValue documentToCompile;
+                if (currentUri.equals(entryUri)) {
+                    // Entry document - use provided schema
+                    documentToCompile = schemaJson;
+                } else {
+                    // Remote document - fetch it
+                    LOG.finest(() -> "compileBundle: Fetching remote URI: " + currentUri);
+                    
+                    // Remove fragment from URI to get document URI
+                    String fragment = currentUri.getFragment();
+                    java.net.URI docUri = fragment != null ? 
+                        java.net.URI.create(currentUri.toString().substring(0, currentUri.toString().indexOf('#'))) : 
+                        currentUri;
+                    
+                    try {
+                        RemoteFetcher.FetchResult fetchResult = compileOptions.remoteFetcher().fetch(docUri, compileOptions.fetchPolicy());
+                        documentToCompile = fetchResult.document();
+                        LOG.finest(() -> "compileBundle: Fetched document: " + documentToCompile);
+                    } catch (RemoteResolutionException e) {
+                        LOG.finest(() -> "compileBundle: Failed to fetch: " + e.getMessage());
+                        throw e;
+                    }
                 }
                 
                 // Compile the schema
-                JsonSchema schema = compileSingleDocument(schemaJson, options, compileOptions, currentUri, workStack, seenUris);
+                CompilationResult result = compileSingleDocument(documentToCompile, options, compileOptions, currentUri, workStack, seenUris);
                 
                 // Create compiled root and add to map
-                CompiledRoot compiledRoot = new CompiledRoot(currentUri, schema);
+                CompiledRoot compiledRoot = new CompiledRoot(currentUri, result.schema(), result.pointerIndex());
                 compiled.put(currentUri, compiledRoot);
                 LOG.finest(() -> "compileBundle: Compiled root for URI: " + currentUri);
             }
             
-            // Create compilation bundle with entry pointing to first (and only) root
+            // Create compilation bundle
             CompiledRoot entryRoot = compiled.get(entryUri);
             assert entryRoot != null : "Entry root must exist";
-            LOG.finest(() -> "compileBundle: Completed with entry root: " + entryRoot);
-            return new CompilationBundle(entryRoot, List.copyOf(compiled.values()));
+            List<CompiledRoot> allRoots = List.copyOf(compiled.values());
+            
+            // Create a map of compiled roots for resolver context
+            Map<java.net.URI, CompiledRoot> rootsMap = new HashMap<>();
+            for (CompiledRoot root : allRoots) {
+                // Add both with and without fragment for lookup flexibility
+                rootsMap.put(root.docUri(), root);
+                // Also add the base URI without fragment if it has one
+                if (root.docUri().getFragment() != null) {
+                    java.net.URI baseUri = java.net.URI.create(root.docUri().toString().substring(0, root.docUri().toString().indexOf('#')));
+                    rootsMap.put(baseUri, root);
+                }
+            }
+            
+            // Update all RefSchemas with proper resolver contexts that include all roots
+            List<CompiledRoot> updatedRoots = new ArrayList<>();
+            CompiledRoot finalEntryRoot = entryRoot; // Make final for lambda
+            for (CompiledRoot root : allRoots) {
+                // Create resolver context for this root with access to all compiled roots
+                ResolverContext resolverContext = new ResolverContext(
+                    Map.copyOf(rootsMap),
+                    Map.of(), // TODO: populate with local pointer index for each document
+                    root.schema()
+                );
+                
+                // Update RefSchemas in this root
+                JsonSchema updatedSchema = updateRefSchemaContexts(root.schema(), resolverContext);
+                CompiledRoot updatedRoot = new CompiledRoot(root.docUri(), updatedSchema, root.pointerIndex());
+                updatedRoots.add(updatedRoot);
+            }
+            
+            // Find the updated entry root
+            CompiledRoot updatedEntryRoot = updatedRoots.stream()
+                .filter(root -> root.docUri().equals(entryUri))
+                .findFirst()
+                .orElse(entryRoot);
+            
+            LOG.finest(() -> "compileBundle: Completed with entry root: " + updatedEntryRoot);
+            return new CompilationBundle(updatedEntryRoot, updatedRoots);
         }
 
         /// Compile a single document using new architecture
-        static JsonSchema compileSingleDocument(JsonValue schemaJson, Options options, CompileOptions compileOptions, 
+        static CompilationResult compileSingleDocument(JsonValue schemaJson, Options options, CompileOptions compileOptions, 
                                                  java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris) {
             LOG.finest(() -> "compileSingleDocument: Starting with docUri: " + docUri + ", schema: " + schemaJson);
             
@@ -1132,7 +1438,7 @@ public sealed interface JsonSchema
             schema = updateRefSchemaContexts(schema, resolverContext);
             
             currentRootSchema = schema; // Store the root schema for self-references
-            return schema;
+            return new CompilationResult(schema, Map.copyOf(localPointerIndex));
         }
 
         /// Update RefSchema instances to use the proper resolver context
@@ -1168,10 +1474,13 @@ public sealed interface JsonSchema
                             seenUris.add(targetDocUri);
                             LOG.finer(() -> "Added to work stack: " + targetDocUri);
                         }
+                        LOG.finest(() -> "compileInternalWithContext: Creating RefSchema for remote ref " + remoteRef.target());
                         // Return RefSchema with remote token - will throw at runtime
                         // Use a temporary resolver context that will be updated later
                         // For now, use a placeholder root schema (AnySchema.INSTANCE)
-                        return new RefSchema(refToken, new ResolverContext(Map.of(), localPointerIndex, AnySchema.INSTANCE));
+                        var refSchema = new RefSchema(refToken, new ResolverContext(Map.of(), localPointerIndex, AnySchema.INSTANCE));
+                        LOG.finest(() -> "compileInternalWithContext: Created RefSchema " + refSchema);
+                        return refSchema;
                     }
                     
                     // Handle local refs - check if they exist first and detect cycles
@@ -1266,6 +1575,16 @@ public sealed interface JsonSchema
                     definitions.put(pointer, compiled);
                     compiledByPointer.put(pointer, compiled);
                     localPointerIndex.put(pointer, compiled);
+                    
+                    // Also index by $anchor if present
+                    if (entry.getValue() instanceof JsonObject defObj) {
+                        JsonValue anchorValue = defObj.members().get("$anchor");
+                        if (anchorValue instanceof JsonString anchorStr) {
+                            String anchorPointer = "#" + anchorStr.value();
+                            localPointerIndex.put(anchorPointer, compiled);
+                            LOG.finest(() -> "Indexed $anchor '" + anchorStr.value() + "' as " + anchorPointer);
+                        }
+                    }
                 }
             }
 
@@ -2178,8 +2497,11 @@ public sealed interface JsonSchema
     }
 
 
+    /// Compilation result for a single document
+    record CompilationResult(JsonSchema schema, java.util.Map<String, JsonSchema> pointerIndex) {}
+
     /// Immutable compiled document
-    record CompiledRoot(java.net.URI docUri, JsonSchema schema) {}
+    record CompiledRoot(java.net.URI docUri, JsonSchema schema, java.util.Map<String, JsonSchema> pointerIndex) {}
 
     /// Work item to load/compile a document
     record WorkItem(java.net.URI docUri) {}
@@ -2216,7 +2538,50 @@ public sealed interface JsonSchema
             }
             
             if (token instanceof RefToken.RemoteRef remoteRef) {
-                throw new IllegalStateException("Remote $ref encountered but remote loading is not enabled in this build: " + remoteRef.target());
+                LOG.finer(() -> "ResolverContext.resolve: RemoteRef " + remoteRef.target());
+                
+                // Get the document URI without fragment
+                java.net.URI targetUri = remoteRef.target();
+                String originalFragment = targetUri.getFragment();
+                java.net.URI docUri = originalFragment != null ? 
+                    java.net.URI.create(targetUri.toString().substring(0, targetUri.toString().indexOf('#'))) : 
+                    targetUri;
+                
+                // JSON Pointer fragments should start with #, so add it if missing
+                final String fragment;
+                if (originalFragment != null && !originalFragment.isEmpty() && !originalFragment.startsWith("#/")) {
+                    fragment = "#" + originalFragment;
+                } else {
+                    fragment = originalFragment;
+                }
+                
+                LOG.finest(() -> "ResolverContext.resolve: docUri=" + docUri + ", fragment=" + fragment);
+                
+                // Check if document is already compiled in roots
+                LOG.finest(() -> "ResolverContext.resolve: Looking for root in roots map, keys: " + roots.keySet());
+                CompiledRoot root = roots.get(docUri);
+                LOG.finest(() -> "ResolverContext.resolve: Found root: " + root);
+                if (root != null) {
+                    LOG.finest(() -> "ResolverContext.resolve: Found compiled root for " + docUri);
+                    // Document already compiled - resolve within it
+                    if (fragment == null || fragment.isEmpty()) {
+                        LOG.finest(() -> "ResolverContext.resolve: Returning root schema");
+                        return root.schema();
+                    }
+                    
+                    // Resolve fragment within remote document using its pointer index
+                    LOG.finest(() -> "ResolverContext.resolve: Remote document pointer index keys: " + root.pointerIndex().keySet());
+                    JsonSchema target = root.pointerIndex().get(fragment);
+                    if (target != null) {
+                        LOG.finest(() -> "ResolverContext.resolve: Found fragment " + fragment + " in remote document");
+                        return target;
+                    } else {
+                        LOG.finest(() -> "ResolverContext.resolve: Fragment " + fragment + " not found in remote document");
+                        throw new IllegalArgumentException("Unresolved $ref: " + fragment);
+                    }
+                }
+                
+                throw new IllegalStateException("Remote document not loaded: " + docUri);
             }
             
             throw new AssertionError("Unexpected RefToken type: " + token.getClass());
