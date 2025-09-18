@@ -29,12 +29,12 @@ class RobustCharDecoder {
     /// @param filename filename for logging purposes
     /// @return char array representing the content
     static char[] decodeToChars(byte[] rawBytes, String filename) {
-        LOGGER.fine("Attempting robust decoding for " + filename + " (" + rawBytes.length + " bytes)");
+        LOGGER.fine(() -> "Attempting robust decoding for " + filename + " (" + rawBytes.length + " bytes)");
         
         // Stage 1: BOM Detection
         BomResult bom = detectBOM(rawBytes);
         if (bom.encoding != null) {
-            LOGGER.fine("BOM detected for " + filename + ": " + bom.encoding.name());
+            LOGGER.fine(() -> "BOM detected for " + filename + ": " + bom.encoding.name());
             char[] result = tryDecodeWithCharset(rawBytes, bom.offset, bom.encoding, filename);
             if (result != null) {
                 return result;
@@ -53,13 +53,13 @@ class RobustCharDecoder {
         for (Charset encoding : encodings) {
             char[] result = tryDecodeWithCharset(rawBytes, 0, encoding, filename);
             if (result != null) {
-                LOGGER.fine("Successfully decoded " + filename + " using " + encoding.name());
+                LOGGER.fine(() -> "Successfully decoded " + filename + " using " + encoding.name());
                 return result;
             }
         }
         
         // Stage 3: Byte-level conversion with UTF-8 sequence awareness
-        LOGGER.fine("Using permissive byte-to-char conversion for " + filename);
+        LOGGER.fine(() -> "Using permissive byte-to-char conversion for " + filename);
         return convertBytesToCharsPermissively(rawBytes);
     }
     
@@ -96,10 +96,10 @@ class RobustCharDecoder {
             return result;
             
         } catch (CharacterCodingException e) {
-            LOGGER.fine("Failed to decode " + filename + " with " + charset.name() + ": " + e.getMessage());
+            LOGGER.fine(() -> "Failed to decode " + filename + " with " + charset.name() + ": " + e.getMessage());
             return null;
         } catch (Exception e) {
-            LOGGER.fine("Unexpected error decoding " + filename + " with " + charset.name() + ": " + e.getMessage());
+            LOGGER.fine(() -> "Unexpected error decoding " + filename + " with " + charset.name() + ": " + e.getMessage());
             return null;
         }
     }

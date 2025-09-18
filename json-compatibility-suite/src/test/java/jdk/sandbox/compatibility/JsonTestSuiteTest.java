@@ -51,7 +51,7 @@ public class JsonTestSuiteTest {
                 content = Files.readString(file, StandardCharsets.UTF_8);
                 charContent = content.toCharArray();
             } catch (MalformedInputException e) {
-                LOGGER.warning("UTF-8 failed for " + filename + ", using robust encoding detection");
+                LOGGER.warning(() -> "UTF-8 failed for " + filename + ", using robust encoding detection");
                 try {
                     byte[] rawBytes = Files.readAllBytes(file);
                     charContent = RobustCharDecoder.decodeToChars(rawBytes, filename);
@@ -129,7 +129,7 @@ public class JsonTestSuiteTest {
             // OK - we rejected it
         } catch (StackOverflowError e) {
             // OK - acceptable for deeply nested structures
-            LOGGER.warning("StackOverflowError on implementation-defined: " + description);
+            LOGGER.warning(() -> "StackOverflowError on implementation-defined: " + description);
         } catch (Exception e) {
             // NOT OK - unexpected exception type
             fail("Unexpected exception for %s: %s", description, e);

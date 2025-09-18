@@ -52,7 +52,7 @@ public sealed interface JsonSchema
             JsonSchema.NotSchema,
             JsonSchema.RootRef {
 
-    Logger LOG = Logger.getLogger(JsonSchema.class.getName());
+    Logger LOGGER = Logger.getLogger(JsonSchema.class.getName());
 
     /// Prevents external implementations, ensuring all schema types are inner records
     enum Nothing implements JsonSchema {
@@ -69,10 +69,15 @@ public sealed interface JsonSchema
     /// @param schemaJson JSON Schema document as JsonValue
     /// @return Immutable JsonSchema instance
     /// @throws IllegalArgumentException if schema is invalid
-    static JsonSchema compile(JsonValue schemaJson) {
-        Objects.requireNonNull(schemaJson, "schemaJson");
-        return SchemaCompiler.compile(schemaJson);
-    }
+        static JsonSchema compile(JsonValue schemaJson) {
+            Objects.requireNonNull(schemaJson, "schemaJson");
+            try {
+                return SchemaCompiler.compile(schemaJson);
+            } catch (IllegalArgumentException e) {
+                LOGGER.severe(() -> "ERROR: Failed to compile JSON schema: " + e.getMessage());
+                throw e;
+            }
+        }
 
     /// Validates JSON document against this schema
     ///
@@ -84,14 +89,29 @@ public sealed interface JsonSchema
         Deque<ValidationFrame> stack = new ArrayDeque<>();
         stack.push(new ValidationFrame("", this, json));
 
+        final int stackDepthWarningThreshold = 1000;
+        final java.util.concurrent.atomic.AtomicInteger maxStackDepth = new java.util.concurrent.atomic.AtomicInteger(0);
+        
         while (!stack.isEmpty()) {
             ValidationFrame frame = stack.pop();
-            LOG.finest(() -> "POP " + frame.path() +
+            int currentStackSize = stack.size();
+            maxStackDepth.updateAndGet(current -> Math.max(current, currentStackSize));
+            
+            if (currentStackSize > stackDepthWarningThreshold) {
+                LOGGER.fine(() -> "PERFORMANCE WARNING: Validation stack depth exceeds recommended threshold: " + currentStackSize);
+            }
+            
+            LOGGER.finest(() -> "POP " + frame.path() +
                           "   schema=" + frame.schema().getClass().getSimpleName());
             ValidationResult result = frame.schema.validateAt(frame.path, frame.json, stack);
             if (!result.valid()) {
                 errors.addAll(result.errors());
             }
+        }
+        
+        final int finalMaxStackDepth = maxStackDepth.get();
+        if (finalMaxStackDepth > 100) {
+            LOGGER.fine(() -> "PERFORMANCE WARNING: Maximum validation stack depth reached: " + finalMaxStackDepth);
         }
 
         return errors.isEmpty() ? ValidationResult.success() : ValidationResult.failure(errors);
@@ -368,7 +388,7 @@ public sealed interface JsonSchema
                 Deque<ValidationFrame> branchStack = new ArrayDeque<>();
                 List<ValidationError> branchErrors = new ArrayList<>();
 
-                LOG.finest(() -> "BRANCH START: " + schema.getClass().getSimpleName());
+                LOGGER.finest(() -> "BRANCH START: " + schema.getClass().getSimpleName());
                 branchStack.push(new ValidationFrame(path, schema, json));
 
                 while (!branchStack.isEmpty()) {
@@ -384,7 +404,7 @@ public sealed interface JsonSchema
                     break;
                 }
                 collected.addAll(branchErrors);
-                LOG.finest(() -> "BRANCH END: " + branchErrors.size() + " errors");
+                LOGGER.finest(() -> "BRANCH END: " + branchErrors.size() + " errors");
             }
 
             return anyValid ? ValidationResult.success() : ValidationResult.failure(collected);
@@ -401,7 +421,7 @@ public sealed interface JsonSchema
             // Step 2 - choose branch
             JsonSchema branch = ifResult.valid() ? thenSchema : elseSchema;
 
-            LOG.finer(() -> String.format(
+            LOGGER.finer(() -> String.format(
                 "Conditional path=%s ifValid=%b branch=%s",
                 path, ifResult.valid(),
                 branch == null ? "none" : (ifResult.valid() ? "then" : "else")));
@@ -439,8 +459,8 @@ public sealed interface JsonSchema
         private static JsonSchema currentRootSchema;
 
         private static void trace(String stage, JsonValue fragment) {
-            if (LOG.isLoggable(Level.FINER)) {
-                LOG.finer(() ->
+            if (LOGGER.isLoggable(Level.FINER)) {
+                LOGGER.finer(() ->
                     String.format("[%s] %s", stage, fragment.toString()));
             }
         }
@@ -460,6 +480,7 @@ public sealed interface JsonSchema
             }
 
             if (!(schemaJson instanceof JsonObject obj)) {
+                LOGGER.severe(() -> "ERROR: Schema must be an object or boolean, got: " + schemaJson.getClass().getSimpleName());
                 throw new IllegalArgumentException("Schema must be an object or boolean");
             }
 
@@ -483,6 +504,7 @@ public sealed interface JsonSchema
                 }
                 JsonSchema resolved = definitions.get(ref);
                 if (resolved == null) {
+                    LOGGER.severe(() -> "ERROR: Unresolved $ref: " + ref);
                     throw new IllegalArgumentException("Unresolved $ref: " + ref);
                 }
                 return resolved;
