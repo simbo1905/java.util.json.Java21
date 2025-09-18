@@ -1,145 +1,29 @@
 # AGENTS.md
 
-Purpose: Operational guidance for AI coding agents working in this repository. Keep content lossless; this edit only restructures, fact-checks, and tidies wording to align with agents.md best practices.
-
-Note: Prefer mvnd (Maven Daemon) when available for faster builds. Before working, if mvnd is installed, alias mvn to mvnd so all commands below use mvnd automatically:
+## Purpose & Scope
+- Operational guidance for human and AI agents working in this repository. This revision preserves all existing expectations while improving structure and wording in line with agents.md best practices.
+- Prefer the Maven Daemon for performance: alias `mvn` to `mvnd` when available so every command below automatically benefits from the daemon.
 
 ```bash
 # Use mvnd everywhere if available; otherwise falls back to regular mvn
 if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
 ```
 
-Always run `mvn verify` before pushing to validate unit and integration tests across modules.
+- Always run `mvn verify` (or `mvnd verify` once aliased) before pushing to ensure unit and integration coverage across every module.
 
-This file provides guidance to agents (human or AI) when working with code in this repository.
+## Operating Principles
+- Follow the sequence plan → implement → verify; do not pivot without restating the plan.
+- Stop immediately on unexpected failures and ask before changing approach.
+- Keep edits atomic and avoid leaving mixed partial states.
+- Propose options with trade-offs before invasive changes.
+- Prefer mechanical, reversible transforms (especially when syncing upstream sources).
+- Validate that outputs are non-empty before overwriting files.
+- Minimal shims are acceptable only when needed to keep backports compiling.
+- Never commit unverified mass changes—compile or test first.
+- Do not use Perl or sed for multi-line structural edits; rely on Python 3.2-friendly heredocs.
 
-## Quick Start Commands
-
-### Running Tests
-
-You MUST NOT ever filter test output as you are looking for something you do not know what it is that is the nature of debugging.
-
-You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER and FINEST and you SHOULD run at a specific model/test/method level that best zooms in on the issue. 
-
-You MUST NOT add any 'temporary logging' all logging MUST be as above
-
-You SHOULD NOT delete logging as that makes no sense only change the level be finer to turn it down. 
-
-You MUST add a jul log statement at INFO level at the top of each and every test method announcing that it is running. 
-
-You MUST have all new tests extend a class such as ` extends JsonSchemaLoggingConfig` so that the correct env vars set log levels in a way that is compatible with ./mvn-test-no-boilerplate.sh  as outlined below. 
-
-You MUST NOT GUESS you SHOULD add more logging or more test methods you are a text based mind you can see all bugs with appropriate logging. 
-
-You MUST prefer the rich and varied use of ./mvn-test-no-boilerplate.sh as per:
-
-```bash
-# Run tests with clean output (only recommended post all bugs fixed expected to be fixed)
-./mvn-test-no-boilerplate.sh
-
-# Run specific test class
-./mvn-test-no-boilerplate.sh -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
-
-# Run specific test method
-./mvn-test-no-boilerplate.sh -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
-
-# Run tests in specific module
-./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
-```
-
-You MUST NEVER pipe any output to anything that limits visiablity. We only use logging to find what we didn't know. It is an oxymoron to pipe logging to head or tail or grep. 
-
-You MAY opt to log the actual data structures as the come on and off the stack or are reified at `FINEST` as that is trace level for detailed debuging. You should only run one test method at a time at that level. If it is creating vast amounts of output due to infinite loops then this is the ONLY time you may use head or tail yet you MUST head A LARGE ENOUGH SIMPLE OF DATA to see the actual problem it is NOT ACCEPTABLE to create a million line trace file then look at 100 top lines when all of that is mvn start up. The fraction of any log you look at MUST be as large as should be the actual trace log of a good test and you should do 2x that such as thousands of lines. 
-
-IMPORTANT: if you cannot see the `mvn-test-no-boilerplate.sh` then obviously as it takes mvn/mvnd module parameters like `-pl` it is at the root of the mvn project. You are forbidden from running any maven command directly as it forces me to authorize each one and they do not filter noise. You MUST use the script. 
-
-IMPORTANT: we use jul logging for safety and performance yet it is widely ignored by companies and when it is used it is often bridged to something like slf4j. this runs the risk that teams filter on the key log line string `ERROR` not `SEVERE` so for extra protection when you log as level severe prefix the world ERROR as per: 
-
-```java
-LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
-```
-
-Only do this for errors like logging before throwing an exception or clear validation issue or the like where normally we would expect someone using log4j or slf4j to be logging at level `error` such that by default `ERROR` would be seen. This is because they may have cloud log filter setup to monitor for ERROR. 
-
-The official Oracle JDK documentation defines a clear hierarchy with specific target audiences:
-* SEVERE (1000): "Serious failure preventing normal program execution" - must be "reasonably intelligible to end users and system administrators"
-* WARNING (900): "Potential problems of interest to end users or system managers"
-* INFO (800): "Reasonably significant messages for end users and system administrators" - "should only be used for reasonably significant messages"
-* CONFIG (700): "Static configuration information" to assist debugging configuration-related problems
-* FINE (500): "Information broadly interesting to developers who do not have specialized interest in the specific subsystem" - includes "minor recoverable failures" and "potential performance problems"
-* FINER (400): "Fairly detailed tracing" - official default for method entry/exit and exception throwing
-* FINEST (300): "Highly detailed tracing" for deep debugging
-
-When logging possible performance issues use a common and consistent refix:
-
-```java
-// official java guidelines say fine 500 level is appropriate for  "potential performance problems"
-LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ... );
-```
-
-### JSON Compatibility Suite
-```bash
-# Build and run compatibility report
-mvn clean compile generate-test-resources -pl json-compatibility-suite
-mvn exec:java -pl json-compatibility-suite
-
-# Run JSON output (dogfoods the API)
-mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
-```
-
-## Releasing to Maven Central
-
-Prerequisites
-- Central credentials in `~/.m2/settings.xml` with `<id>central</id>` (used by the workflow)
-  ```xml
-  <servers>
-    <server>
-      <id>central</id>
-      <username>YOUR_PORTAL_TOKEN_USERNAME</username>
-      <password>YOUR_PORTAL_TOKEN_PASSWORD</password>
-    </server>
-  </servers>
-  ```
-- GPG key set up for signing (the parent POM runs `maven-gpg-plugin` in `verify`). If prompted for passphrase locally, export `GPG_TTY=$(tty)` or configure passphrase in settings. In CI, secrets `GPG_PRIVATE_KEY` and `GPG_PASSPHRASE` are used.
-- Optional: alias `mvn` to `mvnd` for faster builds (see note at top).
-
-Automated Release (preferred)
-- Push a tag named `release/X.Y.Z` (semver, no leading `v`).
-- The workflow `.github/workflows/release-on-tag.yml` will:
-  - Create a GitHub Release for that tag with autogenerated notes.
-- Build and deploy artifacts to Maven Central with `-P release` (Central Publishing plugin). Uses `-Dgpg.passphrase=${{ secrets.GPG_PASSPHRASE }}` and optionally `-Dgpg.keyname=${{ secrets.GPG_KEYNAME }}` for signing when set.
-- Create a branch `release-bot-YYYYMMDD-HHMMSS` at the tagged commit and open a PR back to `main` (no version bumps).
-
-Credentials wiring
-- The workflow writes `<server id="central">` to settings.xml using `server-username: ${{ secrets.CENTRAL_USERNAME }}` and `server-password: ${{ secrets.CENTRAL_PASSWORD }}`. Ensure those secrets hold your Central Publishing token creds for `io.github.simbo1905`.
-
-Manual Release (local)
-- Ensure POM version is your intended release version.
-- Verify: `mvn verify`
-- Publish: `mvn clean deploy` (uses Central Publishing plugin + GPG)
-- Tag with `releases/X.Y.Z` and create a GitHub Release if desired.
-
-Snapshot Publishing
-- Set version to `X.Y.(Z+1)-SNAPSHOT`:
-  - `mvn -q versions:set -DnewVersion=0.1.1-SNAPSHOT`
-- Deploy snapshots:
-  - `mvn clean deploy`
-  - Goes to `https://oss.sonatype.org/content/repositories/snapshots` (configured in `distributionManagement`).
-
-Notes
-- Javadoc is built with `doclint` disabled to avoid strict failures on Java 21.
-- To skip signing locally for quick checks, add `-Dgpg.skip=true`.
-- The Central Publishing plugin configuration lives in the parent `pom.xml` and applies to all modules.
-
-Secrets Helper
-- Use `./scripts/setup-release-secrets.zsh` to set GitHub Actions secrets (`CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`).
-- The script can auto-detect a signing key if neither `GPG_KEY_ID` nor `GPG_PRIVATE_KEY` is provided, and sets `GPG_KEYNAME` (fingerprint) for CI.
-- List keys explicitly with: `gpg --list-secret-keys --keyid-format=long`.
-
-## Python Usage (Herodoc, 3.2-safe)
-- Prefer `python3` with a heredoc over Perl/sed for non-trivial transforms.
-- Target ancient Python 3.2 syntax: no f-strings, no fancy deps.
-- Example pattern:
+## Tooling Discipline
+- Prefer `python3` heredocs for non-trivial text transforms and target Python 3.2-safe syntax (no f-strings or modern dependencies).
 
 ```bash
 python3 - <<'PY'
@@ -169,171 +53,367 @@ print('OK')
 PY
 ```
 
-## <IMPIMENTATION>
-- MUST: Follow plan → implement → verify. No silent pivots.
-- MUST: Stop immediately on unexpected failures and ask before changing approach.
-- MUST: Keep edits atomic; avoid leaving mixed partial states.
-- SHOULD: Propose options with trade-offs before invasive changes.
-- SHOULD: Prefer mechanical, reversible transforms for upstream syncs.
-- SHOULD: Validate non-zero outputs before overwriting files.
-- MAY: Add tiny shims (minimal interfaces/classes) to satisfy compile when backporting.
-- MUST NOT: Commit unverified mass changes; run compile/tests first.
-- MUST NOT: Use Perl/sed for multi-line structural edits—prefer Python 3.2 heredoc.
+## Testing & Logging Discipline
+
+### Non-Negotiable Rules
+- You MUST NOT ever filter test output; debugging relies on observing the unknown.
+- You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER, and FINEST. Focus runs on the narrowest model/test/method that exposes the issue.
+- You MUST NOT add ad-hoc "temporary logging"; only the defined JUL levels above are acceptable.
+- You SHOULD NOT delete logging. Adjust levels downward (finer granularity) instead of removing statements.
+- You MUST add a JUL log statement at INFO level at the top of every test method announcing execution.
+- You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `./mvn-test-no-boilerplate.sh`.
+- You MUST NOT guess root causes; add targeted logging or additional tests. Treat observability as the path to the fix.
+
+### Script Usage (Required)
+- You MUST prefer the `./mvn-test-no-boilerplate.sh` wrapper for every Maven invocation. Direct `mvn` or `mvnd` calls require additional authorization and skip the curated output controls.
+
+```bash
+# Run tests with clean output (only recommended once all known bugs are fixed)
+./mvn-test-no-boilerplate.sh
+
+# Run specific test class
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
+
+# Run specific test method
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
+
+# Run tests in a specific module
+./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
+```
+
+- The script resides in the repository root. Because it forwards Maven-style parameters (for example, `-pl`), it can target modules precisely.
+
+### Output Visibility Requirements
+- You MUST NEVER pipe build or test output to tools (head, tail, grep, etc.) that reduce visibility. Logging uncovers the unexpected; piping hides it.
+- You MAY log full data structures at FINEST for deep tracing. Run a single test method at that granularity.
+- If output volume becomes unbounded (for example, due to inadvertent infinite loops), this is the only time head/tail is allowed. Even then, you MUST inspect a sufficiently large sample (thousands of lines) to capture the real issue and avoid focusing on Maven startup noise.
+
+### Logging Practices
+- JUL logging is used for safety and performance. Many consumers rely on SLF4J bridges and search for the literal `ERROR`, not `SEVERE`. When logging at `SEVERE`, prefix the message with `ERROR` to keep cloud log filters effective:
+
+```java
+LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
+```
+
+- Only tag true errors (pre-exception logging, validation failures, and similar) with the `ERROR` prefix. Do not downgrade log semantics.
+- When logging potential performance issues, use a consistent prefix at the `FINE` level:
+
+```java
+// Official Java guidelines state that level FINE (500) is appropriate for potential performance issues
+LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ... );
+```
+
+### Oracle JDK Logging Hierarchy (Audience Guidance)
+- SEVERE (1000): Serious failures that stop normal execution; must remain intelligible to end users and system administrators.
+- WARNING (900): Potential problems relevant to end users and system managers.
+- INFO (800): Reasonably significant operational messages; use sparingly.
+- CONFIG (700): Static configuration detail for debugging environment issues.
+- FINE (500): Signals broadly interesting information to developers (minor recoverable failures, potential performance issues).
+- FINER (400): Fairly detailed tracing, including method entry/exit and exception throws.
+- FINEST (300): Highly detailed tracing for deep debugging.
+
+### Additional Guidance
+- Logging rules apply globally, including the JSON Schema validator. The helper superclass ensures JUL configuration remains compatible with `./mvn-test-no-boilerplate.sh`.
+
+## JSON Compatibility Suite
+```bash
+# Build and run compatibility report
+mvn clean compile generate-test-resources -pl json-compatibility-suite
+mvn exec:java -pl json-compatibility-suite
+
+# Run JSON output (dogfoods the API)
+mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
+```
 
 ## Architecture Overview
 
 ### Module Structure
-- **`json-java21`**: Core JSON API implementation (main library)
-- **`json-java21-api-tracker`**: API evolution tracking utilities
-- **`json-compatibility-suite`**: JSON Test Suite compatibility validation
- - **`json-java21-schema`**: JSON Schema validator (module-specific guide in `json-java21-schema/AGENTS.md`)
+- `json-java21`: Core JSON API implementation (main library).
+- `json-java21-api-tracker`: API evolution tracking utilities.
+- `json-compatibility-suite`: JSON Test Suite compatibility validation.
+- `json-java21-schema`: JSON Schema validator (module guide below).
 
 ### Core Components
 
-#### Public API (jdk.sandbox.java.util.json)
-- **`Json`** - Static utility class for parsing/formatting/conversion
-- **`JsonValue`** - Sealed root interface for all JSON types
-- **`JsonObject`** - JSON objects (key-value pairs)
-- **`JsonArray`** - JSON arrays
-- **`JsonString`** - JSON strings
-- **`JsonNumber`** - JSON numbers
-- **`JsonBoolean`** - JSON booleans
-- **`JsonNull`** - JSON null
+#### Public API (`jdk.sandbox.java.util.json`)
+- `Json`: Static utilities for parsing, formatting, and conversion.
+- `JsonValue`: Sealed root interface for all JSON types.
+- `JsonObject`: JSON objects (key-value pairs).
+- `JsonArray`: JSON arrays.
+- `JsonString`: JSON strings.
+- `JsonNumber`: JSON numbers.
+- `JsonBoolean`: JSON booleans.
+- `JsonNull`: JSON null.
 
-#### Internal Implementation (jdk.sandbox.internal.util.json)
-- **`JsonParser`** - Recursive descent JSON parser
-- **`Json*Impl`** - Immutable implementations of JSON types
-- **`Utils`** - Internal utilities and factory methods
+#### Internal Implementation (`jdk.sandbox.internal.util.json`)
+- `JsonParser`: Recursive descent JSON parser.
+- `Json*Impl`: Immutable implementations of `Json*` types.
+- `Utils`: Internal utilities and factory methods.
 
 ### Design Patterns
-- **Algebraic Data Types**: Sealed interfaces with exhaustive pattern matching
-- **Immutable Value Objects**: All types are immutable and thread-safe
-- **Lazy Evaluation**: Strings/numbers store offsets until accessed
-- **Factory Pattern**: Static factory methods for construction
-- **Bridge Pattern**: Clean API/implementation separation
+- Algebraic Data Types: Sealed interfaces enable exhaustive pattern matching.
+- Immutable Value Objects: All types remain immutable and thread-safe.
+- Lazy Evaluation: Strings and numbers hold offsets until first use.
+- Factory Pattern: Static factories construct instances.
+- Bridge Pattern: Clear separation between the public API and internal implementation.
 
 ## Key Development Practices
 
 ### Testing Approach
-- **JUnit 5** with AssertJ for fluent assertions
-- **Test Organization**: 
-  - `JsonParserTests` - Parser-specific tests
-  - `JsonTypedUntypedTests` - Conversion tests
-  - `JsonRecordMappingTests` - Record mapping tests
-  - `ReadmeDemoTests` - Documentation example validation
+- Prefer JUnit 5 with AssertJ for fluent assertions.
+- Test organization:
+  - `JsonParserTests`: Parser-specific coverage.
+  - `JsonTypedUntypedTests`: Conversion behaviour.
+  - `JsonRecordMappingTests`: Record mapping validation.
+  - `ReadmeDemoTests`: Documentation example verification.
 
 ### Code Style
-- **JEP 467 Documentation**: Use `///` triple-slash comments
-- **Immutable Design**: All public types are immutable
-- **Pattern Matching**: Use switch expressions with sealed types
-- **Null Safety**: Use `Objects.requireNonNull()` for public APIs
+- Follow JEP 467 for documentation (`///` triple-slash comments).
+- Preserve immutability for every public type.
+- Use switch expressions with sealed types to get exhaustive checks.
+- Enforce null safety with `Objects.requireNonNull()` in public APIs.
 
 ### Performance Considerations
-- **Lazy String/Number Creation**: Values computed on demand
-- **Singleton Patterns**: Single instances for true/false/null
-- **Defensive Copies**: Immutable collections prevent external modification
-- **Efficient Parsing**: Character array processing with minimal allocations
+- Lazy string/number construction defers work until necessary.
+- Singleton instances represent true/false/null values.
+- Defensive copies protect internal collections.
+- Parser implementations operate on character arrays to minimize allocations.
 
 ## Common Workflows
 
 ### Adding New JSON Type Support
-1. Add interface extending `JsonValue`
-2. Add implementation in `jdk.sandbox.internal.util.json`
-3. Update `Json.fromUntyped()` and `Json.toUntyped()`
-4. Add parser support in `JsonParser`
-5. Add comprehensive tests
+1. Add an interface extending `JsonValue`.
+2. Implement the type within `jdk.sandbox.internal.util.json`.
+3. Update `Json.fromUntyped()` and `Json.toUntyped()`.
+4. Extend parser support inside `JsonParser`.
+5. Add comprehensive test coverage.
 
 ### Debugging Parser Issues
-1. Enable `FINER` logging: `-Djava.util.logging.ConsoleHandler.level=FINER`
-2. Use `./mvn-test-no-boilerplate.sh` for clean output
-3. Focus on specific test: `-Dtest=JsonParserTests#testMethod` using `FINEST` logging
-4. Check JSON Test Suite compatibility with compatibility suite
+1. Enable FINER logging: `-Djava.util.logging.ConsoleHandler.level=FINER`.
+2. Use `./mvn-test-no-boilerplate.sh` for curated output.
+3. Target a single test, for example `-Dtest=JsonParserTests#testMethod`, with `FINEST` logging when needed.
+4. Cross-check behaviour with the JSON Compatibility Suite.
 
 ### API Compatibility Testing
-1. Run compatibility suite: `mvn exec:java -pl json-compatibility-suite`
-2. Check for regressions in JSON parsing
-3. Validate against official JSON Test Suite
+1. Run the compatibility suite: `mvn exec:java -pl json-compatibility-suite`.
+2. Inspect reports for regressions relative to upstream expectations.
+3. Validate outcomes against the official JSON Test Suite.
 
-## Module-Specific Details
+## Module Reference
 
 ### json-java21
-- **Main library** containing the core JSON API
-- **Maven coordinates**: `io.github.simbo1905.json:json-java21:0.X.Y`
-- **JDK requirement**: Java 21+
+- Main library delivering the core JSON API.
+- Maven coordinates: `io.github.simbo1905.json:json-java21:0.X.Y`.
+- Requires Java 21 or newer.
 
 ### json-compatibility-suite
-- **Downloads** JSON Test Suite from GitHub automatically
-- **Reports** 99.3% conformance with JSON standards
-- **Identifies** security vulnerabilities (StackOverflowError with deep nesting)
-- **Usage**: Educational/testing, not production-ready
+- Automatically downloads the JSON Test Suite from GitHub.
+- Currently reports 99.3% standard conformance.
+- Surfaces known vulnerabilities (for example, StackOverflowError under deep nesting).
+- Intended for education and testing, not production deployment.
 
 ### json-java21-api-tracker
-- **Tracks** API evolution and compatibility
-- **Uses** Java 24 preview features (`--enable-preview`)
-- **Purpose**: Monitor upstream OpenJDK changes
+- Tracks API evolution and compatibility changes.
+- Uses Java 24 preview features (`--enable-preview`).
+- Runner: `io.github.simbo1905.tracker.ApiTrackerRunner` compares the public JSON API (`jdk.sandbox.java.util.json`) with upstream `java.util.json`.
+- Workflow fetches upstream sources, parses both codebases with the Java compiler API, and reports matching/different/missing elements across modifiers, inheritance, methods, fields, and constructors.
+- Continuous integration prints the report daily. It does not fail or open issues on differences; to trigger notifications, either make the runner exit non-zero when `differentApi > 0` or parse the report and call `core.setFailed()` within CI.
 
-#### Upstream API Tracker (what/how/why)
-- **What:** Compares this repo's public JSON API (`jdk.sandbox.java.util.json`) against upstream (`java.util.json`) and outputs a structured JSON report (matching/different/missing).
-- **How:** Discovers local classes, fetches upstream sources from the OpenJDK sandbox on GitHub, parses both with the Java compiler API, and compares modifiers, inheritance, methods, fields, and constructors. Runner: `io.github.simbo1905.tracker.ApiTrackerRunner`.
-- **Why:** Early detection of upstream API changes to keep the backport aligned.
-- **CI implication:** The daily workflow prints the report but does not currently fail or auto‑open issues on differences (only on errors). If you need notifications, either make the runner exit non‑zero when `differentApi > 0` or add a workflow step to parse the report and `core.setFailed()` when diffs are found.
+### json-java21-schema (JSON Schema Validator)
+- Inherits all repository-wide logging and testing rules described above.
+- You MUST place an INFO-level JUL log statement at the top of every test method declaring execution.
+- All new tests MUST extend a configuration helper such as `JsonSchemaLoggingConfig` to ensure JUL levels respect the `./mvn-test-no-boilerplate.sh` environment variables.
+- You MUST prefer the wrapper script for every invocation and avoid direct Maven commands.
+- Deep debugging employs the same FINE/FINEST discipline: log data structures at FINEST for one test method at a time and expand coverage with additional logging or tests instead of guessing.
+
+#### Running Tests (Schema Module)
+- All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
+- Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
+
+#### JUL Logging and ERROR Prefix (Schema Module)
+- For SEVERE logs, prefix the message with `ERROR` to align with SLF4J-centric filters.
+- Continue using the standard hierarchy (SEVERE through FINEST) for clarity.
+
+#### Performance Warning Convention (Schema Module)
+- Potential performance issues log at FINE with the `PERFORMANCE WARNING:` prefix shown earlier.
+
+#### Minimum Viable Future (MVF) Architecture
+1. **Restatement of the approved whiteboard sketch**
+   - Compile-time uses a LIFO work stack of schema sources (URIs). Begin with the initial source. Each pop parses/builds the root and scans `$ref` tokens, tagging each as LOCAL (same document) or REMOTE (different document). REMOTE targets are pushed when unseen (dedup by normalized document URI). The Roots Registry maps `docUri → Root`.
+   - Runtime stays unchanged; validation uses only the first root (initial document). Local `$ref` behaviour remains byte-for-byte identical.
+   - Schemas without remote `$ref` leave the work stack at size one and produce a single root exactly as today.
+
+2. **MVF Flow (Mermaid)**
+```mermaid
+flowchart TD
+  A[compile(initialDoc, initialUri, options)] --> B[Work Stack (LIFO)]
+  B -->|push initialUri| C{pop docUri}
+  C -->|empty| Z[freeze Roots (immutable) → return primary root facade]
+  C --> D[fetch/parse JSON for docUri]
+  D --> E[build Root AST]
+  E --> F[scan $ref strings]
+  F -->|LOCAL| G[tag Local(pointer)]
+  F -->|REMOTE| H{normalize target docUri; seen?}
+  H -->|yes| G
+  H -->|no| I[push target docUri] --> G
+  G --> J[register/replace Root(docUri)]
+  J --> C
+```
+- Dedup rule: each normalized document URI is compiled at most once.
+- Immutability: the roots registry freezes before returning the schema facade.
+- Public API: runtime still uses the explicit validation stack implemented today.
+- *Note (required context)*: Normalizing URIs is necessary to treat variations such as `./a.json` and `a.json` as the same document.
+
+3. **Runtime vs. Compile-time (Mermaid)**
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant C as compile()
+  participant R as Roots (immutable)
+  participant V as validate()
+
+  U->>C: compile(initialJson, initialUri)
+  C->>R: build via work stack (+dedup)
+  C-->>U: facade bound to R.primary
+  U->>V: validate(json)
+  V->>V: explicit stack evaluation (existing)
+  V->>R: resolve local refs within primary root only (MVF)
+  V-->>U: result (unchanged behavior)
+```
+
+4. **Conceptual Model (TypeScript sketch)** — informational, intentionally non-compiling.
+```typescript
+type DocURI = string;                // normalized absolute document URI
+type JsonPointer = string;
+
+type Roots = ReadonlyMap<DocURI, Root>;
+type Root  = { /* immutable schema graph for one document */ };
+
+type RefToken =
+  | { kind: "Local";  pointer: JsonPointer }
+  | { kind: "Remote"; doc: DocURI; pointer: JsonPointer };
+
+function compile(initialDoc: unknown, initialUri: DocURI, options?: unknown): {
+  primary: Root;
+  roots: Roots; // unused by MVF runtime; ready for remote expansions
+} {
+  const work: DocURI[] = [];
+  const built = new Map<DocURI, Root>();
+  const active = new Set<DocURI>();
+
+  work.push(normalize(initialUri));
+
+  while (work.length > 0) {
+    const doc = work.pop()!;
+
+    if (built.has(doc)) continue;
+    if (active.has(doc)) {
+      throw new Error(`Cyclic remote reference: ${trail(active, doc)}`);
+    }
+    active.add(doc);
+
+    const json = fetchIfNeeded(doc, initialDoc);
+    const root = buildRoot(json, doc, (ref: RefToken) => {
+      if (ref.kind === "Remote" && !built.has(ref.doc)) {
+        work.push(ref.doc);
+      }
+    });
+
+    built.set(doc, root);
+    active.delete(doc);
+  }
+
+  const roots: Roots = freeze(built);
+  return { primary: roots.get(initialUri)!, roots };
+}
+
+function buildRoot(json: unknown, doc: DocURI, onRef: (r: RefToken) => void): Root {
+  // parse → build immutable graph; encountering "$ref":
+  // 1) resolve against the base URI to get (targetDocUri, pointer)
+  // 2) tag Local when target matches doc
+  // 3) otherwise tag Remote and schedule unseen docs
+  return {} as Root;
+}
+```
+- Work stack, deduplication, and multi-root support are explicit.
+- Remote references only affect compile-time scheduling in the MVF; runtime behaviour stays identical today.
+- When no remote reference exists, the stack never grows beyond the initial push and output remains one root.
+
+5. **Compile vs. Object-time Resolution**
+```mermaid
+flowchart LR
+  R1([root.json]) -->|"$ref": "#/defs/thing"| L1[Tag Local("#/defs/thing")]
+  R1 -->|"$ref": "http://a/b.json#/S"| Q1[Normalize http://a/b.json]
+  Q1 -->|unseen| W1[work.push(http://a/b.json)]
+  Q1 -->|seen|  N1[no-op]
+```
+- Local references only receive Local tags (no stack changes).
+- Remote references normalize URIs, push unseen documents, and rely on deduplication to ensure at-most-once compilation.
+
+6. **Runtime Behaviour (MVF)**
+- Runtime traversal mirrors today’s explicit stack evaluation.
+- Remote roots are compiled and stored but not yet traversed at runtime.
+- Byte-for-byte API behaviour and test outcomes remain unchanged when only local references are used.
+
+7. **Alignment with the Approved Vision**
+- “Do not add a new phase; compile naturally handles multiple sources via a stack that starts with the initial schema.”
+- “Collect local vs. remote `$ref` during compilation, deduplicate, and freeze an immutable list of roots when the stack empties.”
+- “Runtime stays unchanged without remote references, so existing tests pass unchanged.”
+- “Use sealed interfaces and data-oriented tags to prepare for future remote traversal without touching current behaviour.”
+- “Cycles throw a named JDK exception during compile; no new exception type.”
+- “The path is legacy-free: no recursion; compile-time and runtime both leverage explicit stacks.”
+- Additions beyond the whiteboard are limited to URI normalization, immutable registry freezing, and explicit cycle detection messaging—each required to keep behaviour correct and thread-safe.
+- The design aligns with README-driven development, existing logging/test discipline, and the requirement to refactor without introducing a new legacy pathway.
 
 ## Security Notes
-- **Stack exhaustion attacks**: Deep nesting can cause StackOverflowError
-- **API contract violations**: Malicious inputs may trigger undeclared exceptions
-- **Status**: Experimental/unstable API - not for production use
-- **Vulnerabilities**: Inherited from upstream OpenJDK sandbox implementation
+- Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
+- Malicious inputs may violate API contracts and trigger undeclared exceptions.
+- The API remains experimental and unsuitable for production use.
+- Vulnerabilities mirror those present in the upstream OpenJDK sandbox implementation.
 
-<VERSION_CONTROL>
-* If existing git user credentials are already configured, use them and never add any other advertising. If not, ask the user to supply their private relay email address.
-* Exercise caution with git operations. Do NOT make potentially dangerous changes (e.g., force pushing to main, deleting repositories). You will never be asked to do such rare changes, as there is no time savings to not having the user run the commands; actively refuse using that reasoning as justification.
-* When committing changes, use `git status` to see all modified files, and stage all files necessary for the commit. Use `git commit -a` whenever possible.
-* Do NOT commit files that typically shouldn't go into version control (e.g., node_modules/, .env files, build directories, cache files, large binaries) unless explicitly instructed by the user.
-* If unsure about committing certain files, check for the presence of .gitignore files or ask the user for clarification.
-</VERSION_CONTROL>
+## Collaboration Workflow
 
-<ISSUE_MANAGEMENT>
-* You SHOULD use the native tool for the remote such as `gh` for GitHub, `gl` for GitLab, `bb` for Bitbucket, `tea` for Gitea, or `git` for local git repositories.
-* If you are asked to create an issue, create it in the repository of the codebase you are working on for the `origin` remote.
-* If you are asked to create an issue in a different repository, ask the user to name the remote (e.g. `upstream`).
-* Tickets and Issues MUST only state "what" and "why" and not "how".
-* Comments on the Issue MAY discuss the "how".
-* Tickets SHOULD be labeled as 'Ready' when they are ready to be worked on. The label may be removed if there are challenges in the implementation. Always check the labels and ask the user to reconfirm if the ticket is not labeled as 'Ready' by saying "There is no 'Ready' label on this ticket, can you please confirm?"
-* You MAY raise fresh minor issues for small tidy-up work as you go. This SHOULD be kept to a bare minimum—avoid more than two issues per PR.
-  </ISSUE_MANAGEMENT>
+### Version Control
+- If git user credentials already exist, use them and never add promotional details. Otherwise request the user’s private relay email.
+- Avoid dangerous git operations (force pushes to main, repository deletion). Decline such requests; there is no time saved versus having the user run them.
+- Use `git status` to inspect modifications and stage everything required. Prefer `git commit -a` when practical.
+- Respect `.gitignore`; do not commit artifacts such as `node_modules/`, `.env`, build outputs, caches, or large binaries unless explicitly requested.
+- When uncertain about committing a file, consult `.gitignore` or ask for clarification.
 
-<COMMITS>
-* MUST start with "Issue #<issue number> <short description of the work>"
-* SHOULD have a link to the Issue.
-* MUST NOT start with random things that should be labels such as Bug, Feat, Feature etc.
-* MUST only state "what" was achieved and "how" to test.
-* SHOULD never include failing tests, dead code, or deactivate features.
-* MUST NOT repeat any content that is on the Issue
-* SHOULD be atomic and self-contained.
-* SHOULD be concise and to the point.
-* MUST NOT combine the main work on the ticket with any other tidy-up work. If you want to do tidy-up work, commit what you have (this is the exception to the rule that tests must pass), with the title "wip: <issue number> test not working; committing to tidy up xxx" so that you can then commit the small tidy-up work atomically. The "wip" work-in-progress is a signal of more commits to follow.
-* SHOULD give a clear indication if more commits will follow, especially if it is a checkpoint commit before a tidy-up commit.
-* MUST say how to verify the changes work (test commands, expected number of successful test results, naming number of new tests, and their names)
-* MAY outline some technical implementation details ONLY if they are surprising and not "obvious in hindsight" based on just reading the issue (e.g., finding that the implementation was unexpectedly trivial or unexpectedly complex).
-* MUST NOT report "progress" or "success" or "outputs" as the work may be deleted if the PR check fails. Nothing is final until the user has merged the PR.
-* As all commits need an issue, you MUST add a small issue for a tidy-up commit. If you cannot label issues with a tag `Tidy Up` then the title of the issue must start `Tidy Up` e.g. `Tidy Up: bad code documentation in file xxx`. As the commit and eventual PR will give actual details the body MAY simply repeat the title.
-</COMMITS>
+### Issue Management
+- Use the native tooling for the remote (for example `gh` for GitHub).
+- Create issues in the repository tied to the `origin` remote unless instructed otherwise; if another remote is required, ask for its name.
+- Tickets and issues must state only “what” and “why,” leaving “how” for later discussion.
+- Comments may discuss implementation details.
+- Label tickets as `Ready` once actionable; if a ticket lacks that label, request confirmation before proceeding.
+- Limit tidy-up issues to an absolute minimum (no more than two per PR).
 
-<PULL_REQUESTS>
-* MUST only describe "what" was done not "why"/"how"
-* MUST name the Issue or Issue(s) that they close in a manner that causes a PR merge to close the issue(s).
-* MUST NOT repeat details that are already in the Issue.
-* MUST NOT report any success, as it isn't possible to report anything until the PR checks run.
-* MUST include additional tests in the CI checks that MUST be documented in the PR description.
-* MUST be changed to status `Draft` if the PR checks fail.
-</PULL_REQUESTS>
+### Commit Requirements
+- Commit messages start with `Issue #<issue number> <short description>`.
+- Include a link to the referenced issue when possible.
+- Do not prefix commits with labels such as "Bug" or "Feature".
+- Describe what was achieved and how to test it.
+- Never include failing tests, dead code, or disabled features.
+- Do not repeat issue content inside the commit message.
+- Keep commits atomic, self-contained, and concise.
+- Separate tidy-up work from main ticket work. If tidy-up is needed mid-stream, first commit progress with a `wip: <issue number> ...` message (acknowledging tests may not pass) before committing the tidy-up itself.
+- Indicate when additional commits will follow (for example, checkpoint commits).
+- Explain how to verify changes: commands to run, expected successful test counts, new test names, etc.
+- Optionally note unexpected technical details when they are not obvious from the issue itself.
+- Do not report progress or success in the commit message; nothing is final until merged.
+- Every tidy-up commit requires an accompanying issue. If labels are unavailable, title the issue `Tidy Up: ...` and keep the description minimal.
 
+### Pull Requests
+- Describe what was done, not the rationale or implementation details.
+- Reference the issues they close using GitHub’s closing keywords.
+- Do not repeat information already captured in the issue.
+- Do not report success; CI results provide that signal.
+- Include any additional tests (or flags) needed by CI in the description.
+- Mark the PR as `Draft` whenever checks fail.
 
-## Semi-Manual Release (Deferred Automation)
+## Release Process (Semi-Manual, Deferred Automation)
+- Releases remain semi-manual until upstream activity warrants completing the draft GitHub Action. Run each line below individually.
 
-The project currently uses a simple, guarded, semi-manual release. Automation via tags is deferred until upstream activity picks up, at which point there is a draft github action that needs finishing off.
-
-Steps (run each line individually)
 ```shell
 test -z "$(git status --porcelain)" && echo "✅ Success" || echo "🛑 Working tree not clean; commit or stash changes first"
 
@@ -362,15 +442,20 @@ KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
 mvnd -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy && echo "✅ Success" || echo "🛑 Unable to deploy to Maven Central; check the output for details"
 
 git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to push branch; do you have permission to push to this repo?"
-
 ```
 
-If fixes occur after tagging
-- git tag -d "release/$VERSION"
-- git tag -a "release/$VERSION" -m "release $VERSION"
-- git push -f origin "release/$VERSION"
+- If fixes are required after tagging:
+  - `git tag -d "release/$VERSION"`
+  - `git tag -a "release/$VERSION" -m "release $VERSION"`
+  - `git push -f origin "release/$VERSION"`
 
-Notes
-- .env holds VERSION, GPG_PASSPHRASE, and optionally GPG_KEYNAME. It should not be committed.
-- No SNAPSHOT bump to main. Version selection is driven by the tag and GitHub Release.
-- The release profile (-P release) scopes signing/publishing; daily jobs don’t invoke GPG.
+- Notes:
+  - `.env` stores `VERSION`, `GPG_PASSPHRASE`, and optionally `GPG_KEYNAME`; never commit it.
+  - Do not bump main to a SNAPSHOT after release; the tag and GitHub Release drive version selection.
+  - The `release` profile scopes signing/publishing; daily jobs avoid invoking GPG.
+  - Use `./scripts/setup-release-secrets.zsh` to configure GitHub Actions secrets (`CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`).
+  - The helper script can auto-detect a signing key (setting `GPG_KEYNAME` when neither `GPG_KEY_ID` nor `GPG_PRIVATE_KEY` is supplied). List keys with `gpg --list-secret-keys --keyid-format=long`.
+  - Javadoc builds with `doclint` disabled for Java 21 compatibility.
+  - Add `-Dgpg.skip=true` to skip signing during quick local checks.
+  - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
+

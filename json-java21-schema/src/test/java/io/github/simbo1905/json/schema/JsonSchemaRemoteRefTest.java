@@ -200,7 +200,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaLoggingConfig {
         logRemote("remoteDoc=", remoteDoc);
 
         final var policy = JsonSchema.FetchPolicy.defaults()
-            .withMaxDocumentBytes(10)
+            .withMaxDocumentBytes()
             .withTimeout(Duration.ofMillis(5));
 
         final var oversizedFetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc, 2048, Optional.of(Duration.ofMillis(1)))));
