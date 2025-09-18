@@ -61,11 +61,35 @@ You MUST prefer the rich and varied use of ./mvn-test-no-boilerplate.sh as per:
 ./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
-
 You MUST NEVER pipe any output to anything that limits visiablity. We only use logging to find what we didn't know. It is an oxymoron to pipe logging to head or tail or grep. 
 
 You MAY opt to log the actual data structures as the come on and off the stack or are reified at `FINEST` as that is trace level for detailed debuging. You should only run one test method at a time at that level. If it is creating vast amounts of output due to infinite loops then this is the ONLY time you may use head or tail yet you MUST head A LARGE ENOUGH SIMPLE OF DATA to see the actual problem it is NOT ACCEPTABLE to create a million line trace file then look at 100 top lines when all of that is mvn start up. The fraction of any log you look at MUST be as large as should be the actual trace log of a good test and you should do 2x that such as thousands of lines. 
 
+IMPORTANT: if you cannot see the `mvn-test-no-boilerplate.sh` then obviously as it takes mvn/mvnd module parameters like `-pl` it is at the root of the mvn project. You are forbidden from running any maven command directly as it forces me to authorize each one and they do not filter noise. You MUST use the script. 
+
+IMPORTANT: we use jul logging for safety and performance yet it is widely ignored by companies and when it is used it is often bridged to something like slf4j. this runs the risk that teams filter on the key log line string `ERROR` not `SEVERE` so for extra protection when you log as level severe prefix the world ERROR as per: 
+
+```java
+LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
+```
+
+Only do this for errors like logging before throwing an exception or clear validation issue or the like where normally we would expect someone using log4j or slf4j to be logging at level `error` such that by default `ERROR` would be seen. This is because they may have cloud log filter setup to monitor for ERROR. 
+
+The official Oracle JDK documentation defines a clear hierarchy with specific target audiences:
+* SEVERE (1000): "Serious failure preventing normal program execution" - must be "reasonably intelligible to end users and system administrators"
+* WARNING (900): "Potential problems of interest to end users or system managers"
+* INFO (800): "Reasonably significant messages for end users and system administrators" - "should only be used for reasonably significant messages"
+* CONFIG (700): "Static configuration information" to assist debugging configuration-related problems
+* FINE (500): "Information broadly interesting to developers who do not have specialized interest in the specific subsystem" - includes "minor recoverable failures" and "potential performance problems"
+* FINER (400): "Fairly detailed tracing" - official default for method entry/exit and exception throwing
+* FINEST (300): "Highly detailed tracing" for deep debugging
+
+When logging possible performance issues use a common and consistent refix:
+
+```java
+// official java guidelines say fine 500 level is appropriate for  "potential performance problems"
+LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ... );
+```
 
 ### JSON Compatibility Suite
 ```bash
