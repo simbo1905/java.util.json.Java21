@@ -4,6 +4,7 @@ Stack-based JSON Schema validator using sealed interface pattern with inner reco
 
 - Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, format (11 validators), $defs and local $ref (including root "#")
 - Thread-safe compiled schemas; immutable results with error paths/messages
+- **Novel Architecture**: This module uses an innovative immutable "compile many documents (possibly just one) into an immutable set of roots using a work stack" compile-time architecture for high-performance schema compilation and validation. See `AGENTS.md` for detailed design documentation.
 
 Quick usage
 
