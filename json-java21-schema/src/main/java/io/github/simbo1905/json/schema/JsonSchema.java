@@ -16,10 +16,10 @@ import java.util.regex.Pattern;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/// Single public sealed interface for JSON Schema validation.
+/// JSON Schema public API entry point
 ///
-/// All schema types are implemented as inner records within this interface,
-/// preventing external implementations while providing a clean, immutable API.
+/// This class provides the public API for compiling and validating schemas
+/// while delegating implementation details to package-private classes
 ///
 /// ## Usage
 /// ```java
@@ -370,11 +370,383 @@ public sealed interface JsonSchema
         Objects.requireNonNull(schemaJson, "schemaJson");
         Objects.requireNonNull(options, "options");
         Objects.requireNonNull(compileOptions, "compileOptions");
+        LOG.info(() -> "compile: Starting schema compilation with initial URI: " + java.net.URI.create("urn:inmemory:root"));
         LOG.fine(() -> "compile: Starting schema compilation with full options, schema type: " + schemaJson.getClass().getSimpleName() + 
                         ", options.assertFormats=" + options.assertFormats() + ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
-        JsonSchema result = SchemaCompiler.compile(schemaJson, options, compileOptions);
+        
+        // Build resolver context using new MVF work-stack architecture
+        ResolverContext context = initResolverContext(java.net.URI.create("urn:inmemory:root"), schemaJson, compileOptions);
+        LOG.fine(() -> "compile: Created resolver context with roots.size=0, base uri: " + java.net.URI.create("urn:inmemory:root"));
+        
+        // Compile using work-stack architecture
+        CompiledRegistry registry = compileWorkStack(schemaJson, java.net.URI.create("urn:inmemory:root"), context);
+        JsonSchema result = registry.entry().schema();
+        
+        LOG.info(() -> "compile: Completed schema compilation, total roots compiled: " + registry.roots().size());
         LOG.fine(() -> "compile: Completed schema compilation with full options, result type: " + result.getClass().getSimpleName());
         return result;
+    }
+
+    /// Normalize URI for dedup correctness
+    static java.net.URI normalizeUri(java.net.URI baseUri, String refString) {
+        LOG.fine(() -> "normalizeUri: entry with base=" + baseUri + ", refString=" + refString);
+        LOG.finest(() -> "normalizeUri: baseUri object=" + baseUri + ", scheme=" + baseUri.getScheme() + ", host=" + baseUri.getHost() + ", path=" + baseUri.getPath());
+        try {
+            java.net.URI refUri = java.net.URI.create(refString);
+            LOG.finest(() -> "normalizeUri: created refUri=" + refUri + ", scheme=" + refUri.getScheme() + ", host=" + refUri.getHost() + ", path=" + refUri.getPath());
+            java.net.URI resolved = baseUri.resolve(refUri);
+            LOG.finest(() -> "normalizeUri: resolved URI=" + resolved + ", scheme=" + resolved.getScheme() + ", host=" + resolved.getHost() + ", path=" + resolved.getPath());
+            java.net.URI normalized = resolved.normalize();
+            LOG.finer(() -> "normalizeUri: normalized result=" + normalized);
+            LOG.finest(() -> "normalizeUri: final normalized URI=" + normalized + ", scheme=" + normalized.getScheme() + ", host=" + normalized.getHost() + ", path=" + normalized.getPath());
+            return normalized;
+        } catch (IllegalArgumentException e) {
+            LOG.severe(() -> "ERROR: normalizeUri failed for refString=" + refString + ", baseUri=" + baseUri);
+            throw new IllegalArgumentException("Invalid URI reference: " + refString);
+        }
+    }
+
+    /// Initialize resolver context for compile-time
+    static ResolverContext initResolverContext(java.net.URI initialUri, JsonValue initialJson, CompileOptions compileOptions) {
+        LOG.fine(() -> "initResolverContext: created context for initialUri=" + initialUri);
+        LOG.finest(() -> "initResolverContext: initialJson object=" + initialJson + ", type=" + initialJson.getClass().getSimpleName() + ", toString=" + initialJson.toString());
+        LOG.finest(() -> "initResolverContext: compileOptions object=" + compileOptions + ", remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
+        Map<java.net.URI, CompiledRoot> emptyRoots = new HashMap<>();
+        Map<String, JsonSchema> emptyPointerIndex = new HashMap<>();
+        ResolverContext context = new ResolverContext(emptyRoots, emptyPointerIndex, AnySchema.INSTANCE);
+        LOG.finest(() -> "initResolverContext: created context object=" + context + ", roots.size=" + context.roots().size() + ", localPointerIndex.size=" + context.localPointerIndex().size());
+        return context;
+    }
+
+    /// Core work-stack compilation loop
+    static CompiledRegistry compileWorkStack(JsonValue initialJson, java.net.URI initialUri, ResolverContext context) {
+        LOG.fine(() -> "compileWorkStack: starting work-stack loop with initialUri=" + initialUri);
+        LOG.finest(() -> "compileWorkStack: initialJson object=" + initialJson + ", type=" + initialJson.getClass().getSimpleName() + ", content=" + initialJson.toString());
+        LOG.finest(() -> "compileWorkStack: initialUri object=" + initialUri + ", scheme=" + initialUri.getScheme() + ", host=" + initialUri.getHost() + ", path=" + initialUri.getPath());
+        
+        // Work stack (LIFO) for documents to compile
+        Deque<java.net.URI> workStack = new ArrayDeque<>();
+        Map<java.net.URI, Root> built = new LinkedHashMap<>();
+        Set<java.net.URI> active = new HashSet<>();
+        
+        LOG.finest(() -> "compileWorkStack: initialized workStack=" + workStack + ", built=" + built + ", active=" + active);
+        
+        // Push initial document
+        workStack.push(initialUri);
+        LOG.finer(() -> "compileWorkStack: pushed initial URI to work stack: " + initialUri);
+        LOG.finest(() -> "compileWorkStack: workStack after push=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+        
+        int iterationCount = 0;
+        while (!workStack.isEmpty()) {
+            iterationCount++;
+            final int finalIterationCount = iterationCount;
+            final int workStackSize = workStack.size();
+            final int builtSize = built.size();
+            final int activeSize = active.size();
+            LOG.fine(() -> "compileWorkStack: iteration " + finalIterationCount + ", workStack.size=" + workStackSize + ", built.size=" + builtSize + ", active.size=" + activeSize);
+            LOG.finest(() -> "compileWorkStack: workStack contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+            LOG.finest(() -> "compileWorkStack: built map keys=" + built.keySet() + ", values=" + built.values());
+            LOG.finest(() -> "compileWorkStack: active set=" + active);
+            
+            java.net.URI currentUri = workStack.pop();
+            LOG.finer(() -> "compileWorkStack: popped URI from work stack: " + currentUri);
+            LOG.finest(() -> "compileWorkStack: workStack after pop=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+            
+            // Check for cycles
+            detectAndThrowCycle(active, currentUri, "compile-time remote ref cycle");
+            
+            // Skip if already compiled
+            if (built.containsKey(currentUri)) {
+                LOG.finer(() -> "compileWorkStack: URI already compiled, skipping: " + currentUri);
+                LOG.finest(() -> "compileWorkStack: built map already contains key=" + currentUri);
+                continue;
+            }
+            
+            final java.net.URI finalCurrentUri = currentUri;
+            final Map<java.net.URI, Root> finalBuilt = built;
+            final Deque<java.net.URI> finalWorkStack = workStack;
+            
+            active.add(currentUri);
+            LOG.finest(() -> "compileWorkStack: added URI to active set, active now=" + active);
+            try {
+                // Fetch document if needed
+                JsonValue documentJson = fetchIfNeeded(currentUri, initialUri, initialJson, context);
+                LOG.finer(() -> "compileWorkStack: fetched document for URI: " + currentUri + ", json type: " + documentJson.getClass().getSimpleName());
+                LOG.finest(() -> "compileWorkStack: fetched documentJson object=" + documentJson + ", type=" + documentJson.getClass().getSimpleName() + ", content=" + documentJson.toString());
+                
+                // Build root schema for this document
+                Map<String, JsonSchema> pointerIndex = new HashMap<>();
+                LOG.finest(() -> "compileWorkStack: created empty pointerIndex=" + pointerIndex);
+                JsonSchema rootSchema = buildRoot(documentJson, currentUri, context, (refToken) -> {
+                    LOG.finest(() -> "compileWorkStack: discovered ref token object=" + refToken + ", class=" + refToken.getClass().getSimpleName());
+                    if (refToken instanceof RefToken.RemoteRef remoteRef) {
+                        LOG.finest(() -> "compileWorkStack: processing RemoteRef object=" + remoteRef + ", base=" + remoteRef.base() + ", target=" + remoteRef.target());
+                        java.net.URI targetDocUri = normalizeUri(finalCurrentUri, remoteRef.target().toString());
+                        boolean scheduled = scheduleRemoteIfUnseen(finalWorkStack, finalBuilt, targetDocUri);
+                        LOG.finer(() -> "compileWorkStack: remote ref scheduled=" + scheduled + ", target=" + targetDocUri);
+                    }
+                });
+                LOG.finest(() -> "compileWorkStack: built rootSchema object=" + rootSchema + ", class=" + rootSchema.getClass().getSimpleName());
+                
+                // Register compiled root
+                Root newRoot = new Root(currentUri, rootSchema);
+                LOG.finest(() -> "compileWorkStack: created new Root object=" + newRoot + ", docUri=" + newRoot.docUri() + ", schema=" + newRoot.schema());
+                registerCompiledRoot(built, currentUri, newRoot);
+                LOG.fine(() -> "compileWorkStack: registered compiled root for URI: " + currentUri);
+                
+            } finally {
+                active.remove(currentUri);
+                LOG.finest(() -> "compileWorkStack: removed URI from active set, active now=" + active);
+            }
+        }
+        
+        // Freeze roots into immutable registry
+        CompiledRegistry registry = freezeRoots(built);
+        LOG.fine(() -> "compileWorkStack: completed work-stack loop, total roots: " + registry.roots().size());
+        LOG.finest(() -> "compileWorkStack: final registry object=" + registry + ", entry=" + registry.entry() + ", roots.size=" + registry.roots().size());
+        return registry;
+    }
+
+    /// Fetch document if needed (primary vs remote)
+    static JsonValue fetchIfNeeded(java.net.URI docUri, java.net.URI initialUri, JsonValue initialJson, ResolverContext context) {
+        LOG.fine(() -> "fetchIfNeeded: docUri=" + docUri + ", initialUri=" + initialUri);
+        LOG.finest(() -> "fetchIfNeeded: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
+        LOG.finest(() -> "fetchIfNeeded: initialUri object=" + initialUri + ", scheme=" + initialUri.getScheme() + ", host=" + initialUri.getHost() + ", path=" + initialUri.getPath());
+        LOG.finest(() -> "fetchIfNeeded: initialJson object=" + initialJson + ", type=" + initialJson.getClass().getSimpleName() + ", content=" + initialJson.toString());
+        LOG.finest(() -> "fetchIfNeeded: context object=" + context + ", roots.size=" + context.roots().size() + ", localPointerIndex.size=" + context.localPointerIndex().size());
+        
+        if (docUri.equals(initialUri)) {
+            LOG.finer(() -> "fetchIfNeeded: using initial JSON for primary document");
+            LOG.finest(() -> "fetchIfNeeded: returning initialJson object=" + initialJson);
+            return initialJson;
+        }
+        
+        // MVF: Fetch remote document using RemoteFetcher from context
+        LOG.finer(() -> "fetchIfNeeded: fetching remote document: " + docUri);
+        try {
+            // Get the base URI without fragment for document fetching
+            String fragment = docUri.getFragment();
+            java.net.URI docUriWithoutFragment = fragment != null ? 
+                java.net.URI.create(docUri.toString().substring(0, docUri.toString().indexOf('#'))) : 
+                docUri;
+            
+            LOG.finest(() -> "fetchIfNeeded: document URI without fragment: " + docUriWithoutFragment);
+            
+            // Use RemoteFetcher from context - for now we need to get it from compile options
+            // Since we don't have direct access to compile options in this method, we'll use a basic HTTP fetcher
+            // This is a temporary implementation that should be replaced with proper context integration
+            RemoteFetcher.FetchResult fetchResult = fetchRemoteDocument(docUriWithoutFragment);
+            JsonValue fetchedDocument = fetchResult.document();
+            
+            LOG.fine(() -> "fetchIfNeeded: successfully fetched remote document: " + docUriWithoutFragment + ", document type: " + fetchedDocument.getClass().getSimpleName());
+            LOG.finest(() -> "fetchIfNeeded: returning fetched document object=" + fetchedDocument + ", type=" + fetchedDocument.getClass().getSimpleName() + ", content=" + fetchedDocument.toString());
+            return fetchedDocument;
+            
+        } catch (Exception e) {
+            LOG.severe(() -> "ERROR: fetchIfNeeded failed to fetch remote document: " + docUri + ", error: " + e.getMessage());
+            throw new RemoteResolutionException(docUri, RemoteResolutionException.Reason.NETWORK_ERROR, 
+                "Failed to fetch remote document: " + docUri, e);
+        }
+    }
+    
+    /// Temporary remote document fetcher - should be integrated with proper context
+    private static RemoteFetcher.FetchResult fetchRemoteDocument(java.net.URI uri) {
+        LOG.finest(() -> "fetchRemoteDocument: fetching URI: " + uri);
+        // Basic HTTP implementation for MVF
+        try {
+            java.net.URL url = uri.toURL();
+            java.net.HttpURLConnection connection = (java.net.HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(5000); // 5 seconds
+            connection.setReadTimeout(5000); // 5 seconds
+            
+            int responseCode = connection.getResponseCode();
+            if (responseCode != java.net.HttpURLConnection.HTTP_OK) {
+                throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NETWORK_ERROR,
+                    "HTTP request failed with status: " + responseCode);
+            }
+            
+            try (java.io.BufferedReader reader = new java.io.BufferedReader(
+                    new java.io.InputStreamReader(connection.getInputStream(), java.nio.charset.StandardCharsets.UTF_8))) {
+                StringBuilder content = new StringBuilder();
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    content.append(line).append("\n");
+                }
+                
+                String jsonContent = content.toString().trim();
+                JsonValue document = Json.parse(jsonContent);
+                long byteSize = jsonContent.getBytes(java.nio.charset.StandardCharsets.UTF_8).length;
+                
+                LOG.finest(() -> "fetchRemoteDocument: successfully fetched " + byteSize + " bytes from " + uri);
+                return new RemoteFetcher.FetchResult(document, byteSize, Optional.empty());
+            }
+        } catch (java.io.IOException e) {
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NETWORK_ERROR,
+                "IO error while fetching remote document", e);
+        }
+    }
+
+    /// Build root schema for a document
+    static JsonSchema buildRoot(JsonValue documentJson, java.net.URI docUri, ResolverContext context, java.util.function.Consumer<RefToken> onRefDiscovered) {
+        LOG.fine(() -> "buildRoot: entry for docUri=" + docUri);
+        LOG.finer(() -> "buildRoot: document type=" + documentJson.getClass().getSimpleName());
+        LOG.finest(() -> "buildRoot: documentJson object=" + documentJson + ", type=" + documentJson.getClass().getSimpleName() + ", content=" + documentJson.toString());
+        LOG.finest(() -> "buildRoot: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
+        LOG.finest(() -> "buildRoot: context object=" + context + ", roots.size=" + context.roots().size() + ", localPointerIndex.size=" + context.localPointerIndex().size());
+        LOG.finest(() -> "buildRoot: onRefDiscovered consumer=" + onRefDiscovered);
+        
+        // MVF: Use SchemaCompiler.compileBundle to properly integrate with work-stack architecture
+        // This ensures remote refs are discovered and scheduled properly
+        LOG.finer(() -> "buildRoot: using MVF compileBundle for proper work-stack integration");
+        
+        // Create compile options that enable remote fetching for MVF
+        CompileOptions compileOptions = CompileOptions.DEFAULT.withRemoteFetcher(
+            new RemoteFetcher() {
+                @Override
+                public RemoteFetcher.FetchResult fetch(java.net.URI uri, FetchPolicy policy) throws RemoteResolutionException {
+                    return fetchRemoteDocument(uri);
+                }
+            }
+        ).withRefRegistry(RefRegistry.inMemory());
+        
+        // Use the new MVF compileBundle method that properly handles remote refs
+        CompilationBundle bundle = SchemaCompiler.compileBundle(
+            documentJson, 
+            Options.DEFAULT, 
+            compileOptions
+        );
+        
+        // Get the compiled schema from the bundle
+        JsonSchema schema = bundle.entry().schema();
+        LOG.finest(() -> "buildRoot: compiled schema object=" + schema + ", class=" + schema.getClass().getSimpleName());
+        
+        // Process any discovered refs from the compilation
+        // The compileBundle method should have already processed remote refs through the work stack
+        LOG.finer(() -> "buildRoot: MVF compilation completed, work stack processed remote refs");
+        
+        LOG.finer(() -> "buildRoot: completed for docUri=" + docUri + ", schema type=" + schema.getClass().getSimpleName());
+        return schema;
+    }
+
+    /// Tag $ref token as LOCAL or REMOTE
+    static RefToken tagRefToken(java.net.URI currentDocUri, String targetUriAndPointer) {
+        LOG.fine(() -> "tagRefToken: currentDocUri=" + currentDocUri + ", target=" + targetUriAndPointer);
+        LOG.finest(() -> "tagRefToken: currentDocUri object=" + currentDocUri + ", scheme=" + currentDocUri.getScheme() + ", host=" + currentDocUri.getHost() + ", path=" + currentDocUri.getPath());
+        LOG.finest(() -> "tagRefToken: targetUriAndPointer string='" + targetUriAndPointer + "'");
+        
+        try {
+            java.net.URI targetUri = java.net.URI.create(targetUriAndPointer);
+            LOG.finest(() -> "tagRefToken: created targetUri object=" + targetUri + ", scheme=" + targetUri.getScheme() + ", host=" + targetUri.getHost() + ", path=" + targetUri.getPath() + ", fragment=" + targetUri.getFragment());
+            
+            // Check if it's local (same document or fragment-only)
+            if (targetUri.getScheme() == null && targetUri.getAuthority() == null) {
+                // Fragment-only or relative reference - local
+                String fragment = targetUri.getFragment();
+                String pointer = fragment != null ? "#" + fragment : targetUriAndPointer;
+                LOG.finer(() -> "tagRefToken: classified as LOCAL, pointer=" + pointer);
+                RefToken.LocalRef localRef = new RefToken.LocalRef(pointer);
+                LOG.finest(() -> "tagRefToken: created LocalRef object=" + localRef + ", pointerOrAnchor='" + localRef.pointerOrAnchor() + "'");
+                return localRef;
+            }
+            
+            // Normalize and check if same document
+            java.net.URI normalizedTarget = currentDocUri.resolve(targetUri).normalize();
+            java.net.URI normalizedCurrent = currentDocUri.normalize();
+            LOG.finest(() -> "tagRefToken: normalizedTarget object=" + normalizedTarget + ", scheme=" + normalizedTarget.getScheme() + ", host=" + normalizedTarget.getHost() + ", path=" + normalizedTarget.getPath());
+            LOG.finest(() -> "tagRefToken: normalizedCurrent object=" + normalizedCurrent + ", scheme=" + normalizedCurrent.getScheme() + ", host=" + normalizedCurrent.getHost() + ", path=" + normalizedCurrent.getPath());
+            
+            if (normalizedTarget.equals(normalizedCurrent)) {
+                String fragment = normalizedTarget.getFragment();
+                String pointer = fragment != null ? "#" + fragment : "#";
+                LOG.finer(() -> "tagRefToken: classified as LOCAL (same doc), pointer=" + pointer);
+                RefToken.LocalRef localRef = new RefToken.LocalRef(pointer);
+                LOG.finest(() -> "tagRefToken: created LocalRef object=" + localRef + ", pointerOrAnchor='" + localRef.pointerOrAnchor() + "'");
+                return localRef;
+            }
+            
+            // Different document - remote
+            LOG.finer(() -> "tagRefToken: classified as REMOTE, target=" + normalizedTarget);
+            RefToken.RemoteRef remoteRef = new RefToken.RemoteRef(currentDocUri, normalizedTarget);
+            LOG.finest(() -> "tagRefToken: created RemoteRef object=" + remoteRef + ", base='" + remoteRef.base() + "', target='" + remoteRef.target() + "'");
+            return remoteRef;
+            
+        } catch (IllegalArgumentException e) {
+            // Invalid URI - treat as local pointer
+            LOG.finer(() -> "tagRefToken: invalid URI, treating as LOCAL: " + targetUriAndPointer);
+            RefToken.LocalRef localRef = new RefToken.LocalRef(targetUriAndPointer);
+            LOG.finest(() -> "tagRefToken: created fallback LocalRef object=" + localRef + ", pointerOrAnchor='" + localRef.pointerOrAnchor() + "'");
+            return localRef;
+        }
+    }
+
+    /// Schedule remote document for compilation if not seen before
+    static boolean scheduleRemoteIfUnseen(Deque<java.net.URI> workStack, Map<java.net.URI, Root> built, java.net.URI targetDocUri) {
+        LOG.finer(() -> "scheduleRemoteIfUnseen: target=" + targetDocUri + ", workStack.size=" + workStack.size() + ", built.size=" + built.size());
+        LOG.finest(() -> "scheduleRemoteIfUnseen: targetDocUri object=" + targetDocUri + ", scheme=" + targetDocUri.getScheme() + ", host=" + targetDocUri.getHost() + ", path=" + targetDocUri.getPath());
+        LOG.finest(() -> "scheduleRemoteIfUnseen: workStack object=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+        LOG.finest(() -> "scheduleRemoteIfUnseen: built map object=" + built + ", keys=" + built.keySet() + ", size=" + built.size());
+        
+        // Check if already built or already in work stack
+        boolean alreadyBuilt = built.containsKey(targetDocUri);
+        boolean inWorkStack = workStack.contains(targetDocUri);
+        LOG.finest(() -> "scheduleRemoteIfUnseen: alreadyBuilt=" + alreadyBuilt + ", inWorkStack=" + inWorkStack);
+        
+        if (alreadyBuilt || inWorkStack) {
+            LOG.finer(() -> "scheduleRemoteIfUnseen: already seen, skipping");
+            LOG.finest(() -> "scheduleRemoteIfUnseen: skipping targetDocUri=" + targetDocUri);
+            return false;
+        }
+        
+        // Add to work stack
+        workStack.push(targetDocUri);
+        LOG.finer(() -> "scheduleRemoteIfUnseen: scheduled remote document: " + targetDocUri);
+        LOG.finest(() -> "scheduleRemoteIfUnseen: workStack after push=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+        return true;
+    }
+
+    /// Register compiled root in discovery order
+    static void registerCompiledRoot(Map<java.net.URI, Root> built, java.net.URI docUri, Root root) {
+        LOG.fine(() -> "registerCompiledRoot: docUri=" + docUri + ", total roots now: " + (built.size() + 1));
+        LOG.finest(() -> "registerCompiledRoot: built map object=" + built + ", keys=" + built.keySet() + ", size=" + built.size());
+        LOG.finest(() -> "registerCompiledRoot: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
+        LOG.finest(() -> "registerCompiledRoot: root object=" + root + ", docUri=" + root.docUri() + ", schema=" + root.schema());
+        built.put(docUri, root);
+        LOG.finest(() -> "registerCompiledRoot: built map after put=" + built + ", keys=" + built.keySet() + ", size=" + built.size());
+    }
+
+    /// Detect and throw on compile-time cycles
+    static void detectAndThrowCycle(Set<java.net.URI> active, java.net.URI docUri, String pathTrail) {
+        LOG.finest(() -> "detectAndThrowCycle: active set=" + active + ", docUri=" + docUri + ", pathTrail='" + pathTrail + "'");
+        LOG.finest(() -> "detectAndThrowCycle: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
+        if (active.contains(docUri)) {
+            String cycleMessage = "ERROR: " + pathTrail + " -> " + docUri + " (compile-time remote ref cycle)";
+            LOG.severe(() -> cycleMessage);
+            throw new IllegalArgumentException(cycleMessage);
+        }
+        LOG.finest(() -> "detectAndThrowCycle: no cycle detected");
+    }
+
+    /// Freeze roots into immutable registry
+    static CompiledRegistry freezeRoots(Map<java.net.URI, Root> built) {
+        LOG.fine(() -> "freezeRoots: freezing " + built.size() + " compiled roots");
+        LOG.finest(() -> "freezeRoots: built map object=" + built + ", keys=" + built.keySet() + ", values=" + built.values() + ", size=" + built.size());
+        
+        // Find entry root (first one by iteration order of LinkedHashMap)
+        Root entryRoot = built.values().iterator().next();
+        java.net.URI primaryUri = entryRoot.docUri();
+        LOG.finest(() -> "freezeRoots: entryRoot object=" + entryRoot + ", docUri=" + entryRoot.docUri() + ", schema=" + entryRoot.schema());
+        LOG.finest(() -> "freezeRoots: primaryUri object=" + primaryUri + ", scheme=" + primaryUri.getScheme() + ", host=" + primaryUri.getHost() + ", path=" + primaryUri.getPath());
+        
+        LOG.fine(() -> "freezeRoots: primary root URI: " + primaryUri);
+        
+        // Create immutable map
+        Map<java.net.URI, Root> frozenRoots = Map.copyOf(built);
+        LOG.finest(() -> "freezeRoots: frozenRoots map object=" + frozenRoots + ", keys=" + frozenRoots.keySet() + ", values=" + frozenRoots.values() + ", size=" + frozenRoots.size());
+        
+        CompiledRegistry registry = new CompiledRegistry(frozenRoots, entryRoot);
+        LOG.finest(() -> "freezeRoots: created CompiledRegistry object=" + registry + ", entry=" + registry.entry() + ", roots.size=" + registry.roots().size());
+        return registry;
     }
 
     /// Validates JSON document against this schema
@@ -1298,15 +1670,16 @@ public sealed interface JsonSchema
             
             while (!workStack.isEmpty()) {
                 processedCount++;
+                final int finalProcessedCount = processedCount;
                 if (processedCount % WORK_WARNING_THRESHOLD == 0) {
-                    final int count = processedCount;
-                    LOG.warning(() -> "PERFORMANCE WARNING: compileBundle processing document " + count + 
+                    LOG.warning(() -> "PERFORMANCE WARNING: compileBundle processing document " + finalProcessedCount + 
                                     " - large document chains may impact performance");
                 }
                 
                 WorkItem workItem = workStack.pop();
                 java.net.URI currentUri = workItem.docUri();
-                LOG.finer(() -> "compileBundle: Processing URI: " + currentUri + " (processed count: " + processedCount + ")");
+                final int currentProcessedCount = processedCount;
+                LOG.finer(() -> "compileBundle: Processing URI: " + currentUri + " (processed count: " + currentProcessedCount + ")");
                 
                 // Skip if already compiled
                 if (compiled.containsKey(currentUri)) {
@@ -1413,7 +1786,8 @@ public sealed interface JsonSchema
             String systemProp = System.getProperty("jsonschema.format.assertion");
             if (systemProp != null) {
                 assertFormats = Boolean.parseBoolean(systemProp);
-                LOG.finest(() -> "compileSingleDocument: Format assertion overridden by system property: " + assertFormats);
+                final boolean finalAssertFormats = assertFormats;
+                LOG.finest(() -> "compileSingleDocument: Format assertion overridden by system property: " + finalAssertFormats);
             }
             
             // Check root schema flag (highest precedence)
@@ -1421,13 +1795,15 @@ public sealed interface JsonSchema
                 JsonValue formatAssertionValue = obj.members().get("formatAssertion");
                 if (formatAssertionValue instanceof JsonBoolean formatAssertionBool) {
                     assertFormats = formatAssertionBool.value();
-                    LOG.finest(() -> "compileSingleDocument: Format assertion overridden by root schema flag: " + assertFormats);
+                    final boolean finalAssertFormats = assertFormats;
+                    LOG.finest(() -> "compileSingleDocument: Format assertion overridden by root schema flag: " + finalAssertFormats);
                 }
             }
             
             // Update options with final assertion setting
             currentOptions = new Options(assertFormats);
-            LOG.finest(() -> "compileSingleDocument: Final format assertion setting: " + assertFormats);
+            final boolean finalAssertFormats = assertFormats;
+            LOG.finest(() -> "compileSingleDocument: Final format assertion setting: " + finalAssertFormats);
             
             // Index the raw schema by JSON Pointer
             LOG.finest(() -> "compileSingleDocument: Indexing schema by pointer");

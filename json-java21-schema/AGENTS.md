@@ -1,85 +1,68 @@
 # JSON Schema Validator - AGENTS Development Guide
 
-Note: Prefer mvnd (Maven Daemon) for faster builds. If installed, you can alias mvn to mvnd so top-level instructions work consistently:
+
+### Running Tests
+
+You MUST NOT ever filter test output as you are looking for something you do not know what it is that is the nature of debugging.
+
+You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER and FINEST and you SHOULD run at a specific model/test/method level that best zooms in on the issue. 
+
+You MUST NOT add any 'temporary logging' all logging MUST be as above
+
+You SHOULD NOT delete logging as that makes no sense only change the level be finer to turn it down. 
+
+You MUST add a jul log statement at INFO level at the top of each and every test method announcing that it is running. 
+
+You MUST have all new tests extend a class such as ` extends JsonSchemaLoggingConfig` so that the correct env vars set log levels in a way that is compatible with ./mvn-test-no-boilerplate.sh  as outlined below. 
+
+You MUST NOT GUESS you SHOULD add more logging or more test methods you are a text based mind you can see all bugs with appropriate logging. 
+
+You MUST prefer the rich and varied use of ./mvn-test-no-boilerplate.sh as per:
 
 ```bash
-if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
+# Run tests with clean output (only recommended post all bugs fixed expected to be fixed)
+./mvn-test-no-boilerplate.sh
+
+# Run specific test class
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
+
+# Run specific test method
+./mvn-test-no-boilerplate.sh -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
+
+# Run tests in specific module
+./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
-## Quick Start Commands
+You MUST NEVER pipe any output to anything that limits visiablity. We only use logging to find what we didn't know. It is an oxymoron to pipe logging to head or tail or grep. 
 
-### Building and Testing
-```bash
-# Compile only
-mvnd compile -pl json-java21-schema
+You MAY opt to log the actual data structures as the come on and off the stack or are reified at `FINEST` as that is trace level for detailed debuging. You should only run one test method at a time at that level. If it is creating vast amounts of output due to infinite loops then this is the ONLY time you may use head or tail yet you MUST head A LARGE ENOUGH SIMPLE OF DATA to see the actual problem it is NOT ACCEPTABLE to create a million line trace file then look at 100 top lines when all of that is mvn start up. The fraction of any log you look at MUST be as large as should be the actual trace log of a good test and you should do 2x that such as thousands of lines. 
 
-# Run all tests
-mvnd test -pl json-java21-schema
+IMPORTANT: if you cannot see the `mvn-test-no-boilerplate.sh` then obviously as it takes mvn/mvnd module parameters like `-pl` it is at the root of the mvn project. You are forbidden from running any maven command directly as it forces me to authorize each one and they do not filter noise. You MUST use the script. 
 
-# Run specific test
-mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest#testStringTypeValidation
+IMPORTANT: we use jul logging for safety and performance yet it is widely ignored by companies and when it is used it is often bridged to something like slf4j. this runs the risk that teams filter on the key log line string `ERROR` not `SEVERE` so for extra protection when you log as level severe prefix the world ERROR as per: 
 
-# Run tests with debug logging
-mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest -Djava.util.logging.ConsoleHandler.level=FINE
-
-# Run integration tests (JSON Schema Test Suite)
-mvnd verify -pl json-java21-schema
-```
-
-### Logging Configuration
-The project uses `java.util.logging` with levels:
-- `FINE` - Schema compilation and validation flow
-- `FINER` - Conditional validation branches  
-- `FINEST` - Stack frame operations
-
-#### Two-Level Logging Strategy
-Use **FINE** for general flow visibility and **FINER** for detailed debugging:
-```bash
-# General flow - good for understanding compilation/validation patterns
-mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest#testMethod -Djava.util.logging.ConsoleHandler.level=FINE
-
-# Detailed debugging - use when tracing specific execution paths
-mvnd test -pl json-java21-schema -Dtest=JsonSchemaTest#testMethod -Djava.util.logging.ConsoleHandler.level=FINER
-```
-
-#### Systematic Debugging Approach
-When code isn't being reached, use systematic logging rather than guessing:
-1. Add FINE or logging at entry points
-2. Add FINER logging at key decision points in the call stack
-3. Use binary search approach - add logging halfway between working and non-working code
-4. Text-based minds excel at processing log output systematically
-
-You also need to ensure that the test class extends `JsonSchemaLoggingConfig` to honour the system property:
 ```java
-/// Test local reference resolution for JSON Schema 2020-12
-class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
-  ...
-}
+LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
 ```
 
-IMPORTANT: 
+Only do this for errors like logging before throwing an exception or clear validation issue or the like where normally we would expect someone using log4j or slf4j to be logging at level `error` such that by default `ERROR` would be seen. This is because they may have cloud log filter setup to monitor for ERROR. 
 
-- Always adjust the logging levels to be balanced  before committing code. 
-- NEVER comment out code. 
-- NEVER use System.out.println or e.printStackTrace(). 
-- ALWAYS use lamba based JUL logging.
-- NEVER filter logging output with head, tail, grep, etc. You shoould set the logging to the correct level of INFO, FINE, FINER, FINEST and run just the one test or method with the correct logging level to control token output.
-- ALWAYS add a INFO level logging line at the top of each `@Test` method so that we can log at INFO level and see which tests might hang forever. 
-- You SHOULD run tests as `timeout 30 mvnd test ...` to ensure that no test can hang forever and the timeout should not be too long.
+The official Oracle JDK documentation defines a clear hierarchy with specific target audiences:
+* SEVERE (1000): "Serious failure preventing normal program execution" - must be "reasonably intelligible to end users and system administrators"
+* WARNING (900): "Potential problems of interest to end users or system managers"
+* INFO (800): "Reasonably significant messages for end users and system administrators" - "should only be used for reasonably significant messages"
+* CONFIG (700): "Static configuration information" to assist debugging configuration-related problems
+* FINE (500): "Information broadly interesting to developers who do not have specialized interest in the specific subsystem" - includes "minor recoverable failures" and "potential performance problems"
+* FINER (400): "Fairly detailed tracing" - official default for method entry/exit and exception throwing
+* FINEST (300): "Highly detailed tracing" for deep debugging
 
-### JSON Schema Test Suite Metrics
+When logging possible performance issues use a common and consistent refix:
 
-The integration test now provides defensible compatibility metrics:
+```java
+// official java guidelines say fine 500 level is appropriate for  "potential performance problems"
+LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ... );
+```
 
-```bash
-# Run with console metrics (default)
-mvnd verify -pl json-java21-schema
-
-# Export detailed JSON metrics
-mvnd verify -pl json-java21-schema -Djson.schema.metrics=json
-
-# Export CSV metrics for analysis
-mvnd verify -pl json-java21-schema -Djson.schema.metrics=csv
 ```
 ### Development Workflow
 

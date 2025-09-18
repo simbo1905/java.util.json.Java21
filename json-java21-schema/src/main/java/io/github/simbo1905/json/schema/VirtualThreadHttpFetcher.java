@@ -128,4 +128,37 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED, "Maximum document count exceeded for " + uri);
         }
     }
+
+    /// Fetch schema JSON for MVF work-stack architecture
+    JsonValue fetchSchemaJson(java.net.URI docUri) {
+        LOG.fine(() -> "fetchSchemaJson: start fetch, method=GET, uri=" + docUri + ", timeout=default");
+        LOG.finest(() -> "fetchSchemaJson: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
+        
+        try {
+            long start = System.nanoTime();
+            JsonSchema.FetchPolicy policy = JsonSchema.FetchPolicy.defaults();
+            LOG.finest(() -> "fetchSchemaJson: policy object=" + policy + ", allowedSchemes=" + policy.allowedSchemes() + ", maxDocumentBytes=" + policy.maxDocumentBytes() + ", timeout=" + policy.timeout());
+            
+            JsonSchema.RemoteFetcher.FetchResult result = fetch(docUri, policy);
+            LOG.finest(() -> "fetchSchemaJson: fetch result object=" + result + ", document=" + result.document() + ", byteSize=" + result.byteSize() + ", elapsed=" + result.elapsed());
+            
+            Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
+            LOG.finer(() -> "fetchSchemaJson: response code=200, content length=" + result.byteSize() + ", elapsed ms=" + elapsed.toMillis());
+            LOG.finest(() -> "fetchSchemaJson: returning document object=" + result.document() + ", type=" + result.document().getClass().getSimpleName() + ", content=" + result.document().toString());
+            
+            return result.document();
+        } catch (JsonSchema.RemoteResolutionException e) {
+            LOG.finest(() -> "fetchSchemaJson: caught RemoteResolutionException object=" + e + ", uri=" + e.uri() + ", reason=" + e.reason() + ", message='" + e.getMessage() + "'");
+            if (e.reason() == JsonSchema.RemoteResolutionException.Reason.NOT_FOUND) {
+                LOG.warning(() -> "fetchSchemaJson: non-200 response for uri=" + docUri);
+            } else if (e.reason() == JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR) {
+                LOG.severe(() -> "ERROR: fetchSchemaJson network error for uri=" + docUri + ": " + e.getMessage());
+            }
+            throw e;
+        } catch (Exception e) {
+            LOG.finest(() -> "fetchSchemaJson: caught unexpected exception object=" + e + ", class=" + e.getClass().getSimpleName() + ", message='" + e.getMessage() + "'");
+            LOG.severe(() -> "ERROR: fetchSchemaJson unexpected error for uri=" + docUri + ": " + e.getMessage());
+            throw new JsonSchema.RemoteResolutionException(docUri, JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR, "Failed to fetch schema", e);
+        }
+    }
 }
