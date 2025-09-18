@@ -1,0 +1,12 @@
+{
+  "$id": "file:///Users/Shared/java.util.json.Java21/json-java21-schema/src/test/resources/JsonSchemaRemoteRefTest/a.json",
+  "$defs": {
+    "X": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "Missing": {
+      "type": "string"
+    }
+  }
+}

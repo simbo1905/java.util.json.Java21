@@ -267,8 +267,8 @@ flowchart LR
 - Dedup ensures each remote is compiled at most once.
 
 4.2 Object/runtime (MVF)
-- Exactly as today: Runtime follows only Local references inside the primary root.
-- Remote roots are compiled and parked in the registry but not traversed (until future work/tests enable it).
+- Exactly as today: Runtime follows Local references inside the current root which may be only one if no remote ref.
+- Remote roots are compiled and parked in the registry but and traversed
 - This preserves byte-for-byte API behavior and test outcomes.
 
 ⸻
@@ -276,7 +276,7 @@ flowchart LR
 5) Your words (short summary, in your own terms)
 - "Don't add a new phase; make compile naturally handle multiple sources using a stack that starts with the initial schema."
 - "Collect local vs remote $ref while compiling; rewrite/tag them; push unseen remotes; deduplicate; compile each into its own root; when the stack is empty, we have an immutable list of roots."
-- "Runtime stays the same now (single root, local refs only), so all existing tests pass unmodified."
+- "Runtime stays the same when no remote ref so only a (single root, when local refs only), so all existing tests pass unmodified."
 - "Use sealed interfaces / data-oriented tags so future remote traversal becomes a simple exhaustive match without touching today's behavior."
 - "Cycle at compile-time should throw a named JDK exception (no new type)."
 - "No legacy; no recursion; single path; stack-based eval and compile."

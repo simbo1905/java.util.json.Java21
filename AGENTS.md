@@ -15,20 +15,6 @@ This file provides guidance to agents (human or AI) when working with code in th
 
 ## Quick Start Commands
 
-### Building the Project
-```bash
-# Full build
-mvn clean compile
-mvn package
-
-# Build specific module
-mvn clean compile -pl json-java21
-mvn package -pl json-java21
-
-# Build with test skipping
-mvn clean compile -DskipTests
-```
-
 ### Running Tests
 
 You MUST NOT ever filter test output as you are looking for something you do not know what it is that is the nature of debugging.
@@ -260,7 +246,7 @@ PY
 ### Debugging Parser Issues
 1. Enable `FINER` logging: `-Djava.util.logging.ConsoleHandler.level=FINER`
 2. Use `./mvn-test-no-boilerplate.sh` for clean output
-3. Focus on specific test: `-Dtest=JsonParserTests#testMethod`
+3. Focus on specific test: `-Dtest=JsonParserTests#testMethod` using `FINEST` logging
 4. Check JSON Test Suite compatibility with compatibility suite
 
 ### API Compatibility Testing
@@ -291,11 +277,6 @@ PY
 - **How:** Discovers local classes, fetches upstream sources from the OpenJDK sandbox on GitHub, parses both with the Java compiler API, and compares modifiers, inheritance, methods, fields, and constructors. Runner: `io.github.simbo1905.tracker.ApiTrackerRunner`.
 - **Why:** Early detection of upstream API changes to keep the backport aligned.
 - **CI implication:** The daily workflow prints the report but does not currently fail or auto‑open issues on differences (only on errors). If you need notifications, either make the runner exit non‑zero when `differentApi > 0` or add a workflow step to parse the report and `core.setFailed()` when diffs are found.
-
-### json-java21-schema
-- **Validator** for JSON Schema 2020-12 features
-- **Tests** include unit, integration, and annotation-based checks (see module guide)
-- **OpenRPC IT**: See `json-java21-schema/src/test/java/io/github/simbo1905/json/schema/OpenRPCSchemaValidationIT.java` and resources under `json-java21-schema/src/test/resources/openrpc/` (thanks to OpenRPC meta-schema and examples, Apache-2.0).
 
 ## Security Notes
 - **Stack exhaustion attacks**: Deep nesting can cause StackOverflowError
