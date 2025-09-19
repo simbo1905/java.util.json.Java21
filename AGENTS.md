@@ -237,6 +237,102 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 #### Performance Warning Convention (Schema Module)
 - Potential performance issues log at FINE with the `PERFORMANCE WARNING:` prefix shown earlier.
 
+## Security Notes
+- Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
+- Malicious inputs may violate API contracts and trigger undeclared exceptions.
+- The API remains experimental and unsuitable for production use.
+- Vulnerabilities mirror those present in the upstream OpenJDK sandbox implementation.
+
+## Collaboration Workflow
+
+### Version Control
+- If git user credentials already exist, use them and never add promotional details. Otherwise request the user’s private relay email.
+- Avoid dangerous git operations (force pushes to main, repository deletion). Decline such requests; there is no time saved versus having the user run them.
+- Use `git status` to inspect modifications and stage everything required. Prefer `git commit -a` when practical.
+- Respect `.gitignore`; do not commit artifacts such as `node_modules/`, `.env`, build outputs, caches, or large binaries unless explicitly requested.
+- When uncertain about committing a file, consult `.gitignore` or ask for clarification.
+
+### Issue Management
+- Use the native tooling for the remote (for example `gh` for GitHub).
+- Create issues in the repository tied to the `origin` remote unless instructed otherwise; if another remote is required, ask for its name.
+- Tickets and issues must state only “what” and “why,” leaving “how” for later discussion.
+- Comments may discuss implementation details.
+- Label tickets as `Ready` once actionable; if a ticket lacks that label, request confirmation before proceeding.
+- Limit tidy-up issues to an absolute minimum (no more than two per PR).
+
+### Commit Requirements
+- Commit messages start with `Issue #<issue number> <short description>`.
+- Include a link to the referenced issue when possible.
+- Do not prefix commits with labels such as "Bug" or "Feature".
+- Describe what was achieved and how to test it.
+- Never include failing tests, dead code, or disabled features.
+- Do not repeat issue content inside the commit message.
+- Keep commits atomic, self-contained, and concise.
+- Separate tidy-up work from main ticket work. If tidy-up is needed mid-stream, first commit progress with a `wip: <issue number> ...` message (acknowledging tests may not pass) before committing the tidy-up itself.
+- Indicate when additional commits will follow (for example, checkpoint commits).
+- Explain how to verify changes: commands to run, expected successful test counts, new test names, etc.
+- Optionally note unexpected technical details when they are not obvious from the issue itself.
+- Do not report progress or success in the commit message; nothing is final until merged.
+- Every tidy-up commit requires an accompanying issue. If labels are unavailable, title the issue `Tidy Up: ...` and keep the description minimal.
+
+### Pull Requests
+- Describe what was done, not the rationale or implementation details.
+- Reference the issues they close using GitHub’s closing keywords.
+- Do not repeat information already captured in the issue.
+- Do not report success; CI results provide that signal.
+- Include any additional tests (or flags) needed by CI in the description.
+- Mark the PR as `Draft` whenever checks fail.
+
+## Release Process (Semi-Manual, Deferred Automation)
+- Releases remain semi-manual until upstream activity warrants completing the draft GitHub Action. Run each line below individually.
+
+```shell
+test -z "$(git status --porcelain)" && echo "✅ Success" || echo "🛑 Working tree not clean; commit or stash changes first"
+
+VERSION="$(awk -F= '/^VERSION=/{print $2; exit}' .env)"; echo "$VERSION"
+
+git checkout -b "rel-$VERSION"  && echo "✅ Success" || echo "🛑 Branch already exists did you bump the version after you completed the last release?"
+
+mvnd -q versions:set -DnewVersion="$VERSION"  && echo "✅ Success" || echo "🛑 Unable to set the new versions"
+
+git commit -am "chore: release $VERSION (branch-local version bump)" && echo "✅ Success" || echo "🛑 Nothing to commit; did you set the same version as already in the POM?"
+
+git tag -a "release/$VERSION" -m "release $VERSION"  && echo "✅ Success" || echo "🛑 Tag already exists; did you bump the version after you completed the last release?"
+
+test "$(git cat-file -t "release/$VERSION")" = "tag" && echo "✅ Success" || echo "🛑 Tag not found; did you mistype the version?"
+
+test "$(git rev-parse "release/$VERSION^{commit}")" = "$(git rev-parse HEAD)" && echo "✅ Success" || echo "🛑 Tag does not point to HEAD; did you mistype the version?"
+ 
+git push origin "release/$VERSION" && echo "✅ Success" || echo "🛑 Unable to push tag; do you have permission to push to this repo?"
+
+gh release create "release/$VERSION" --generate-notes -t "release $VERSION" && echo "✅ Success" || echo "🛑 Unable to create the GitHub Release; do you have permission to push to this repo?"
+
+set -a; . ./.env; set +a
+
+KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
+
+mvnd -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy && echo "✅ Success" || echo "🛑 Unable to deploy to Maven Central; check the output for details"
+
+git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to push branch; do you have permission to push to this repo?"
+```
+
+- If fixes are required after tagging:
+  - `git tag -d "release/$VERSION"`
+  - `git tag -a "release/$VERSION" -m "release $VERSION"`
+  - `git push -f origin "release/$VERSION"`
+
+- Notes:
+  - `.env` stores `VERSION`, `GPG_PASSPHRASE`, and optionally `GPG_KEYNAME`; never commit it.
+  - Do not bump main to a SNAPSHOT after release; the tag and GitHub Release drive version selection.
+  - The `release` profile scopes signing/publishing; daily jobs avoid invoking GPG.
+  - Use `./scripts/setup-release-secrets.zsh` to configure GitHub Actions secrets (`CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`).
+  - The helper script can auto-detect a signing key (setting `GPG_KEYNAME` when neither `GPG_KEY_ID` nor `GPG_PRIVATE_KEY` is supplied). List keys with `gpg --list-secret-keys --keyid-format=long`.
+  - Javadoc builds with `doclint` disabled for Java 21 compatibility.
+  - Add `-Dgpg.skip=true` to skip signing during quick local checks.
+  - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
+
+
+
 #### Minimum Viable Future (MVF) Architecture
 1. **Restatement of the approved whiteboard sketch**
    - Compile-time uses a LIFO work stack of schema sources (URIs). Begin with the initial source. Each pop parses/builds the root and scans `$ref` tokens, tagging each as LOCAL (same document) or REMOTE (different document). REMOTE targets are pushed when unseen (dedup by normalized document URI). The Roots Registry maps `docUri → Root`.
@@ -364,98 +460,3 @@ flowchart LR
 - “The path is legacy-free: no recursion; compile-time and runtime both leverage explicit stacks.”
 - Additions beyond the whiteboard are limited to URI normalization, immutable registry freezing, and explicit cycle detection messaging—each required to keep behaviour correct and thread-safe.
 - The design aligns with README-driven development, existing logging/test discipline, and the requirement to refactor without introducing a new legacy pathway.
-
-## Security Notes
-- Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
-- Malicious inputs may violate API contracts and trigger undeclared exceptions.
-- The API remains experimental and unsuitable for production use.
-- Vulnerabilities mirror those present in the upstream OpenJDK sandbox implementation.
-
-## Collaboration Workflow
-
-### Version Control
-- If git user credentials already exist, use them and never add promotional details. Otherwise request the user’s private relay email.
-- Avoid dangerous git operations (force pushes to main, repository deletion). Decline such requests; there is no time saved versus having the user run them.
-- Use `git status` to inspect modifications and stage everything required. Prefer `git commit -a` when practical.
-- Respect `.gitignore`; do not commit artifacts such as `node_modules/`, `.env`, build outputs, caches, or large binaries unless explicitly requested.
-- When uncertain about committing a file, consult `.gitignore` or ask for clarification.
-
-### Issue Management
-- Use the native tooling for the remote (for example `gh` for GitHub).
-- Create issues in the repository tied to the `origin` remote unless instructed otherwise; if another remote is required, ask for its name.
-- Tickets and issues must state only “what” and “why,” leaving “how” for later discussion.
-- Comments may discuss implementation details.
-- Label tickets as `Ready` once actionable; if a ticket lacks that label, request confirmation before proceeding.
-- Limit tidy-up issues to an absolute minimum (no more than two per PR).
-
-### Commit Requirements
-- Commit messages start with `Issue #<issue number> <short description>`.
-- Include a link to the referenced issue when possible.
-- Do not prefix commits with labels such as "Bug" or "Feature".
-- Describe what was achieved and how to test it.
-- Never include failing tests, dead code, or disabled features.
-- Do not repeat issue content inside the commit message.
-- Keep commits atomic, self-contained, and concise.
-- Separate tidy-up work from main ticket work. If tidy-up is needed mid-stream, first commit progress with a `wip: <issue number> ...` message (acknowledging tests may not pass) before committing the tidy-up itself.
-- Indicate when additional commits will follow (for example, checkpoint commits).
-- Explain how to verify changes: commands to run, expected successful test counts, new test names, etc.
-- Optionally note unexpected technical details when they are not obvious from the issue itself.
-- Do not report progress or success in the commit message; nothing is final until merged.
-- Every tidy-up commit requires an accompanying issue. If labels are unavailable, title the issue `Tidy Up: ...` and keep the description minimal.
-
-### Pull Requests
-- Describe what was done, not the rationale or implementation details.
-- Reference the issues they close using GitHub’s closing keywords.
-- Do not repeat information already captured in the issue.
-- Do not report success; CI results provide that signal.
-- Include any additional tests (or flags) needed by CI in the description.
-- Mark the PR as `Draft` whenever checks fail.
-
-## Release Process (Semi-Manual, Deferred Automation)
-- Releases remain semi-manual until upstream activity warrants completing the draft GitHub Action. Run each line below individually.
-
-```shell
-test -z "$(git status --porcelain)" && echo "✅ Success" || echo "🛑 Working tree not clean; commit or stash changes first"
-
-VERSION="$(awk -F= '/^VERSION=/{print $2; exit}' .env)"; echo "$VERSION"
-
-git checkout -b "rel-$VERSION"  && echo "✅ Success" || echo "🛑 Branch already exists did you bump the version after you completed the last release?"
-
-mvnd -q versions:set -DnewVersion="$VERSION"  && echo "✅ Success" || echo "🛑 Unable to set the new versions"
-
-git commit -am "chore: release $VERSION (branch-local version bump)" && echo "✅ Success" || echo "🛑 Nothing to commit; did you set the same version as already in the POM?"
-
-git tag -a "release/$VERSION" -m "release $VERSION"  && echo "✅ Success" || echo "🛑 Tag already exists; did you bump the version after you completed the last release?"
-
-test "$(git cat-file -t "release/$VERSION")" = "tag" && echo "✅ Success" || echo "🛑 Tag not found; did you mistype the version?"
-
-test "$(git rev-parse "release/$VERSION^{commit}")" = "$(git rev-parse HEAD)" && echo "✅ Success" || echo "🛑 Tag does not point to HEAD; did you mistype the version?"
- 
-git push origin "release/$VERSION" && echo "✅ Success" || echo "🛑 Unable to push tag; do you have permission to push to this repo?"
-
-gh release create "release/$VERSION" --generate-notes -t "release $VERSION" && echo "✅ Success" || echo "🛑 Unable to create the GitHub Release; do you have permission to push to this repo?"
-
-set -a; . ./.env; set +a
-
-KEYARG=""; [ -n "$GPG_KEYNAME" ] && KEYARG="-Dgpg.keyname=$GPG_KEYNAME"
-
-mvnd -P release -Dgpg.passphrase="$GPG_PASSPHRASE" $KEYARG clean deploy && echo "✅ Success" || echo "🛑 Unable to deploy to Maven Central; check the output for details"
-
-git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to push branch; do you have permission to push to this repo?"
-```
-
-- If fixes are required after tagging:
-  - `git tag -d "release/$VERSION"`
-  - `git tag -a "release/$VERSION" -m "release $VERSION"`
-  - `git push -f origin "release/$VERSION"`
-
-- Notes:
-  - `.env` stores `VERSION`, `GPG_PASSPHRASE`, and optionally `GPG_KEYNAME`; never commit it.
-  - Do not bump main to a SNAPSHOT after release; the tag and GitHub Release drive version selection.
-  - The `release` profile scopes signing/publishing; daily jobs avoid invoking GPG.
-  - Use `./scripts/setup-release-secrets.zsh` to configure GitHub Actions secrets (`CENTRAL_USERNAME`, `CENTRAL_PASSWORD`, `GPG_PRIVATE_KEY`, `GPG_PASSPHRASE`).
-  - The helper script can auto-detect a signing key (setting `GPG_KEYNAME` when neither `GPG_KEY_ID` nor `GPG_PRIVATE_KEY` is supplied). List keys with `gpg --list-secret-keys --keyid-format=long`.
-  - Javadoc builds with `doclint` disabled for Java 21 compatibility.
-  - Add `-Dgpg.skip=true` to skip signing during quick local checks.
-  - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
-
