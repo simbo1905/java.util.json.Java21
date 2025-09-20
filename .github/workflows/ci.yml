@@ -13,13 +13,36 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set up JDK 24
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '24'
+          java-version: '21'
           cache: 'maven'
 
       - name: Build and verify
         run: mvn -B -DskipITs=false -DskipTests=false verify
 
+      - name: Assert test count (no tests silently skipped)
+        run: |
+          python3 - <<'PY'
+          import os, xml.etree.ElementTree as ET, sys
+          totals={'tests':0,'failures':0,'errors':0,'skipped':0}
+          for dirpath,_,files in os.walk('.'):
+              if 'target' not in dirpath: continue
+              if 'surefire-reports' not in dirpath and 'failsafe-reports' not in dirpath: continue
+              for fn in files:
+                  if not fn.endswith('.xml'): continue
+                  p=os.path.join(dirpath,fn)
+                  try:
+                      r=ET.parse(p).getroot()
+                      for k in totals: totals[k]+=int(r.get(k,'0'))
+                  except Exception:
+                      pass
+          exp_tests=1908
+          exp_skipped=713
+          if totals['tests']!=exp_tests or totals['skipped']!=exp_skipped:
+              print(f"Unexpected test totals: {totals} != expected tests={exp_tests}, skipped={exp_skipped}")
+              sys.exit(1)
+          print(f"OK totals: {totals}")
+          PY

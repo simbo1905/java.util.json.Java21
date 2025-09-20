@@ -8,7 +8,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
 
     @Test
     void testStringTypeValidation() {
-        String schemaJson = """
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.info("TEST: JsonSchemaTest#testStringTypeValidation");        String schemaJson = """
             {
                 "type": "string"
             }
@@ -448,6 +448,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
                 "required": ["id", "name"]
             }
             """;
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.info("TEST: JsonSchemaTest#testComplexRecursiveSchema");
 
         JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson));
 
@@ -563,6 +564,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
           {"value":1,"next":{"value":2,"next":{"value":3}}}
         """)).valid()).isTrue();            // ✓ valid
 
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.info("TEST: JsonSchemaTest#linkedListRecursion");
         assertThat(s.validate(Json.parse("""
           {"value":1,"next":{"next":{"value":3}}}
         """)).valid()).isFalse();           // ✗ missing value
@@ -570,7 +572,7 @@ class JsonSchemaTest extends JsonSchemaLoggingConfig {
 
     @Test
     void binaryTreeRecursion() {
-        String schema = """
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.info("TEST: JsonSchemaTest#binaryTreeRecursion");        String schema = """
           {
             "type":"object",
             "properties":{

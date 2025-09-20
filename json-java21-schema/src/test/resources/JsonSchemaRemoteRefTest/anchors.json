@@ -1,0 +1,10 @@
+{
+  "$id": "file:///JsonSchemaRemoteRefTest/anchors.json",
+  "$anchor": "root",
+  "$defs": {
+    "A": {
+      "$anchor": "top",
+      "type": "string"
+    }
+  }
+}

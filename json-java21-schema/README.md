@@ -2,8 +2,9 @@
 
 Stack-based JSON Schema validator using sealed interface pattern with inner record types.
 
-- Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, $defs and local $ref (including root "#")
+- Draft 2020-12 subset: object/array/string/number/boolean/null, allOf/anyOf/not, if/then/else, const, format (11 validators), $defs and local $ref (including root "#")
 - Thread-safe compiled schemas; immutable results with error paths/messages
+- **Novel Architecture**: This module uses an innovative immutable "compile many documents (possibly just one) into an immutable set of roots using a work stack" compile-time architecture for high-performance schema compilation and validation. See `AGENTS.md` for detailed design documentation.
 
 Quick usage
 
@@ -22,17 +23,28 @@ Compatibility and verify
 
 - The module runs the official JSON Schema Test Suite during Maven verify.
 - Default mode is lenient: unsupported groups/tests are skipped to avoid build breaks while still logging.
-- Strict mode: enable with -Djson.schema.strict=true to enforce full assertions. In strict mode it currently passes about 71% of applicable cases.
+- Strict mode: enable with `-Djson.schema.strict=true` to enforce full assertions.
+- Measured compatibility (headline strictness): 61.6% (1024 of 1,663 validations)
+  - Overall including all discovered tests: 56.2% (1024 of 1,822)
+- Test coverage: 420 test groups, 1,663 validation attempts, 65 unsupported schema groups, 0 test exceptions, 647 lenient mismatches
+- Detailed metrics available via `-Djson.schema.metrics=json|csv`
 
 How to run
 
 ```bash
 # Run unit + integration tests (includes official suite)
-mvn -pl json-java21-schema -am verify
+./mvn-test-no-boilerplate.sh -pl json-java21-schema
 
 # Strict mode
-mvn -Djson.schema.strict=true -pl json-java21-schema -am verify
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.strict=true
 ```
+
+OpenRPC validation
+
+- Additional integration test validates OpenRPC documents using a minimal, self‑contained schema:
+  - Test: `src/test/java/io/github/simbo1905/json/schema/OpenRPCSchemaValidationIT.java`
+  - Resources: `src/test/resources/openrpc/` (schema and examples)
+  - Thanks to OpenRPC meta-schema and examples (Apache-2.0): https://github.com/open-rpc/meta-schema and https://github.com/open-rpc/examples
 
 ## API Design
 
@@ -144,4 +156,31 @@ if (!result.valid()) {
         System.out.println(error.path() + ": " + error.message());
     }
 }
+```
+
+### Format Validation
+
+The validator supports JSON Schema 2020-12 format validation with opt-in assertion mode:
+
+- **Built-in formats**: uuid, email, ipv4, ipv6, uri, uri-reference, hostname, date, time, date-time, regex
+- **Annotation by default**: Format validation is annotation-only (always passes) unless format assertion is enabled
+- **Opt-in assertion**: Enable format validation via:
+  - `JsonSchema.Options(true)` parameter in `compile()`
+  - System property: `-Djsonschema.format.assertion=true`
+  - Root schema flag: `"formatAssertion": true`
+- **Unknown formats**: Gracefully handled with logged warnings (no validation errors)
+
+```java
+// Format validation disabled (default) - always passes
+var schema = JsonSchema.compile(Json.parse("""
+  {"type": "string", "format": "email"}
+"""));
+schema.validate(Json.parse("\"invalid-email\"")); // passes
+
+// Format validation enabled - validates format
+var schema = JsonSchema.compile(Json.parse("""
+  {"type": "string", "format": "email"}
+"""), new JsonSchema.Options(true));
+schema.validate(Json.parse("\"invalid-email\"")); // fails
+schema.validate(Json.parse("\"user@example.com\"")); // passes
 ```

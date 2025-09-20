@@ -104,7 +104,28 @@ var result = schema.validate(
 // result.valid() => true
 ```
 
-Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; in strict mode it currently passes about 71% of applicable cases.
+Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; **strict compatibility is 61.6%** (1024 of 1,663 validations). [Overall including all discovered tests: 56.2% (1024 of 1,822)].
+
+### JSON Schema Test Suite Metrics
+
+The validator now provides defensible compatibility statistics:
+
+```bash
+# Run with console metrics (default)
+./mvn-test-no-boilerplate.sh -pl json-java21-schema
+
+# Export detailed JSON metrics
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=json
+
+# Export CSV metrics for analysis
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=csv
+```
+
+**Current measured compatibility**:
+- **Strict (headline)**: 61.6% (1024 of 1,663 validations)
+- **Overall (incl. out‑of‑scope)**: 56.2% (1024 of 1,822 discovered tests)
+- **Test coverage**: 420 test groups, 1,663 validation attempts
+- **Skip breakdown**: 65 unsupported schema groups, 0 test exceptions, 647 lenient mismatches
 
 ## Building
 
