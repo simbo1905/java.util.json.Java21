@@ -295,18 +295,18 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
         ));
         final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
-        LOG.finer(() -> "Compiling schema expecting cycle resolution");
-        final var schema = JsonSchema.compile(
-            toJson("""
-            {"$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
-
-        final var result = schema.validate(toJson("true"));
-        logResult("validate-true", result);
-        assertThat(result.valid()).isTrue();
+        LOG.finer(() -> "Compiling schema expecting cycle detection");
+        try (CapturedLogs logs = captureLogs(java.util.logging.Level.SEVERE)) {
+            assertThatThrownBy(() -> JsonSchema.compile(
+                toJson("""
+                {"$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
+                """),
+                JsonSchema.Options.DEFAULT,
+                options
+            )).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("ERROR: CYCLE: remote $ref cycle");
+            assertThat(logs.lines().stream().anyMatch(line -> line.startsWith("ERROR: CYCLE:"))).isTrue();
+        }
     }
 
     @Test
