@@ -174,16 +174,10 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             
             return result.document();
         } catch (JsonSchema.RemoteResolutionException e) {
-            LOG.finest(() -> "fetchSchemaJson: caught RemoteResolutionException object=" + e + ", uri=" + e.uri() + ", reason=" + e.reason() + ", message='" + e.getMessage() + "'");
-            if (e.reason() == JsonSchema.RemoteResolutionException.Reason.NOT_FOUND) {
-                LOG.warning(() -> "fetchSchemaJson: non-200 response for uri=" + docUri);
-            } else if (e.reason() == JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR) {
-                LOG.severe(() -> "ERROR: fetchSchemaJson network error for uri=" + docUri + ": " + e.getMessage());
-            }
+            // Already logged by the fetch path; rethrow
             throw e;
         } catch (Exception e) {
-            LOG.finest(() -> "fetchSchemaJson: caught unexpected exception object=" + e + ", class=" + e.getClass().getSimpleName() + ", message='" + e.getMessage() + "'");
-            LOG.severe(() -> "ERROR: fetchSchemaJson unexpected error for uri=" + docUri + ": " + e.getMessage());
+            LOG.severe(() -> "ERROR: FETCH: " + docUri + " - unexpected NETWORK_ERROR");
             throw new JsonSchema.RemoteResolutionException(docUri, JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR, "Failed to fetch schema", e);
         }
     }

@@ -23,19 +23,20 @@ Compatibility and verify
 
 - The module runs the official JSON Schema Test Suite during Maven verify.
 - Default mode is lenient: unsupported groups/tests are skipped to avoid build breaks while still logging.
-- Strict mode: enable with -Djson.schema.strict=true to enforce full assertions.
-- **Measured compatibility**: 54.4% (992 of 1,822 tests pass in lenient mode)
-- **Test coverage**: 420 test groups, 1,628 validation attempts, 73 unsupported schema groups, 0 test exceptions, 638 lenient mismatches
+- Strict mode: enable with `-Djson.schema.strict=true` to enforce full assertions.
+- Measured compatibility (headline strictness): 61.6% (1024 of 1,663 validations)
+  - Overall including all discovered tests: 56.2% (1024 of 1,822)
+- Test coverage: 420 test groups, 1,663 validation attempts, 65 unsupported schema groups, 0 test exceptions, 647 lenient mismatches
 - Detailed metrics available via `-Djson.schema.metrics=json|csv`
 
 How to run
 
 ```bash
 # Run unit + integration tests (includes official suite)
-mvn -pl json-java21-schema -am verify
+./mvn-test-no-boilerplate.sh -pl json-java21-schema
 
 # Strict mode
-mvn -Djson.schema.strict=true -pl json-java21-schema -am verify
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.strict=true
 ```
 
 OpenRPC validation

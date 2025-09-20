@@ -95,7 +95,7 @@ public sealed interface JsonSchema
 
     @Override
     public ValidationResult validateAt(String path, JsonValue json, Deque<ValidationFrame> stack) {
-      LOG.severe(() -> "ERROR: Nothing enum validateAt called - this should never happen");
+      LOG.severe(() -> "ERROR: SCHEMA: Nothing.validateAt invoked");
       throw new UnsupportedOperationException("Nothing enum should not be used for validation");
     }
   }
@@ -158,7 +158,7 @@ public sealed interface JsonSchema
 
     static RemoteFetcher disallowed() {
       return (uri, policy) -> {
-        LOG.severe(() -> "ERROR: Remote fetching disabled but requested for URI: " + uri);
+        LOG.severe(() -> "ERROR: FETCH: " + uri + " - policy POLICY_DENIED");
         throw new RemoteResolutionException(
             Objects.requireNonNull(uri, "uri"),
             RemoteResolutionException.Reason.POLICY_DENIED,
@@ -316,7 +316,7 @@ public sealed interface JsonSchema
     Objects.requireNonNull(schemaJson, "schemaJson");
     Objects.requireNonNull(options, "options");
     Objects.requireNonNull(compileOptions, "compileOptions");
-    LOG.info(() -> "json-schema.compile start doc=" + java.net.URI.create("urn:inmemory:root") + " options=" + options.summary());
+    LOG.fine(() -> "json-schema.compile start doc=" + java.net.URI.create("urn:inmemory:root") + " options=" + options.summary());
     LOG.fine(() -> "compile: Starting schema compilation with full options, schema type: " + schemaJson.getClass().getSimpleName() +
         ", options.assertFormats=" + options.assertFormats() + ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
     LOG.fine(() -> "compile: fetch policy allowedSchemes=" + compileOptions.fetchPolicy().allowedSchemes());
@@ -373,7 +373,7 @@ public sealed interface JsonSchema
       }
     }
 
-    LOG.info(() -> "json-schema.compile done   roots=" + rootCount);
+    LOG.fine(() -> "json-schema.compile done   roots=" + rootCount);
     return result;
   }
 
@@ -700,7 +700,7 @@ public sealed interface JsonSchema
     }
     if (entryRoot == null) {
       // As a last resort, pick the first element to avoid NPE, but log an error
-      LOG.severe(() -> "ERROR: Primary root URI not found in compiled roots: " + primaryUri);
+      LOG.severe(() -> "ERROR: SCHEMA: primary root not found doc=" + primaryUri);
       entryRoot = built.values().iterator().next();
     }
     final java.net.URI primaryResolved = entryRoot.docUri();
@@ -728,7 +728,7 @@ public sealed interface JsonSchema
   /// @return ValidationResult with success/failure information
   default ValidationResult validate(JsonValue json) {
     Objects.requireNonNull(json, "json");
-    LOG.info(() -> "json-schema.validate start frames=0 doc=unknown");
+    LOG.fine(() -> "json-schema.validate start frames=0 doc=unknown");
     List<ValidationError> errors = new ArrayList<>();
     Deque<ValidationFrame> stack = new ArrayDeque<>();
     Set<ValidationKey> visited = new HashSet<>();
@@ -1805,7 +1805,7 @@ public sealed interface JsonSchema
       // Create compilation bundle
       CompiledRoot entryRoot = compiled.get(entryUri);
       if (entryRoot == null) {
-        LOG.severe(() -> "ERROR: Entry root must exist but was null for URI: " + entryUri);
+      LOG.severe(() -> "ERROR: SCHEMA: entry root null doc=" + entryUri);
       }
       assert entryRoot != null : "Entry root must exist";
       List<CompiledRoot> allRoots = List.copyOf(compiled.values());

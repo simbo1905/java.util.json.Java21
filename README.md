@@ -104,7 +104,7 @@ var result = schema.validate(
 // result.valid() => true
 ```
 
-Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; **measured compatibility is 64.6%** (1,177 of 1,822 tests pass) with comprehensive metrics reporting.
+Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; **strict compatibility is 61.6%** (1024 of 1,663 validations). [Overall including all discovered tests: 56.2% (1024 of 1,822)].
 
 ### JSON Schema Test Suite Metrics
 
@@ -112,19 +112,20 @@ The validator now provides defensible compatibility statistics:
 
 ```bash
 # Run with console metrics (default)
-mvn verify -pl json-java21-schema
+./mvn-test-no-boilerplate.sh -pl json-java21-schema
 
-# Export detailed JSON metrics  
-mvn verify -pl json-java21-schema -Djson.schema.metrics=json
+# Export detailed JSON metrics
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=json
 
 # Export CSV metrics for analysis
-mvn verify -pl json-java21-schema -Djson.schema.metrics=csv
+./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=csv
 ```
 
 **Current measured compatibility**:
-- **Overall**: 64.6% (1,177 of 1,822 tests pass)
-- **Test coverage**: 420 test groups, 1,657 validation attempts
-- **Skip breakdown**: 70 unsupported schema groups, 2 test exceptions, 480 lenient mismatches
+- **Strict (headline)**: 61.6% (1024 of 1,663 validations)
+- **Overall (incl. out‑of‑scope)**: 56.2% (1024 of 1,822 discovered tests)
+- **Test coverage**: 420 test groups, 1,663 validation attempts
+- **Skip breakdown**: 65 unsupported schema groups, 0 test exceptions, 647 lenient mismatches
 
 ## Building
 
