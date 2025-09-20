@@ -218,6 +218,8 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
 - Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
 
+- Strict compatibility sweep with per-file metrics: `./mvn-test-no-boilerplate.sh -pl json-java21-schema -Dit.test=JsonSchemaCheckIT -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO`
+
 #### JUL Logging 
 - For SEVERE logs, prefix the message with `ERROR` to align with SLF4J-centric filters.
 - Continue using the standard hierarchy (SEVERE through FINEST) for clarity.
