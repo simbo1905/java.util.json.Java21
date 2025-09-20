@@ -1,8 +1,6 @@
 package io.github.simbo1905.json.schema;
 
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInfo;
 import java.util.Locale;
 import java.util.logging.*;
 
@@ -44,10 +42,4 @@ public class JsonSchemaLoggingConfig {
         }
     }
 
-    @BeforeEach
-    void announce(TestInfo info) {
-        final String cls = info.getTestClass().map(Class::getSimpleName).orElse("UnknownTest");
-        final String method = info.getTestMethod().map(java.lang.reflect.Method::getName).orElse(info.getDisplayName());
-        io.github.simbo1905.json.schema.SchemaLogging.LOG.info(() -> "TEST: " + cls + "#" + method);
-    }
 }

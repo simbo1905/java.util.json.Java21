@@ -4,7 +4,7 @@ import jdk.sandbox.java.util.json.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaArrayKeywordsTest extends JsonSchemaLoggingConfig {
+class JsonSchemaArrayKeywordsTest extends JsonSchemaTestBase {
 
     @Test
     void testContains_only_defaults() {

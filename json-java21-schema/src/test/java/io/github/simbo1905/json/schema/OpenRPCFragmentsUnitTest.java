@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /// Unit tests that exercise OpenRPC-like schema fragments using only
 /// keywords currently supported by the validator. These build confidence
 /// incrementally before the larger IT that validates full documents.
-class OpenRPCFragmentsUnitTest extends JsonSchemaLoggingConfig {
+class OpenRPCFragmentsUnitTest extends JsonSchemaTestBase {
 
     @Test
     void info_object_minimal_required_fields() {

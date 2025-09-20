@@ -8,7 +8,7 @@ import org.junit.jupiter.api.BeforeAll;
 
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaFormatTest extends JsonSchemaLoggingConfig {
+class JsonSchemaFormatTest extends JsonSchemaTestBase {
   @Test
   void testCommonFormats_whenAssertionOn_invalidsFail_validsPass() {
     // Toggle "assert formats" ON (wire however your implementation exposes it).

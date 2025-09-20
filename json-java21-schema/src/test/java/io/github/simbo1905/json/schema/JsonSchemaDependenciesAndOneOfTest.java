@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaDependenciesAndOneOfTest extends JsonSchemaLoggingConfig {
+class JsonSchemaDependenciesAndOneOfTest extends JsonSchemaTestBase {
 
     @Test
     void testDependentRequiredBasics() {

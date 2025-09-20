@@ -23,7 +23,7 @@ import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 /// - Schema: src/test/resources/openrpc/schema.json
 /// - Examples: src/test/resources/openrpc/examples/*.json
 ///   Files containing "-bad-" are intentionally invalid and must fail validation.
-class OpenRPCSchemaValidationIT extends JsonSchemaLoggingConfig {
+class OpenRPCSchemaValidationIT extends JsonSchemaTestBase {
 
     private static String readResource(String name) throws IOException {
         try {

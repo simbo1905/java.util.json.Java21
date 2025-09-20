@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaObjectKeywordsTest extends JsonSchemaLoggingConfig {
+class JsonSchemaObjectKeywordsTest extends JsonSchemaTestBase {
 
     @Test
     void additionalPropertiesFalseDisallowsUnknown() {

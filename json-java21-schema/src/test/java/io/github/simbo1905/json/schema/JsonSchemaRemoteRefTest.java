@@ -16,7 +16,7 @@ import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-final class JsonSchemaRemoteRefTest extends JsonSchemaLoggingConfig {
+final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
 
     @Test
     void resolves_http_ref_to_pointer_inside_remote_doc() {

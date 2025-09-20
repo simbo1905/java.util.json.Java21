@@ -4,7 +4,7 @@ import jdk.sandbox.java.util.json.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaTest extends JsonSchemaLoggingConfig {
+class JsonSchemaTest extends JsonSchemaTestBase {
 
     @Test
     void testStringTypeValidation() {
