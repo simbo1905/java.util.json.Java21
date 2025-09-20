@@ -218,6 +218,20 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
 - Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
 
+- Preset: Strict schema IT with clean (preferred)
+
+  Use the curated preset to clean, run the strict JsonSchemaCheckIT via mvnd -q, and emit CSV metrics.
+
+  `./mvn-test-no-boilerplate.sh run_schema_check_with_clean`
+
+  Notes:
+  - Ignores additional CLI parameters and logs that it is using curated defaults.
+  - Equivalent args: `-pl json-java21-schema -DskipTests=true -DskipITs=false -Dit.test=JsonSchemaCheckIT -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO -DfailIfNoTests=false -e -DtrimStackTrace=false -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.failsafe=debug`
+  - Writes `json-java21-schema/target/json-schema-compat.csv` and prints DONE/FAILED based on mvn(d) exit code.
+
+- All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
+- Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
+
 - Strict compatibility sweep with per-file metrics: `./mvn-test-no-boilerplate.sh -pl json-java21-schema -Dit.test=JsonSchemaCheckIT -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO`
 
 #### JUL Logging 

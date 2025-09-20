@@ -12,6 +12,11 @@
 #   ./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=CompilerApiLearningTest
 #
 # The script automatically detects if mvnd is available, otherwise falls back to mvn
+# Presets: pass a first arg token to run a curated flow. Currently supported:
+#   run_schema_check_with_clean
+#     - Cleans and then verifies only the json-java21-schema IT
+#     - Runs JsonSchemaCheckIT in strict mode with CSV metrics
+#     - Uses mvnd -q when available, prints DONE/FAILED based on exit status
 
 # Detect if mvnd is available, otherwise use mvn
 if command -v mvnd &> /dev/null; then
@@ -20,9 +25,33 @@ else
     MVN_CMD="mvn"
 fi
 
-echo "[INFO] Running: $MVN_CMD verify $@"
+PRESET="$1"
+QUIET_FLAG=""
+DO_CLEAN=false
+MVN_ARGS=""
 
-timeout 120 $MVN_CMD verify "$@" 2>&1 | awk '
+if [ "$PRESET" = "run_schema_check_with_clean" ]; then
+  DO_CLEAN=true
+  QUIET_FLAG="-q"
+  # Ignore all user-supplied args for preset; use curated defaults
+  echo "[INFO] Preset detected: run_schema_check_with_clean"
+  echo "[INFO] Ignoring passed parameters; running curated schema IT flow"
+  MVN_ARGS="-pl json-java21-schema -Dit.test=JsonSchemaCheckIT -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO -DfailIfNoTests=false -e -DtrimStackTrace=false -Dorg.slf4j.simpleLogger.log.org.apache.maven.plugins.failsafe=debug"
+  shift # consume preset token
+else
+  # No preset: forward all args as-is
+  MVN_ARGS="$@"
+fi
+
+echo "[INFO] Running: $MVN_CMD ${QUIET_FLAG} generate-test-resources failsafe:integration-test failsafe:verify ${MVN_ARGS}"
+
+set -o pipefail
+
+if $DO_CLEAN; then
+  timeout 120 $MVN_CMD ${QUIET_FLAG} clean || exit $?
+fi
+
+timeout 120 $MVN_CMD ${QUIET_FLAG} generate-test-resources failsafe:integration-test failsafe:verify ${MVN_ARGS} 2>&1 | awk '
 BEGIN { 
     scanning_started = 0
     compilation_section = 0
@@ -71,3 +100,11 @@ test_section {
     }
 }
 '
+
+STATUS=${PIPESTATUS[0]}
+if [ $STATUS -eq 0 ]; then
+  echo DONE
+else
+  echo FAILED
+fi
+exit $STATUS

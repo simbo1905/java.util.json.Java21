@@ -10,6 +10,7 @@ CLAUDE.md
 # Symlinks to ignore
 CLAUDE.md
 json-java21-schema/CLAUDE.md
+json-java21-schema/mvn-test-no-boilerplate.sh
 WISDOM.md
 
 .vscode/
