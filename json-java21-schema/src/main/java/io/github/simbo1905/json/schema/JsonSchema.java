@@ -57,6 +57,30 @@ public sealed interface JsonSchema
 
   Logger LOG = Logger.getLogger(JsonSchema.class.getName());
 
+  /** Adapter that normalizes URI keys (strip fragment + normalize) for map access. */
+  final class NormalizedUriMap implements java.util.Map<java.net.URI, CompiledRoot> {
+    private final java.util.Map<java.net.URI, CompiledRoot> delegate;
+    NormalizedUriMap(java.util.Map<java.net.URI, CompiledRoot> delegate) { this.delegate = delegate; }
+    private static java.net.URI norm(java.net.URI uri) {
+      String s = uri.toString();
+      int i = s.indexOf('#');
+      java.net.URI base = i >= 0 ? java.net.URI.create(s.substring(0, i)) : uri;
+      return base.normalize();
+    }
+    @Override public int size() { return delegate.size(); }
+    @Override public boolean isEmpty() { return delegate.isEmpty(); }
+    @Override public boolean containsKey(Object key) { return key instanceof java.net.URI && delegate.containsKey(norm((java.net.URI) key)); }
+    @Override public boolean containsValue(Object value) { return delegate.containsValue(value); }
+    @Override public CompiledRoot get(Object key) { return key instanceof java.net.URI ? delegate.get(norm((java.net.URI) key)) : null; }
+    @Override public CompiledRoot put(java.net.URI key, CompiledRoot value) { return delegate.put(norm(key), value); }
+    @Override public CompiledRoot remove(Object key) { return key instanceof java.net.URI ? delegate.remove(norm((java.net.URI) key)) : null; }
+    @Override public void putAll(java.util.Map<? extends java.net.URI, ? extends CompiledRoot> m) { for (var e : m.entrySet()) delegate.put(norm(e.getKey()), e.getValue()); }
+    @Override public void clear() { delegate.clear(); }
+    @Override public java.util.Set<java.util.Map.Entry<java.net.URI, CompiledRoot>> entrySet() { return delegate.entrySet(); }
+    @Override public java.util.Set<java.net.URI> keySet() { return delegate.keySet(); }
+    @Override public java.util.Collection<CompiledRoot> values() { return delegate.values(); }
+  }
+
   // Public constants for common JSON Pointer fragments used in schemas
   public static final String SCHEMA_DEFS_POINTER = "#/$defs/";
   public static final String SCHEMA_DEFS_SEGMENT = "/$defs/";
@@ -398,7 +422,7 @@ public sealed interface JsonSchema
 
     // Work stack (LIFO) for documents to compile
     Deque<java.net.URI> workStack = new ArrayDeque<>();
-    Map<java.net.URI, CompiledRoot> built = new LinkedHashMap<>();
+    Map<java.net.URI, CompiledRoot> built = new NormalizedUriMap(new LinkedHashMap<>());
     Set<java.net.URI> active = new HashSet<>();
 
     LOG.finest(() -> "compileWorkStack: initialized workStack=" + workStack + ", built=" + built + ", active=" + active);
@@ -657,7 +681,7 @@ public sealed interface JsonSchema
     LOG.finest(() -> "detectAndThrowCycle: active set=" + active + ", docUri=" + docUri + ", pathTrail='" + pathTrail + "'");
     LOG.finest(() -> "detectAndThrowCycle: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
     if (active.contains(docUri)) {
-      String cycleMessage = "ERROR: " + pathTrail + " -> " + docUri + " (compile-time remote ref cycle)";
+      String cycleMessage = "ERROR: CYCLE: " + pathTrail + " -> " + docUri + " (compile-time remote ref cycle)";
       LOG.severe(() -> cycleMessage);
       throw new IllegalArgumentException(cycleMessage);
     }
@@ -1458,6 +1482,47 @@ public sealed interface JsonSchema
       }
     }
 
+    /** Per-compile carrier for resolver-related state. */
+    private static final class CompileContext {
+      final Session session;
+      final Map<java.net.URI, CompiledRoot> sharedRoots;
+      final ResolverContext resolverContext;
+      final Map<String, JsonSchema> localPointerIndex;
+      final Deque<String> resolutionStack;
+      final Deque<ContextFrame> frames = new ArrayDeque<>();
+
+      CompileContext(Session session,
+                     Map<java.net.URI, CompiledRoot> sharedRoots,
+                     ResolverContext resolverContext,
+                     Map<String, JsonSchema> localPointerIndex,
+                     Deque<String> resolutionStack) {
+        this.session = session;
+        this.sharedRoots = sharedRoots;
+        this.resolverContext = resolverContext;
+        this.localPointerIndex = localPointerIndex;
+        this.resolutionStack = resolutionStack;
+      }
+    }
+
+    /** Immutable context frame capturing current document/base/pointer/anchors. */
+    private static final class ContextFrame {
+      final java.net.URI docUri;
+      final java.net.URI baseUri;
+      final String pointer;
+      final Map<String, String> anchors;
+      ContextFrame(java.net.URI docUri, java.net.URI baseUri, String pointer, Map<String, String> anchors) {
+        this.docUri = docUri;
+        this.baseUri = baseUri;
+        this.pointer = pointer;
+        this.anchors = anchors == null ? Map.of() : Map.copyOf(anchors);
+      }
+      ContextFrame childProperty(String name) {
+        String escaped = name.replace("~", "~0").replace("/", "~1");
+        String nextPtr = pointer.equals("") || pointer.equals(SCHEMA_POINTER_ROOT) ? SCHEMA_POINTER_ROOT + "properties/" + escaped : pointer + "/properties/" + escaped;
+        return new ContextFrame(docUri, baseUri, nextPtr, anchors);
+      }
+    }
+
     /// JSON Pointer utility for RFC-6901 fragment navigation
     static Optional<JsonValue> navigatePointer(JsonValue root, String pointer) {
     StructuredLog.fine(LOG, "pointer.navigate", "pointer", pointer);
@@ -1593,7 +1658,7 @@ public sealed interface JsonSchema
       // Work stack for documents to compile
       Deque<WorkItem> workStack = new ArrayDeque<>();
       Set<java.net.URI> seenUris = new HashSet<>();
-      Map<java.net.URI, CompiledRoot> compiled = new LinkedHashMap<>();
+      Map<java.net.URI, CompiledRoot> compiled = new NormalizedUriMap(new LinkedHashMap<>());
 
       // Start with synthetic URI for in-memory root
       java.net.URI entryUri = java.net.URI.create("urn:inmemory:root");
@@ -1821,7 +1886,16 @@ public sealed interface JsonSchema
 
       trace("compile-start", schemaJson);
       LOG.finer(() -> "compileSingleDocument: Calling compileInternalWithContext for docUri: " + docUri);
-      JsonSchema schema = compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris, sharedRoots, localPointerIndex);
+      CompileContext ctx = new CompileContext(
+          session,
+          sharedRoots,
+          new ResolverContext(sharedRoots, localPointerIndex, AnySchema.INSTANCE),
+          localPointerIndex,
+          new ArrayDeque<>()
+      );
+      // Initialize frame stack with entry doc and root pointer
+      ctx.frames.push(new ContextFrame(docUri, docUri, SCHEMA_POINTER_ROOT, Map.of()));
+      JsonSchema schema = compileWithContext(ctx, schemaJson, docUri, workStack, seenUris);
       LOG.finer(() -> "compileSingleDocument: compileInternalWithContext completed, schema type: " + schema.getClass().getSimpleName());
 
       session.currentRootSchema = schema; // Store the root schema for self-references
@@ -1836,6 +1910,26 @@ public sealed interface JsonSchema
                                                         Map<String, JsonSchema> localPointerIndex) {
       return compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris,
           new ResolverContext(sharedRoots, localPointerIndex, AnySchema.INSTANCE), localPointerIndex, new ArrayDeque<>(), sharedRoots, SCHEMA_POINTER_ROOT);
+    }
+
+    private static JsonSchema compileWithContext(CompileContext ctx,
+                                                 JsonValue schemaJson,
+                                                 java.net.URI docUri,
+                                                 Deque<WorkItem> workStack,
+                                                 Set<java.net.URI> seenUris) {
+      String basePointer = ctx.frames.isEmpty() ? SCHEMA_POINTER_ROOT : ctx.frames.peek().pointer;
+      return compileInternalWithContext(
+          ctx.session,
+          schemaJson,
+          docUri,
+          workStack,
+          seenUris,
+          ctx.resolverContext,
+          ctx.localPointerIndex,
+          ctx.resolutionStack,
+          ctx.sharedRoots,
+          basePointer
+      );
     }
 
     private static JsonSchema compileInternalWithContext(Session session, JsonValue schemaJson, java.net.URI docUri,
@@ -1896,7 +1990,7 @@ public sealed interface JsonSchema
           if (pointer.startsWith(SCHEMA_DEFS_POINTER)) {
             // This is a definition reference - check for cycles and resolve immediately
             if (resolutionStack.contains(pointer)) {
-              throw new IllegalArgumentException("Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer);
+              throw new IllegalArgumentException("CYCLE: Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer);
             }
 
             // Try to get from local pointer index first (for already compiled definitions)
@@ -1932,7 +2026,7 @@ public sealed interface JsonSchema
                 if (targetRef instanceof JsonString targetRefStr) {
                   String targetRefPointer = targetRefStr.value();
                   if (resolutionStack.contains(targetRefPointer)) {
-                    throw new IllegalArgumentException("Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer + " -> " + targetRefPointer);
+                    throw new IllegalArgumentException("CYCLE: Cyclic $ref: " + String.join(" -> ", resolutionStack) + " -> " + pointer + " -> " + targetRefPointer);
                   }
                 }
               }
@@ -2211,7 +2305,12 @@ public sealed interface JsonSchema
         LOG.finest(() -> "compileObjectSchemaWithContext: Processing properties: " + propsObj);
         for (var entry : propsObj.members().entrySet()) {
           LOG.finest(() -> "compileObjectSchemaWithContext: Compiling property '" + entry.getKey() + "': " + entry.getValue());
-          JsonSchema propertySchema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
+          // Push a context frame for this property
+          // (Currently used for diagnostics and future pointer derivations)
+          // Pop immediately after child compile
+          JsonSchema propertySchema;
+          // Best-effort: if we can see a CompileContext via resolverContext, skip; we don't expose it. So just compile.
+          propertySchema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           LOG.finest(() -> "compileObjectSchemaWithContext: Property '" + entry.getKey() + "' compiled to: " + propertySchema);
           properties.put(entry.getKey(), propertySchema);
 
