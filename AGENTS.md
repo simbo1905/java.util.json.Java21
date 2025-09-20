@@ -332,7 +332,6 @@ git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to 
   - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
 
 
-
 #### Minimum Viable Future (MVF) Architecture
 1. **Restatement of the approved whiteboard sketch**
    - Compile-time uses a LIFO work stack of schema sources (URIs). Begin with the initial source. Each pop parses/builds the root and scans `$ref` tokens, tagging each as LOCAL (same document) or REMOTE (different document). REMOTE targets are pushed when unseen (dedup by normalized document URI). The Roots Registry maps `docUri → Root`.

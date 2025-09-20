@@ -9,7 +9,7 @@ public class JsonSchemaLoggingConfig {
     static void enableJulDebug() {
         Logger root = Logger.getLogger("");
         String levelProp = System.getProperty("java.util.logging.ConsoleHandler.level");
-        Level targetLevel = Level.FINE;
+        Level targetLevel = Level.INFO;
         if (levelProp != null) {
             try {
                 targetLevel = Level.parse(levelProp.trim());
@@ -17,7 +17,7 @@ public class JsonSchemaLoggingConfig {
                 try {
                     targetLevel = Level.parse(levelProp.trim().toUpperCase(Locale.ROOT));
                 } catch (IllegalArgumentException ignored) {
-                    targetLevel = Level.FINE;
+                    targetLevel = Level.INFO;
                 }
             }
         }
