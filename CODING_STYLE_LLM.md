@@ -102,11 +102,11 @@ Here is an example of the correct format for documentation comments:
 
 - **Check Compiles**: Focusing on the correct mvn module run without verbose logging and do not grep the output to see compile errors:
   ```bash
-  ./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Djava.util.logging.ConsoleHandler.level=SEVERE
+  $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker -Djava.util.logging.ConsoleHandler.level=SEVERE
   ```
 - **Debug with Verbose Logs**: Use `-Dtest=` to focus on just one or two test methods, or one class, using more logging to debug the code:
   ```bash
-  ./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=XXX -Djava.util.logging.ConsoleHandler.level=FINER
+  $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker -Dtest=XXX -Djava.util.logging.ConsoleHandler.level=FINER
   ```
 - **No Grep Filtering**: Use logging levels to filter output, do not grep the output for compile errors, just run less test methods with the correct logging to reduce the output to a manageable size. Filtering hides problems and needs more test excution to find the same problems which wastes time.
 

@@ -112,13 +112,13 @@ The validator now provides defensible compatibility statistics:
 
 ```bash
 # Run with console metrics (default)
-./mvn-test-no-boilerplate.sh -pl json-java21-schema
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
 
 # Export detailed JSON metrics
-./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=json
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=json
 
 # Export CSV metrics for analysis
-./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=csv
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=csv
 ```
 
 **Current measured compatibility**:

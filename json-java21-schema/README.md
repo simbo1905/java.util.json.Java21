@@ -33,10 +33,10 @@ How to run
 
 ```bash
 # Run unit + integration tests (includes official suite)
-./mvn-test-no-boilerplate.sh -pl json-java21-schema
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
 
 # Strict mode
-./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.strict=true
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.strict=true
 ```
 
 OpenRPC validation
