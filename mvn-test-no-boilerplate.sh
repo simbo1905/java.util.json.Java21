@@ -20,7 +20,9 @@ else
     MVN_CMD="mvn"
 fi
 
-timeout 120 $MVN_CMD test "$@" 2>&1 | awk '
+echo "[INFO] Running: $MVN_CMD verify $@"
+
+timeout 120 $MVN_CMD verify "$@" 2>&1 | awk '
 BEGIN { 
     scanning_started = 0
     compilation_section = 0
@@ -60,7 +62,7 @@ test_section {
 
 # Before test section starts, show important lines only
 !test_section && scanning_started {
-    if (/INFO.*Scanning|INFO.*Building|INFO.*resources|INFO.*compiler|INFO.*surefire|ERROR|FAILURE/) {
+    if (/INFO.*Scanning|INFO.*Building|INFO.*resources|INFO.*compiler|INFO.*surefire|INFO.*failsafe|ERROR|FAILURE/) {
         print
     }
     # Show compilation warnings/errors

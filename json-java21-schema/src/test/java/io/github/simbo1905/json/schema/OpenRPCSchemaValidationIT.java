@@ -55,6 +55,7 @@ class OpenRPCSchemaValidationIT extends JsonSchemaLoggingConfig {
             assertThat(jsons).isNotEmpty();
 
             return jsons.stream().map(path -> DynamicTest.dynamicTest(path.getFileName().toString(), () -> {
+                LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#" + path.getFileName());
                 String doc = Files.readString(path, StandardCharsets.UTF_8);
                 boolean expectedValid = !path.getFileName().toString().contains("-bad-");
                 boolean actualValid = schema.validate(Json.parse(doc)).valid();
