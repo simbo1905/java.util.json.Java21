@@ -63,6 +63,7 @@ PY
 - You MUST add a JUL log statement at INFO level at the top of every test method announcing execution.
 - You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `./mvn-test-no-boilerplate.sh`.
 - You MUST NOT guess root causes; add targeted logging or additional tests. Treat observability as the path to the fix.
+- YOU MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
 
 ### Script Usage (Required)
 - You MUST prefer the `./mvn-test-no-boilerplate.sh` wrapper for every Maven invocation. Direct `mvn` or `mvnd` calls require additional authorization and skip the curated output controls.
@@ -181,19 +182,6 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 
 ## Common Workflows
 
-### Adding New JSON Type Support
-1. Add an interface extending `JsonValue`.
-2. Implement the type within `jdk.sandbox.internal.util.json`.
-3. Update `Json.fromUntyped()` and `Json.toUntyped()`.
-4. Extend parser support inside `JsonParser`.
-5. Add comprehensive test coverage.
-
-### Debugging Parser Issues
-1. Enable FINER logging: `-Djava.util.logging.ConsoleHandler.level=FINER`.
-2. Use `./mvn-test-no-boilerplate.sh` for curated output.
-3. Target a single test, for example `-Dtest=JsonParserTests#testMethod`, with `FINEST` logging when needed.
-4. Cross-check behaviour with the JSON Compatibility Suite.
-
 ### API Compatibility Testing
 1. Run the compatibility suite: `mvn exec:java -pl json-compatibility-suite`.
 2. Inspect reports for regressions relative to upstream expectations.
@@ -230,11 +218,11 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
 - Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
 
-#### JUL Logging and ERROR Prefix (Schema Module)
+#### JUL Logging 
 - For SEVERE logs, prefix the message with `ERROR` to align with SLF4J-centric filters.
 - Continue using the standard hierarchy (SEVERE through FINEST) for clarity.
-
-#### Performance Warning Convention (Schema Module)
+- You MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
+- You MUST NOT create per-class loggers. Collaborating classes must reuse the same logger.
 - Potential performance issues log at FINE with the `PERFORMANCE WARNING:` prefix shown earlier.
 
 ## Security Notes
@@ -332,7 +320,7 @@ git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to 
   - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
 
 
-#### Minimum Viable Future (MVF) Architecture
+#### Minimum Viable (MVF) Architecture
 1. **Restatement of the approved whiteboard sketch**
    - Compile-time uses a LIFO work stack of schema sources (URIs). Begin with the initial source. Each pop parses/builds the root and scans `$ref` tokens, tagging each as LOCAL (same document) or REMOTE (different document). REMOTE targets are pushed when unseen (dedup by normalized document URI). The Roots Registry maps `docUri → Root`.
    - Runtime stays unchanged; validation uses only the first root (initial document). Local `$ref` behaviour remains byte-for-byte identical.
