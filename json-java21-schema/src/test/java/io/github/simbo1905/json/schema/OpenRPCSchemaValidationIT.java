@@ -17,14 +17,11 @@ import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/**
- * Integration tests: validate OpenRPC documents using a minimal embedded meta-schema.
- *
- * Resources:
- * - Schema: src/test/resources/openrpc/schema.json
- * - Examples: src/test/resources/openrpc/examples/*.json
- *   Files containing "-bad-" are intentionally invalid and must fail validation.
- */
+/// Integration tests: validate OpenRPC documents using a minimal embedded meta-schema.
+/// Resources:
+/// - Schema: src/test/resources/openrpc/schema.json
+/// - Examples: src/test/resources/openrpc/examples/*.json
+///   Files containing "-bad-" are intentionally invalid and must fail validation.
 public class OpenRPCSchemaValidationIT {
 
     private static String readResource(String name) throws IOException {
@@ -66,4 +63,3 @@ public class OpenRPCSchemaValidationIT {
         }
     }
 }
-

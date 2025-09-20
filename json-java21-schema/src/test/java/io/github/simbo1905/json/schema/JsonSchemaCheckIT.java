@@ -273,9 +273,7 @@ public class JsonSchemaCheckIT {
     }
 }
 
-/**
- * Thread-safe metrics container for the JSON Schema Test Suite run.
- */
+/// Thread-safe metrics container for the JSON Schema Test Suite run.
 /// Thread-safe strict metrics container for the JSON Schema Test Suite run
 final class StrictMetrics {
     final java.util.concurrent.atomic.LongAdder total = new java.util.concurrent.atomic.LongAdder();

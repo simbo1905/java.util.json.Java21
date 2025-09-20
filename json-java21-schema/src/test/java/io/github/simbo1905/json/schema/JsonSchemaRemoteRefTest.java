@@ -11,14 +11,12 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
+import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class JsonSchemaRemoteRefTest extends JsonSchemaLoggingConfig {
-
-    private static final Logger LOG = Logger.getLogger(JsonSchemaRemoteRefTest.class.getName());
 
     @Test
     void resolves_http_ref_to_pointer_inside_remote_doc() {

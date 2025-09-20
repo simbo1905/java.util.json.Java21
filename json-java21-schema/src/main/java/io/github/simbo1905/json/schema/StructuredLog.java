@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -22,6 +23,18 @@ final class StructuredLog {
 
     static void finest(Logger log, String event, Object... kv) {
         if (log.isLoggable(Level.FINEST)) log.finest(() -> ev(event, kv));
+    }
+
+    static void finest(Logger log, String event, Supplier<Map<String, Object>> supplier) {
+        if (!log.isLoggable(Level.FINEST)) return;
+        Map<String, Object> m = supplier.get();
+        Object[] kv = new Object[m.size() * 2];
+        int i = 0;
+        for (var e : m.entrySet()) {
+            kv[i++] = e.getKey();
+            kv[i++] = e.getValue();
+        }
+        log.finest(() -> ev(event, kv));
     }
 
     /// Log at FINEST but only every Nth occurrence per event key.
@@ -78,4 +91,3 @@ final class StructuredLog {
         return trimmed.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ');
     }
 }
-

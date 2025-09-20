@@ -3,13 +3,11 @@ package io.github.simbo1905.json.schema;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.logging.Logger;
+import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 /// Test utility for handling file:// URLs in remote reference tests
 /// Provides consistent path resolution and configuration for test resources
 public final class TestResourceUtils {
-    
-    private static final Logger LOG = Logger.getLogger(TestResourceUtils.class.getName());
     
     /// Base directory for test resources - configurable via system property
     private static final String TEST_RESOURCE_BASE = System.getProperty(
@@ -45,7 +43,7 @@ public final class TestResourceUtils {
         LOG.config(() -> "  Absolute path: " + absolutePath);
         
         if (!absolutePath.toFile().exists()) {
-            LOG.severe(() -> "ERROR: Test resource not found: " + absolutePath);
+            LOG.severe(() -> "ERROR: SCHEMA: test resource not found path=" + absolutePath);
             throw new IllegalArgumentException("Test resource not found: " + absolutePath);
         }
         
@@ -66,7 +64,7 @@ public final class TestResourceUtils {
         LOG.config(() -> "  Absolute path: " + absolutePath);
         
         if (!absolutePath.toFile().exists()) {
-            LOG.severe(() -> "ERROR: Test resource not found: " + absolutePath);
+            LOG.severe(() -> "ERROR: SCHEMA: test resource not found path=" + absolutePath);
             throw new IllegalArgumentException("Test resource not found: " + absolutePath);
         }
         

@@ -65,9 +65,9 @@ class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
     @Test
     void testNestedPointer() {
         /// Schema with nested pointer #/properties/...
-      JsonSchema.LOG.fine("testNestedPointer: Starting detailed logging");
-      JsonSchema.LOG.finer("testNestedPointer: About to parse schema JSON");
-        JsonSchema.LOG.info("Starting test: testNestedPointer XXX");
+      io.github.simbo1905.json.schema.SchemaLogging.LOG.fine("testNestedPointer: Starting detailed logging");
+      io.github.simbo1905.json.schema.SchemaLogging.LOG.finer("testNestedPointer: About to parse schema JSON");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.info("TEST: JsonSchemaRefLocalTest#testNestedPointer");
 
         var schemaJson = Json.parse("""
             {
@@ -83,23 +83,23 @@ class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
               }
             }
             """);
-        JsonSchema.LOG.finer("testNestedPointer: Schema JSON parsed successfully");
-        JsonSchema.LOG.fine("testNestedPointer: Schema JSON parsed: " + schemaJson);
-        JsonSchema.LOG.finer("testNestedPointer: About to compile schema");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.finer("testNestedPointer: Schema JSON parsed successfully");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.fine("testNestedPointer: Schema JSON parsed: " + schemaJson);
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.finer("testNestedPointer: About to compile schema");
         var schema = JsonSchema.compile(schemaJson);
-        JsonSchema.LOG.finer("testNestedPointer: Schema compiled successfully");
-        JsonSchema.LOG.fine("testNestedPointer: Compiled schema: " + schema);
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.finer("testNestedPointer: Schema compiled successfully");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.fine("testNestedPointer: Compiled schema: " + schema);
         
         // { "refUser": { "id":"aa" } } valid
-        JsonSchema.LOG.fine("testNestedPointer: Validating first case - should pass");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.fine("testNestedPointer: Validating first case - should pass");
         var result1 = schema.validate(Json.parse("{ \"refUser\": { \"id\":\"aa\" } }"));
-        JsonSchema.LOG.finest("testNestedPointer: First validation result: " + result1);
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.finest("testNestedPointer: First validation result: " + result1);
         assertThat(result1.valid()).isTrue();
         
         // { "refUser": { "id":"a" } } invalid (minLength)
-        JsonSchema.LOG.fine("testNestedPointer: Validating second case - should fail");
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.fine("testNestedPointer: Validating second case - should fail");
         var result2 = schema.validate(Json.parse("{ \"refUser\": { \"id\":\"a\" } }"));
-        JsonSchema.LOG.finest("testNestedPointer: Second validation result: " + result2);
+        io.github.simbo1905.json.schema.SchemaLogging.LOG.finest("testNestedPointer: Second validation result: " + result2);
         assertThat(result2.valid()).isFalse();
         assertThat(result2.errors()).hasSize(1);
         assertThat(result2.errors().get(0).message()).contains("String too short");

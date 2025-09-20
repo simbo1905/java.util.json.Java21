@@ -14,8 +14,8 @@ import java.math.BigInteger;
 import java.net.URI;
 import java.util.*;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 /// JSON Schema public API entry point
 ///
@@ -55,9 +55,9 @@ public sealed interface JsonSchema
     JsonSchema.RootRef,
     JsonSchema.EnumSchema {
 
-  Logger LOG = Logger.getLogger(JsonSchema.class.getName());
+  /// Shared logger is provided by SchemaLogging.LOG
 
-  /** Adapter that normalizes URI keys (strip fragment + normalize) for map access. */
+  /// Adapter that normalizes URI keys (strip fragment + normalize) for map access.
   final class NormalizedUriMap implements java.util.Map<java.net.URI, CompiledRoot> {
     private final java.util.Map<java.net.URI, CompiledRoot> delegate;
     NormalizedUriMap(java.util.Map<java.net.URI, CompiledRoot> delegate) { this.delegate = delegate; }
@@ -101,11 +101,10 @@ public sealed interface JsonSchema
   }
 
   /// Options for schema compilation
-  ///
-  /// @param assertFormats whether to enable format assertion validation
   record Options(boolean assertFormats) {
     /// Default options with format assertion disabled
     static final Options DEFAULT = new Options(false);
+    String summary() { return "assertFormats=" + assertFormats; }
   }
 
   /// Compile-time options controlling remote resolution and caching
@@ -317,7 +316,7 @@ public sealed interface JsonSchema
     Objects.requireNonNull(schemaJson, "schemaJson");
     Objects.requireNonNull(options, "options");
     Objects.requireNonNull(compileOptions, "compileOptions");
-    LOG.fine(() -> "compile: Starting schema compilation with initial URI: " + java.net.URI.create("urn:inmemory:root"));
+    LOG.info(() -> "json-schema.compile start doc=" + java.net.URI.create("urn:inmemory:root") + " options=" + options.summary());
     LOG.fine(() -> "compile: Starting schema compilation with full options, schema type: " + schemaJson.getClass().getSimpleName() +
         ", options.assertFormats=" + options.assertFormats() + ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
     LOG.fine(() -> "compile: fetch policy allowedSchemes=" + compileOptions.fetchPolicy().allowedSchemes());
@@ -374,8 +373,7 @@ public sealed interface JsonSchema
       }
     }
 
-    LOG.fine(() -> "compile: Completed schema compilation, total roots compiled: " + rootCount);
-    LOG.fine(() -> "compile: Completed schema compilation with full options, result type: " + result.getClass().getSimpleName());
+    LOG.info(() -> "json-schema.compile done   roots=" + rootCount);
     return result;
   }
 
@@ -393,7 +391,7 @@ public sealed interface JsonSchema
       LOG.finest(() -> "normalizeUri: final normalized URI=" + normalized + ", scheme=" + normalized.getScheme() + ", host=" + normalized.getHost() + ", path=" + normalized.getPath());
       return normalized;
     } catch (IllegalArgumentException e) {
-      LOG.severe(() -> "ERROR: normalizeUri failed for refString=" + refString + ", baseUri=" + baseUri);
+      LOG.severe(() -> "ERROR: SCHEMA: normalizeUri failed ref=" + refString + " base=" + baseUri);
       throw new IllegalArgumentException("Invalid URI reference: " + refString);
     }
   }
@@ -571,7 +569,7 @@ public sealed interface JsonSchema
       return fetchedDocument;
 
     } catch (Exception e) {
-      LOG.severe(() -> "ERROR: fetchIfNeeded failed to fetch remote document: " + docUri + ", error: " + e.getMessage());
+      // Network failures are logged by the fetcher; suppress here to avoid duplication
       throw new RemoteResolutionException(docUri, RemoteResolutionException.Reason.NETWORK_ERROR,
           "Failed to fetch remote document: " + docUri, e);
     }
@@ -681,7 +679,7 @@ public sealed interface JsonSchema
     LOG.finest(() -> "detectAndThrowCycle: active set=" + active + ", docUri=" + docUri + ", pathTrail='" + pathTrail + "'");
     LOG.finest(() -> "detectAndThrowCycle: docUri object=" + docUri + ", scheme=" + docUri.getScheme() + ", host=" + docUri.getHost() + ", path=" + docUri.getPath());
     if (active.contains(docUri)) {
-      String cycleMessage = "ERROR: CYCLE: " + pathTrail + " -> " + docUri + " (compile-time remote ref cycle)";
+      String cycleMessage = "ERROR: CYCLE: " + pathTrail + "; doc=" + docUri;
       LOG.severe(() -> cycleMessage);
       throw new IllegalArgumentException(cycleMessage);
     }
@@ -730,20 +728,24 @@ public sealed interface JsonSchema
   /// @return ValidationResult with success/failure information
   default ValidationResult validate(JsonValue json) {
     Objects.requireNonNull(json, "json");
+    LOG.info(() -> "json-schema.validate start frames=0 doc=unknown");
     List<ValidationError> errors = new ArrayList<>();
     Deque<ValidationFrame> stack = new ArrayDeque<>();
     Set<ValidationKey> visited = new HashSet<>();
     stack.push(new ValidationFrame("", this, json));
 
     int iterationCount = 0;
-    final int WARNING_THRESHOLD = 1000; // Warn after 1000 iterations
+    int maxDepthObserved = 0;
+    final int WARNING_THRESHOLD = 10_000;
 
     while (!stack.isEmpty()) {
       iterationCount++;
+      if (stack.size() > maxDepthObserved) maxDepthObserved = stack.size();
       if (iterationCount % WARNING_THRESHOLD == 0) {
-        final int count = iterationCount;
-        LOG.warning(() -> "PERFORMANCE WARNING: Validation stack processing " + count +
-            " iterations - possible infinite recursion or deeply nested schema");
+        final int processed = iterationCount;
+        final int pending = stack.size();
+        final int maxDepth = maxDepthObserved;
+        LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processed=" + processed + " pending=" + pending + " maxDepth=" + maxDepth);
       }
 
       ValidationFrame frame = stack.pop();
@@ -1457,7 +1459,7 @@ public sealed interface JsonSchema
 
   /// Internal schema compiler
   final class SchemaCompiler {
-    /** Per-compilation session state (no static mutable fields). */
+    /// Per-compilation session state (no static mutable fields).
     private static final class Session {
       final Map<String, JsonSchema> definitions = new LinkedHashMap<>();
       final Map<String, JsonSchema> compiledByPointer = new LinkedHashMap<>();
@@ -1467,7 +1469,7 @@ public sealed interface JsonSchema
       long totalFetchedBytes;
       int fetchedDocs;
     }
-    /** Strip any fragment from a URI, returning the base document URI. */
+    /// Strip any fragment from a URI, returning the base document URI.
     private static java.net.URI stripFragment(java.net.URI uri) {
       String s = uri.toString();
       int i = s.indexOf('#');
@@ -1482,7 +1484,7 @@ public sealed interface JsonSchema
       }
     }
 
-    /** Per-compile carrier for resolver-related state. */
+    /// Per-compile carrier for resolver-related state.
     private static final class CompileContext {
       final Session session;
       final Map<java.net.URI, CompiledRoot> sharedRoots;
@@ -1504,7 +1506,7 @@ public sealed interface JsonSchema
       }
     }
 
-    /** Immutable context frame capturing current document/base/pointer/anchors. */
+    /// Immutable context frame capturing current document/base/pointer/anchors.
     private static final class ContextFrame {
       final java.net.URI docUri;
       final java.net.URI baseUri;
@@ -1783,7 +1785,7 @@ public sealed interface JsonSchema
             final java.net.URI normUri = first;
             LOG.fine(() -> "compileBundle: Successfully fetched document (normalized): " + normUri + ", document type: " + normType);
           } catch (RemoteResolutionException e) {
-            LOG.severe(() -> "ERROR: compileBundle failed to fetch remote document: " + docUri + ", reason: " + e.reason());
+            // Network outcomes are logged by the fetcher; rethrow to surface to caller
             throw e;
           }
         }
