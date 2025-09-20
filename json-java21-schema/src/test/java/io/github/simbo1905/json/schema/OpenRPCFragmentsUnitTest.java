@@ -53,6 +53,45 @@ class OpenRPCFragmentsUnitTest extends JsonSchemaLoggingConfig {
     }
 
     @Test
+    void openrpc_field_is_non_empty_string() {
+        final var schema = JsonSchema.compile(Json.parse(
+            "{" +
+            "\"type\":\"object\"," +
+            "\"required\":[\"openrpc\"]," +
+            "\"properties\":{\"openrpc\":{\"type\":\"string\",\"minLength\":1}}" +
+            "}"
+        ));
+        assertThat(schema.validate(Json.parse("{\"openrpc\":\"1.3.0\"}"))).extracting("valid").isEqualTo(true);
+        assertThat(schema.validate(Json.parse("{\"openrpc\":\"\"}"))).extracting("valid").isEqualTo(false);
+        assertThat(schema.validate(Json.parse("{\"openrpc\":1}"))).extracting("valid").isEqualTo(false);
+    }
+
+    @Test
+    void servers_array_items_are_objects() {
+        final var schema = JsonSchema.compile(Json.parse(
+            "{" +
+            "\"type\":\"object\"," +
+            "\"properties\":{\"servers\":{\"type\":\"array\",\"items\":{\"type\":\"object\"}}}" +
+            "}"
+        ));
+        assertThat(schema.validate(Json.parse("{\"servers\":[{}]}"))).extracting("valid").isEqualTo(true);
+        assertThat(schema.validate(Json.parse("{\"servers\":[1,2,3]}"))).extracting("valid").isEqualTo(false);
+    }
+
+    @Test
+    void components_object_accepts_any_members() {
+        final var schema = JsonSchema.compile(Json.parse(
+            "{" +
+            "\"type\":\"object\"," +
+            "\"properties\":{\"components\":{\"type\":\"object\"}}," +
+            "\"additionalProperties\":true" +
+            "}"
+        ));
+        assertThat(schema.validate(Json.parse("{\"components\":{\"x\":1}}"))).extracting("valid").isEqualTo(true);
+        assertThat(schema.validate(Json.parse("{\"components\":1}"))).extracting("valid").isEqualTo(false);
+    }
+
+    @Test
     void param_object_requires_name_and_allows_schema_object() {
         LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#param_object_requires_name_and_allows_schema_object");
         final var schema = JsonSchema.compile(Json.parse(
