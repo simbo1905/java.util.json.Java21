@@ -31,5 +31,14 @@ public class JsonSchemaLoggingConfig {
                 handler.setLevel(targetLevel);
             }
         }
+
+        // Ensure test resource base is absolute and portable across CI and local runs
+        String prop = System.getProperty("json.schema.test.resources");
+        if (prop == null || prop.isBlank()) {
+            java.nio.file.Path base = java.nio.file.Paths.get("src", "test", "resources").toAbsolutePath();
+            System.setProperty("json.schema.test.resources", base.toString());
+            Logger.getLogger(JsonSchemaLoggingConfig.class.getName()).config(
+                () -> "json.schema.test.resources set to " + base);
+        }
     }
 }

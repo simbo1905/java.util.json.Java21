@@ -26,7 +26,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaLoggingConfig {
         final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
         final var remoteDoc = Json.parse("""
             {
-              "$id": "file:///Users/Shared/java.util.json.Java21/json-java21-schema/src/test/resources/JsonSchemaRemoteRefTest/a.json",
+              "$id": "file:///JsonSchemaRemoteRefTest/a.json",
               "$defs": {
                 "X": {
                   "type": "integer",
@@ -42,7 +42,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaLoggingConfig {
         LOG.finer(() -> "Compiling schema for file remote ref");
         final var schema = JsonSchema.compile(
             Json.parse("""
-            {"$ref":"file:///Users/Shared/java.util.json.Java21/json-java21-schema/src/test/resources/JsonSchemaRemoteRefTest/a.json#/$defs/X"}
+            {"$ref":"file:///JsonSchemaRemoteRefTest/a.json#/$defs/X"}
             """),
             JsonSchema.Options.DEFAULT,
             options

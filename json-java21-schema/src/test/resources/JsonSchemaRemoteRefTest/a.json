@@ -1,5 +1,5 @@
 {
-  "$id": "file:///Users/Shared/java.util.json.Java21/json-java21-schema/src/test/resources/JsonSchemaRemoteRefTest/a.json",
+  "$id": "file:///JsonSchemaRemoteRefTest/a.json",
   "$defs": {
     "X": {
       "type": "integer",
