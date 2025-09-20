@@ -16,13 +16,14 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 /// Integration tests: validate OpenRPC documents using a minimal embedded meta-schema.
 /// Resources:
 /// - Schema: src/test/resources/openrpc/schema.json
 /// - Examples: src/test/resources/openrpc/examples/*.json
 ///   Files containing "-bad-" are intentionally invalid and must fail validation.
-public class OpenRPCSchemaValidationIT {
+class OpenRPCSchemaValidationIT extends JsonSchemaLoggingConfig {
 
     private static String readResource(String name) throws IOException {
         try {
@@ -35,6 +36,7 @@ public class OpenRPCSchemaValidationIT {
 
     @TestFactory
     Stream<DynamicTest> validateOpenRPCExamples() throws Exception {
+        LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#validateOpenRPCExamples");
         // Compile the minimal OpenRPC schema (self-contained, no remote $ref)
         String schemaJson = readResource("openrpc/schema.json");
         JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson));
