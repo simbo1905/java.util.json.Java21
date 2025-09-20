@@ -320,6 +320,37 @@ git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to 
   - `pom.xml` (parent) holds the Central Publishing plugin configuration shared across modules.
 
 
+## Test Execution Guide (Unit vs. IT) — and Wrapper Behavior
+
+- Test lifecycles are standard Maven:
+  - Unit tests run under Surefire during the `test` phase.
+  - Integration tests (ITs, classes matching `*IT.java`, `*ITCase.java`) run under Failsafe during `integration-test` and are verified during `verify`.
+
+- Wrapper changes (required usage):
+  - `./mvn-test-no-boilerplate.sh` (root) and `json-java21-schema/mvn-test-no-boilerplate.sh` now run `verify` by default so ITs execute reliably.
+  - The wrapper prints a banner: `[INFO] Running: mvn(d) verify ...` and shows both surefire and failsafe sections without hiding logs. Pass through `-pl`, `-Dtest=...`, and JUL level flags as needed.
+
+- Focused runs (recommended patterns):
+  - Unit-only, fast loop (skip ITs):
+    - `./mvn-test-no-boilerplate.sh -pl json-java21-schema -DskipITs=true -Dtest=OpenRPCFragmentsUnitTest -Djava.util.logging.ConsoleHandler.level=INFO`
+  - IT focus (skip unit tests):
+    - `./mvn-test-no-boilerplate.sh -pl json-java21-schema -DskipTests=true -Dit.test=OpenRPCSchemaValidationIT -Djava.util.logging.ConsoleHandler.level=INFO`
+  - Full module (units + ITs):
+    - `./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djava.util.logging.ConsoleHandler.level=INFO`
+
+- Logging discipline in tests (non‑negotiable):
+  - Add `INFO` prologue at the top of every test method (tests extend `JsonSchemaLoggingConfig`).
+  - Main code logs are FINE/FINER/FINEST; only tests announce at INFO.
+
+- Methodical build‑up to OpenRPC IT:
+  - Start with unit tests for schema fragments that use currently supported keywords (e.g., required, type, properties, arrays, simple formats).
+  - Use a “compile‑only” posture by denying all remote schemes when exercising fragments that must not fetch, to reveal missing features deterministically.
+  - Once fragments are green, run the OpenRPC IT to validate curated documents end‑to‑end.
+
+Notes
+- The wrappers prefer `mvnd` if available; otherwise they fall back to `mvn`.
+- The wrappers do not suppress framework logs — use JUL levels (`-Djava.util.logging.ConsoleHandler.level=...`) to control verbosity.
+
 #### Minimum Viable (MVF) Architecture
 1. **Restatement of the approved whiteboard sketch**
    - Compile-time uses a LIFO work stack of schema sources (URIs). Begin with the initial source. Each pop parses/builds the root and scans `$ref` tokens, tagging each as LOCAL (same document) or REMOTE (different document). REMOTE targets are pushed when unseen (dedup by normalized document URI). The Roots Registry maps `docUri → Root`.
