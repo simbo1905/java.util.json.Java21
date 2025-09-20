@@ -38,31 +38,16 @@ class OpenRPCSchemaValidationIT extends JsonSchemaTestBase {
     Stream<DynamicTest> validateOpenRPCExamples() throws Exception {
         LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#validateOpenRPCExamples");
         // Compile the minimal OpenRPC schema (self-contained, no remote $ref)
-        String schemaJson = readResource("openrpc/schema.json");
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson));
+        JsonSchema schema = OpenRPCTestSupport.loadOpenRpcSchema();
 
         // Discover example files
-        URL dirUrl = Objects.requireNonNull(getClass().getClassLoader().getResource("openrpc/examples"),
-                "missing openrpc examples directory");
-        Path dir = Path.of(dirUrl.toURI());
-
-        try (Stream<Path> files = Files.list(dir)) {
-            List<Path> jsons = files
-                    .filter(p -> p.getFileName().toString().endsWith(".json"))
-                    .sorted()
-                    .toList();
-
-            assertThat(jsons).isNotEmpty();
-
-            return jsons.stream().map(path -> DynamicTest.dynamicTest(path.getFileName().toString(), () -> {
-                LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#" + path.getFileName());
-                String doc = Files.readString(path, StandardCharsets.UTF_8);
-                boolean expectedValid = !path.getFileName().toString().contains("-bad-");
-                boolean actualValid = schema.validate(Json.parse(doc)).valid();
-                Assertions.assertThat(actualValid)
-                        .as("validation of %s", path.getFileName())
-                        .isEqualTo(expectedValid);
-            }));
-        }
+        List<String> names = OpenRPCTestSupport.exampleNames();
+        assertThat(names).isNotEmpty();
+        return names.stream().map(name -> DynamicTest.dynamicTest(name, () -> {
+            LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#" + name);
+            boolean expectedValid = !name.contains("-bad-");
+            boolean actualValid = OpenRPCTestSupport.validateExample(name).valid();
+            Assertions.assertThat(actualValid).as("validation of %s", name).isEqualTo(expectedValid);
+        }));
     }
 }
