@@ -315,11 +315,11 @@ public sealed interface JsonSchema
       }
     }
 
-    // Build resolver context using new MVF work-stack architecture
+    // Placeholder context (not used post-compile; schemas embed resolver contexts during build)
     ResolverContext context = initResolverContext(java.net.URI.create("urn:inmemory:root"), schemaJson, compileOptions);
     LOG.fine(() -> "compile: Created resolver context with roots.size=0, base uri: " + java.net.URI.create("urn:inmemory:root"));
 
-    // Compile using work-stack architecture (thread options + compileOptions)
+    // Compile using work-stack architecture – contexts are attached once while compiling
     CompiledRegistry registry = compileWorkStack(
         schemaJson,
         java.net.URI.create("urn:inmemory:root"),
@@ -328,20 +328,16 @@ public sealed interface JsonSchema
         compileOptions
     );
     JsonSchema result = registry.entry().schema();
-
-    // Update resolver context to use full compiled registry for remote references
-    ResolverContext fullContext = createResolverContextFromRegistry(registry);
-    final int rootCount = fullContext.roots().size();
-    final var updatedResult = updateSchemaWithFullContext(result, fullContext);
+    final int rootCount = registry.roots().size();
 
     // Compile-time validation for root-level remote $ref pointer existence
-    if (updatedResult instanceof RefSchema ref) {
+    if (result instanceof RefSchema ref) {
       if (ref.refToken() instanceof RefToken.RemoteRef remoteRef) {
         String frag = remoteRef.pointer();
         if (frag != null && !frag.isEmpty()) {
           try {
-            // Attempt resolution now to surface POINTER_MISSING during compile
-            fullContext.resolve(ref.refToken());
+            // Attempt resolution now via the ref's own context to surface POINTER_MISSING during compile
+            ref.resolverContext().resolve(ref.refToken());
           } catch (IllegalArgumentException e) {
             throw new RemoteResolutionException(
                 remoteRef.targetUri(),
@@ -355,8 +351,8 @@ public sealed interface JsonSchema
     }
 
     LOG.fine(() -> "compile: Completed schema compilation, total roots compiled: " + rootCount);
-    LOG.fine(() -> "compile: Completed schema compilation with full options, result type: " + updatedResult.getClass().getSimpleName());
-    return updatedResult;
+    LOG.fine(() -> "compile: Completed schema compilation with full options, result type: " + result.getClass().getSimpleName());
+    return result;
   }
 
   /// Normalize URI for dedup correctness
@@ -383,8 +379,8 @@ public sealed interface JsonSchema
     LOG.fine(() -> "initResolverContext: created context for initialUri=" + initialUri);
     LOG.finest(() -> "initResolverContext: initialJson object=" + initialJson + ", type=" + initialJson.getClass().getSimpleName() + ", toString=" + initialJson);
     LOG.finest(() -> "initResolverContext: compileOptions object=" + compileOptions + ", remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName());
-    Map<java.net.URI, CompiledRoot> emptyRoots = new HashMap<>();
-    Map<String, JsonSchema> emptyPointerIndex = new HashMap<>();
+    Map<java.net.URI, CompiledRoot> emptyRoots = new LinkedHashMap<>();
+    Map<String, JsonSchema> emptyPointerIndex = new LinkedHashMap<>();
     ResolverContext context = new ResolverContext(emptyRoots, emptyPointerIndex, AnySchema.INSTANCE);
     LOG.finest(() -> "initResolverContext: created context object=" + context + ", roots.size=" + context.roots().size() + ", localPointerIndex.size=" + context.localPointerIndex().size());
     return context;
@@ -419,10 +415,17 @@ public sealed interface JsonSchema
       final int workStackSize = workStack.size();
       final int builtSize = built.size();
       final int activeSize = active.size();
-      LOG.fine(() -> "compileWorkStack: iteration " + finalIterationCount + ", workStack.size=" + workStackSize + ", built.size=" + builtSize + ", active.size=" + activeSize);
-      LOG.finest(() -> "compileWorkStack: workStack contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
-      LOG.finest(() -> "compileWorkStack: built map keys=" + built.keySet() + ", values=" + built.values());
-      LOG.finest(() -> "compileWorkStack: active set=" + active);
+      StructuredLog.fine(LOG, "compileWorkStack.iteration",
+          "iter", finalIterationCount,
+          "workStack", workStackSize,
+          "built", builtSize,
+          "active", activeSize
+      );
+      StructuredLog.finestSampled(LOG, "compileWorkStack.state", 8,
+          "workStack", workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(",","[","]")),
+          "builtKeys", built.keySet(),
+          "activeSet", active
+      );
 
       java.net.URI currentUri = workStack.pop();
       LOG.finer(() -> "compileWorkStack: popped URI from work stack: " + currentUri);
@@ -469,7 +472,7 @@ public sealed interface JsonSchema
 
     // Freeze roots into immutable registry (preserve entry root as initialUri)
     CompiledRegistry registry = freezeRoots(built, initialUri);
-    LOG.fine(() -> "compileWorkStack: completed work-stack loop, total roots: " + registry.roots().size());
+    StructuredLog.fine(LOG, "compileWorkStack.done", "roots", registry.roots().size());
     LOG.finest(() -> "compileWorkStack: final registry object=" + registry + ", entry=" + registry.entry() + ", roots.size=" + registry.roots().size());
     return registry;
   }
@@ -695,156 +698,7 @@ public sealed interface JsonSchema
     return registry;
   }
 
-  /// Create resolver context from compiled registry
-  static ResolverContext createResolverContextFromRegistry(CompiledRegistry registry) {
-    LOG.fine(() -> "createResolverContextFromRegistry: creating context from registry with " + registry.roots().size() + " roots");
-    LOG.finest(() -> "createResolverContextFromRegistry: registry object=" + registry + ", entry=" + registry.entry() + ", roots.keys=" + registry.roots().keySet());
-
-    Map<java.net.URI, CompiledRoot> updatedRoots = new HashMap<>();
-
-    // Provisional context that references updatedRoots; we fill it next, so RefSchemas will close over this map.
-    Map<String, JsonSchema> entryPointerIndex = new HashMap<>(registry.entry().pointerIndex());
-    ResolverContext provisional = new ResolverContext(updatedRoots, entryPointerIndex, registry.entry().schema());
-
-    // Reattach context to every compiled root schema tree
-    for (var e : registry.roots().entrySet()) {
-      java.net.URI uri = e.getKey();
-      CompiledRoot root = e.getValue();
-      JsonSchema remapped = reattachContext(root.schema(), provisional);
-      updatedRoots.put(uri, new CompiledRoot(uri, remapped, root.pointerIndex()));
-    }
-
-    // Entry root with reattached schema
-    CompiledRoot newEntry = updatedRoots.get(registry.entry().docUri());
-    if (newEntry == null) newEntry = registry.entry();
-
-    ResolverContext context = new ResolverContext(updatedRoots, new HashMap<>(newEntry.pointerIndex()), newEntry.schema());
-    LOG.fine(() -> "createResolverContextFromRegistry: created context with " + context.roots().size() + " roots");
-    LOG.finest(() -> "createResolverContextFromRegistry: context object=" + context + ", roots.size=" + context.roots().size() + ", localPointerIndex.size=" + context.localPointerIndex().size());
-    return context;
-  }
-
-  /// Update schema tree to use full resolver context
-  static JsonSchema updateSchemaWithFullContext(JsonSchema schema, ResolverContext fullContext) {
-    LOG.fine(() -> "updateSchemaWithFullContext: updating schema " + schema.getClass().getSimpleName() + " with full context");
-    LOG.finest(() -> "updateSchemaWithFullContext: schema object=" + schema + ", fullContext.roots.size=" + fullContext.roots().size());
-    return reattachContext(schema, fullContext);
-  }
-
-  private static JsonSchema reattachContext(JsonSchema schema, ResolverContext ctx) {
-    return switch (schema) {
-      case RefSchema ref -> {
-        LOG.fine(() -> "reattachContext: RefSchema");
-        yield new RefSchema(ref.refToken(), ctx);
-      }
-
-      case AllOfSchema all -> {
-        LOG.fine(() -> "reattachContext: AllOfSchema");
-        LOG.finer(() -> "reattachContext: AllOf count=" + all.schemas().size());
-        List<JsonSchema> mapped = new ArrayList<>(all.schemas().size());
-        for (JsonSchema s : all.schemas()) mapped.add(reattachContext(s, ctx));
-        LOG.finest(() -> "reattachContext: AllOf mapped=" + mapped);
-        yield new AllOfSchema(List.copyOf(mapped));
-      }
-
-      case AnyOfSchema any -> {
-        LOG.fine(() -> "reattachContext: AnyOfSchema");
-        LOG.finer(() -> "reattachContext: AnyOf count=" + any.schemas().size());
-        List<JsonSchema> mapped = new ArrayList<>(any.schemas().size());
-        for (JsonSchema s : any.schemas()) mapped.add(reattachContext(s, ctx));
-        LOG.finest(() -> "reattachContext: AnyOf mapped=" + mapped);
-        yield new AnyOfSchema(List.copyOf(mapped));
-      }
-
-      case OneOfSchema one -> {
-        LOG.fine(() -> "reattachContext: OneOfSchema");
-        LOG.finer(() -> "reattachContext: OneOf count=" + one.schemas().size());
-        List<JsonSchema> mapped = new ArrayList<>(one.schemas().size());
-        for (JsonSchema s : one.schemas()) mapped.add(reattachContext(s, ctx));
-        LOG.finest(() -> "reattachContext: OneOf mapped=" + mapped);
-        yield new OneOfSchema(List.copyOf(mapped));
-      }
-
-      case ConditionalSchema cond -> {
-        LOG.fine(() -> "reattachContext: ConditionalSchema");
-        JsonSchema ifS = reattachContext(cond.ifSchema(), ctx);
-        JsonSchema thenS = cond.thenSchema() == null ? null : reattachContext(cond.thenSchema(), ctx);
-        JsonSchema elseS = cond.elseSchema() == null ? null : reattachContext(cond.elseSchema(), ctx);
-        LOG.finer(() -> "reattachContext: Conditional branches then=" + (thenS != null) + ", else=" + (elseS != null));
-        yield new ConditionalSchema(ifS, thenS, elseS);
-      }
-
-      case NotSchema not -> {
-        LOG.fine(() -> "reattachContext: NotSchema");
-        yield new NotSchema(reattachContext(not.schema(), ctx));
-      }
-
-      case EnumSchema en -> {
-        LOG.fine(() -> "reattachContext: EnumSchema");
-        LOG.finer(() -> "reattachContext: Enum allowed count=" + en.allowedValues().size());
-        yield new EnumSchema(reattachContext(en.baseSchema(), ctx), en.allowedValues());
-      }
-
-      case ObjectSchema obj -> {
-        LOG.fine(() -> "reattachContext: ObjectSchema");
-        LOG.finer(() -> "reattachContext: properties=" + obj.properties().size()
-            + ", dependentSchemas=" + (obj.dependentSchemas() == null ? 0 : obj.dependentSchemas().size())
-            + ", patternProperties=" + (obj.patternProperties() == null ? 0 : obj.patternProperties().size()));
-        Map<String, JsonSchema> props = new LinkedHashMap<>();
-        for (var e : obj.properties().entrySet()) props.put(e.getKey(), reattachContext(e.getValue(), ctx));
-        LOG.finest(() -> "reattachContext: property keys=" + props.keySet());
-        Map<Pattern, JsonSchema> patternProps = null;
-        if (obj.patternProperties() != null) {
-          patternProps = new LinkedHashMap<>();
-          for (var e : obj.patternProperties().entrySet()) patternProps.put(e.getKey(), reattachContext(e.getValue(), ctx));
-        }
-        JsonSchema additional = obj.additionalProperties();
-        if (additional != null && additional != BooleanSchema.TRUE && additional != BooleanSchema.FALSE) {
-          additional = reattachContext(additional, ctx);
-        }
-        JsonSchema propertyNames = obj.propertyNames();
-        if (propertyNames != null) propertyNames = reattachContext(propertyNames, ctx);
-        Map<String, JsonSchema> dependSchemas = null;
-        if (obj.dependentSchemas() != null) {
-          dependSchemas = new LinkedHashMap<>();
-          for (var e : obj.dependentSchemas().entrySet()) {
-            JsonSchema v = e.getValue();
-            if (v != BooleanSchema.TRUE && v != BooleanSchema.FALSE) v = reattachContext(v, ctx);
-            dependSchemas.put(e.getKey(), v);
-          }
-        }
-        yield new ObjectSchema(
-            Map.copyOf(props),
-            obj.required(),
-            additional,
-            obj.minProperties(),
-            obj.maxProperties(),
-            patternProps == null ? null : Map.copyOf(patternProps),
-            propertyNames,
-            obj.dependentRequired(),
-            dependSchemas == null ? null : Map.copyOf(dependSchemas)
-        );
-      }
-
-      case ArraySchema arr -> {
-        LOG.fine(() -> "reattachContext: ArraySchema");
-        JsonSchema items = arr.items();
-        if (items != null) items = reattachContext(items, ctx);
-        List<JsonSchema> prefix = null;
-        if (arr.prefixItems() != null) {
-          prefix = new ArrayList<>(arr.prefixItems().size());
-          for (JsonSchema s : arr.prefixItems()) prefix.add(reattachContext(s, ctx));
-        }
-        JsonSchema contains = arr.contains();
-        if (contains != null) contains = reattachContext(contains, ctx);
-        yield new ArraySchema(items, arr.minItems(), arr.maxItems(), arr.uniqueItems(),
-            prefix == null ? null : List.copyOf(prefix), contains, arr.minContains(), arr.maxContains());
-      }
-
-      // Leaf schemas and those without nested refs
-      default -> schema;
-    };
-  }
+  
 
   /// Validates JSON document against this schema
   ///
@@ -1581,11 +1435,13 @@ public sealed interface JsonSchema
   final class SchemaCompiler {
     /** Per-compilation session state (no static mutable fields). */
     private static final class Session {
-      final Map<String, JsonSchema> definitions = new HashMap<>();
-      final Map<String, JsonSchema> compiledByPointer = new HashMap<>();
-      final Map<String, JsonValue> rawByPointer = new HashMap<>();
+      final Map<String, JsonSchema> definitions = new LinkedHashMap<>();
+      final Map<String, JsonSchema> compiledByPointer = new LinkedHashMap<>();
+      final Map<String, JsonValue> rawByPointer = new LinkedHashMap<>();
       JsonSchema currentRootSchema;
       Options currentOptions;
+      long totalFetchedBytes;
+      int fetchedDocs;
     }
     /** Strip any fragment from a URI, returning the base document URI. */
     private static java.net.URI stripFragment(java.net.URI uri) {
@@ -1604,7 +1460,7 @@ public sealed interface JsonSchema
 
     /// JSON Pointer utility for RFC-6901 fragment navigation
     static Optional<JsonValue> navigatePointer(JsonValue root, String pointer) {
-      LOG.fine(() -> "Navigating pointer: '" + pointer + "' from root: " + root);
+    StructuredLog.fine(LOG, "pointer.navigate", "pointer", pointer);
 
       if (pointer.isEmpty() || pointer.equals(SCHEMA_POINTER_ROOT)) {
         return Optional.of(root);
@@ -1667,14 +1523,13 @@ public sealed interface JsonSchema
         }
       }
 
-      final var currentFinal = current;
-      LOG.fine(() -> "Found target: " + currentFinal);
+      StructuredLog.fine(LOG, "pointer.found", "pointer", pointer);
       return Optional.of(current);
     }
 
     /// Classify a $ref string as local or remote
     static RefToken classifyRef(String ref, java.net.URI baseUri) {
-      LOG.fine(() -> "Classifying ref: '" + ref + "' with base URI: " + baseUri);
+      StructuredLog.fine(LOG, "ref.classify", "ref", ref, "base", baseUri);
 
       if (ref == null || ref.isEmpty()) {
         throw new IllegalArgumentException("InvalidPointer: empty $ref");
@@ -1687,18 +1542,18 @@ public sealed interface JsonSchema
         // If it has a scheme or authority, it's remote
         if (refUri.getScheme() != null || refUri.getAuthority() != null) {
           java.net.URI resolvedUri = baseUri.resolve(refUri);
-          LOG.finer(() -> "Classified as remote ref: " + resolvedUri);
+          StructuredLog.finer(LOG, "ref.classified", "kind", "remote", "uri", resolvedUri);
           return new RefToken.RemoteRef(baseUri, resolvedUri);
         }
 
         // If it's just a fragment or starts with #, it's local
         if (ref.startsWith(SCHEMA_POINTER_ROOT) || !ref.contains("://")) {
-          LOG.finer(() -> "Classified as local ref: " + ref);
+          StructuredLog.finer(LOG, "ref.classified", "kind", "local", "ref", ref);
           return new RefToken.LocalRef(ref);
         }
 
         // Default to local for safety during this refactor
-        LOG.finer(() -> "Defaulting to local ref: " + ref);
+        StructuredLog.finer(LOG, "ref.defaultLocal", "ref", ref);
         return new RefToken.LocalRef(ref);
       } catch (IllegalArgumentException e) {
         // Invalid URI syntax - treat as local pointer with error handling
@@ -1738,7 +1593,7 @@ public sealed interface JsonSchema
       // Work stack for documents to compile
       Deque<WorkItem> workStack = new ArrayDeque<>();
       Set<java.net.URI> seenUris = new HashSet<>();
-      Map<java.net.URI, CompiledRoot> compiled = new HashMap<>();
+      Map<java.net.URI, CompiledRoot> compiled = new LinkedHashMap<>();
 
       // Start with synthetic URI for in-memory root
       java.net.URI entryUri = java.net.URI.create("urn:inmemory:root");
@@ -1812,6 +1667,15 @@ public sealed interface JsonSchema
               LOG.fine(() -> "compileBundle: Using file mapping for fetch: " + alt + " (original=" + docUri + ")");
             }
 
+            // Enforce global document count before fetching
+            if (session.fetchedDocs + 1 > compileOptions.fetchPolicy().maxDocuments()) {
+              throw new RemoteResolutionException(
+                  docUri,
+                  RemoteResolutionException.Reason.POLICY_DENIED,
+                  "Maximum document count exceeded for " + docUri
+              );
+            }
+
             RemoteFetcher.FetchResult fetchResult;
             try {
               fetchResult = compileOptions.remoteFetcher().fetch(first, compileOptions.fetchPolicy());
@@ -1838,6 +1702,17 @@ public sealed interface JsonSchema
               );
             }
 
+            // Update global counters and enforce total bytes across the compilation
+            session.fetchedDocs++;
+            session.totalFetchedBytes += fetchResult.byteSize();
+            if (session.totalFetchedBytes > compileOptions.fetchPolicy().maxTotalBytes()) {
+              throw new RemoteResolutionException(
+                  docUri,
+                  RemoteResolutionException.Reason.POLICY_DENIED,
+                  "Total fetched bytes exceeded policy across documents at " + docUri + ": " + session.totalFetchedBytes
+              );
+            }
+
             documentToCompile = fetchResult.document();
             final String normType = documentToCompile.getClass().getSimpleName();
             final java.net.URI normUri = first;
@@ -1850,7 +1725,7 @@ public sealed interface JsonSchema
 
         // Compile the schema
         LOG.finest(() -> "compileBundle: Compiling document for URI: " + currentUri);
-        CompilationResult result = compileSingleDocument(session, documentToCompile, options, compileOptions, currentUri, workStack, seenUris);
+        CompilationResult result = compileSingleDocument(session, documentToCompile, options, compileOptions, currentUri, workStack, seenUris, compiled);
         LOG.finest(() -> "compileBundle: Document compilation completed for URI: " + currentUri + ", schema type: " + result.schema().getClass().getSimpleName());
 
         // Create compiled root and add to map
@@ -1871,7 +1746,7 @@ public sealed interface JsonSchema
       LOG.fine(() -> "compileBundle: Creating compilation bundle with " + allRoots.size() + " total compiled roots");
 
       // Create a map of compiled roots for resolver context
-      Map<java.net.URI, CompiledRoot> rootsMap = new HashMap<>();
+      Map<java.net.URI, CompiledRoot> rootsMap = new LinkedHashMap<>();
       LOG.finest(() -> "compileBundle: Creating rootsMap from " + allRoots.size() + " compiled roots");
       for (CompiledRoot root : allRoots) {
         LOG.finest(() -> "compileBundle: Adding root to map: " + root.docUri());
@@ -1898,7 +1773,8 @@ public sealed interface JsonSchema
 
     /// Compile a single document using new architecture
     static CompilationResult compileSingleDocument(Session session, JsonValue schemaJson, Options options, CompileOptions compileOptions,
-                                                   java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris) {
+                                                   java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris,
+                                                   Map<java.net.URI, CompiledRoot> sharedRoots) {
       LOG.fine(() -> "compileSingleDocument: Starting compilation for docUri: " + docUri + ", schema type: " + schemaJson.getClass().getSimpleName());
 
       // Initialize session state
@@ -1941,11 +1817,11 @@ public sealed interface JsonSchema
       indexSchemaByPointer(session, "", schemaJson);
 
       // Build local pointer index for this document
-      Map<String, JsonSchema> localPointerIndex = new HashMap<>();
+      Map<String, JsonSchema> localPointerIndex = new LinkedHashMap<>();
 
       trace("compile-start", schemaJson);
       LOG.finer(() -> "compileSingleDocument: Calling compileInternalWithContext for docUri: " + docUri);
-      JsonSchema schema = compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris, localPointerIndex);
+      JsonSchema schema = compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris, sharedRoots, localPointerIndex);
       LOG.finer(() -> "compileSingleDocument: compileInternalWithContext completed, schema type: " + schema.getClass().getSimpleName());
 
       session.currentRootSchema = schema; // Store the root schema for self-references
@@ -1956,9 +1832,10 @@ public sealed interface JsonSchema
 
     private static JsonSchema compileInternalWithContext(Session session, JsonValue schemaJson, java.net.URI docUri,
                                                         Deque<WorkItem> workStack, Set<java.net.URI> seenUris,
+                                                        Map<java.net.URI, CompiledRoot> sharedRoots,
                                                         Map<String, JsonSchema> localPointerIndex) {
       return compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris,
-          null, localPointerIndex, new ArrayDeque<>());
+          new ResolverContext(sharedRoots, localPointerIndex, AnySchema.INSTANCE), localPointerIndex, new ArrayDeque<>(), sharedRoots, SCHEMA_POINTER_ROOT);
     }
 
     private static JsonSchema compileInternalWithContext(Session session, JsonValue schemaJson, java.net.URI docUri,
@@ -1966,6 +1843,7 @@ public sealed interface JsonSchema
                                                         ResolverContext resolverContext,
                                                         Map<String, JsonSchema> localPointerIndex,
                                                         Deque<String> resolutionStack,
+                                                        Map<java.net.URI, CompiledRoot> sharedRoots,
                                                         String basePointer) {
       LOG.fine(() -> "compileInternalWithContext: Starting with schema: " + schemaJson + ", docUri: " + docUri);
 
@@ -1988,15 +1866,10 @@ public sealed interface JsonSchema
             }
             LOG.finest(() -> "compileInternalWithContext: Creating RefSchema for remote ref " + remoteRef.targetUri());
 
-            // Create temporary resolver context with current document's pointer index
-            // The roots map will be populated later when the compilation bundle is created
-            Map<java.net.URI, CompiledRoot> tempRoots = new HashMap<>();
-            tempRoots.put(docUri, new CompiledRoot(docUri, AnySchema.INSTANCE, localPointerIndex));
+            LOG.fine(() -> "Creating RefSchema for remote ref " + remoteRef.targetUri() +
+                " with localPointerEntries=" + localPointerIndex.size());
 
-            LOG.fine(() -> "Creating temporary RefSchema for remote ref " + remoteRef.targetUri() +
-                " with " + localPointerIndex.size() + " local pointer entries");
-
-            var refSchema = new RefSchema(refToken, new ResolverContext(tempRoots, localPointerIndex, AnySchema.INSTANCE));
+            var refSchema = new RefSchema(refToken, new ResolverContext(sharedRoots, localPointerIndex, AnySchema.INSTANCE));
             LOG.finest(() -> "compileInternalWithContext: Created RefSchema " + refSchema);
             return refSchema;
           }
@@ -2067,7 +1940,7 @@ public sealed interface JsonSchema
               // Push to resolution stack for cycle detection before compiling
               resolutionStack.push(pointer);
               try {
-                JsonSchema compiled = compileInternalWithContext(session, targetValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer);
+                JsonSchema compiled = compileInternalWithContext(session, targetValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer);
                 localPointerIndex.put(pointer, compiled);
                 return compiled;
               } finally {
@@ -2083,17 +1956,19 @@ public sealed interface JsonSchema
             // For root reference, create RootRef that will resolve through ResolverContext
             // The ResolverContext will be updated later with the proper root schema
             return new RootRef(() -> {
-              // If we have a resolver context, use it; otherwise fall back to current root
+              // Prefer the session root once available, otherwise use resolver context placeholder.
+              if (session.currentRootSchema != null) {
+                return session.currentRootSchema;
+              }
               if (resolverContext != null) {
                 return resolverContext.rootSchema();
               }
-              return session.currentRootSchema != null ? session.currentRootSchema : AnySchema.INSTANCE;
+              return AnySchema.INSTANCE;
             });
           }
 
           // Create temporary resolver context with current document's pointer index
-          Map<java.net.URI, CompiledRoot> tempRoots = new HashMap<>();
-          tempRoots.put(docUri, new CompiledRoot(docUri, AnySchema.INSTANCE, localPointerIndex));
+          Map<java.net.URI, CompiledRoot> tempRoots = sharedRoots;
 
           LOG.fine(() -> "Creating temporary RefSchema for local ref " + refToken.pointer() +
               " with " + localPointerIndex.size() + " local pointer entries");
@@ -2118,7 +1993,7 @@ public sealed interface JsonSchema
         trace("compile-defs", defsValue);
         for (var entry : defsObj.members().entrySet()) {
           String pointer = (basePointer == null || basePointer.isEmpty()) ? SCHEMA_DEFS_POINTER + entry.getKey() : basePointer + "/$defs/" + entry.getKey();
-          JsonSchema compiled = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, pointer);
+          JsonSchema compiled = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, pointer);
           session.definitions.put(pointer, compiled);
           session.compiledByPointer.put(pointer, compiled);
           localPointerIndex.put(pointer, compiled);
@@ -2141,7 +2016,7 @@ public sealed interface JsonSchema
         trace("compile-allof", allOfValue);
         List<JsonSchema> schemas = new ArrayList<>();
         for (JsonValue item : allOfArr.values()) {
-          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer));
+          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer));
         }
         return new AllOfSchema(schemas);
       }
@@ -2151,7 +2026,7 @@ public sealed interface JsonSchema
         trace("compile-anyof", anyOfValue);
         List<JsonSchema> schemas = new ArrayList<>();
         for (JsonValue item : anyOfArr.values()) {
-          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer));
+          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer));
         }
         return new AnyOfSchema(schemas);
       }
@@ -2161,7 +2036,7 @@ public sealed interface JsonSchema
         trace("compile-oneof", oneOfValue);
         List<JsonSchema> schemas = new ArrayList<>();
         for (JsonValue item : oneOfArr.values()) {
-          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer));
+          schemas.add(compileInternalWithContext(session, item, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer));
         }
         return new OneOfSchema(schemas);
       }
@@ -2170,18 +2045,18 @@ public sealed interface JsonSchema
       JsonValue ifValue = obj.members().get("if");
       if (ifValue != null) {
         trace("compile-conditional", obj);
-        JsonSchema ifSchema = compileInternalWithContext(session, ifValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer);
+        JsonSchema ifSchema = compileInternalWithContext(session, ifValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer);
         JsonSchema thenSchema = null;
         JsonSchema elseSchema = null;
 
         JsonValue thenValue = obj.members().get("then");
         if (thenValue != null) {
-          thenSchema = compileInternalWithContext(session, thenValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer);
+          thenSchema = compileInternalWithContext(session, thenValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer);
         }
 
         JsonValue elseValue = obj.members().get("else");
         if (elseValue != null) {
-          elseSchema = compileInternalWithContext(session, elseValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, basePointer);
+          elseSchema = compileInternalWithContext(session, elseValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, basePointer);
         }
 
         return new ConditionalSchema(ifSchema, thenSchema, elseSchema);
@@ -2196,7 +2071,7 @@ public sealed interface JsonSchema
       // Handle not
       JsonValue notValue = obj.members().get("not");
       if (notValue != null) {
-        JsonSchema inner = compileInternalWithContext(session, notValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+        JsonSchema inner = compileInternalWithContext(session, notValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
         return new NotSchema(inner);
       }
 
@@ -2236,9 +2111,9 @@ public sealed interface JsonSchema
         if (typeValue instanceof JsonString typeStr) {
           baseSchema = switch (typeStr.value()) {
             case "object" ->
-                compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+                compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
             case "array" ->
-                compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+                compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
             case "string" -> compileStringSchemaWithContext(session, obj);
             case "number", "integer" -> compileNumberSchemaWithContext(obj);
             case "boolean" -> new BooleanSchema();
@@ -2246,9 +2121,9 @@ public sealed interface JsonSchema
             default -> AnySchema.INSTANCE;
           };
         } else if (hasObjectKeywords) {
-          baseSchema = compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          baseSchema = compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
         } else if (hasArrayKeywords) {
-          baseSchema = compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          baseSchema = compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
         } else if (hasStringKeywords) {
           baseSchema = compileStringSchemaWithContext(session, obj);
         } else {
@@ -2266,9 +2141,9 @@ public sealed interface JsonSchema
       if (typeValue instanceof JsonString typeStr) {
         return switch (typeStr.value()) {
           case "object" ->
-              compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+              compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           case "array" ->
-              compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+              compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           case "string" -> compileStringSchemaWithContext(session, obj);
           case "number" -> compileNumberSchemaWithContext(obj);
           case "integer" -> compileNumberSchemaWithContext(obj); // For now, treat integer as number
@@ -2283,9 +2158,9 @@ public sealed interface JsonSchema
           if (item instanceof JsonString typeStr) {
             JsonSchema typeSchema = switch (typeStr.value()) {
               case "object" ->
-                  compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+                  compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
               case "array" ->
-                  compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+                  compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
               case "string" -> compileStringSchemaWithContext(session, obj);
               case "number", "integer" -> compileNumberSchemaWithContext(obj);
               case "boolean" -> new BooleanSchema();
@@ -2306,9 +2181,9 @@ public sealed interface JsonSchema
         }
       } else {
         if (hasObjectKeywords) {
-          return compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          return compileObjectSchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
         } else if (hasArrayKeywords) {
-          return compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          return compileArraySchemaWithContext(session, obj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
         } else if (hasStringKeywords) {
           return compileStringSchemaWithContext(session, obj);
         }
@@ -2322,12 +2197,13 @@ public sealed interface JsonSchema
                                                         Deque<WorkItem> workStack, Set<java.net.URI> seenUris,
                                                         ResolverContext resolverContext,
                                                         Map<String, JsonSchema> localPointerIndex,
-                                                        Deque<String> resolutionStack) {
-      return compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, SCHEMA_POINTER_ROOT);
+                                                        Deque<String> resolutionStack,
+                                                        Map<java.net.URI, CompiledRoot> sharedRoots) {
+      return compileInternalWithContext(session, schemaJson, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots, SCHEMA_POINTER_ROOT);
     }
 
     /// Object schema compilation with context
-    private static JsonSchema compileObjectSchemaWithContext(Session session, JsonObject obj, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex, Deque<String> resolutionStack) {
+    private static JsonSchema compileObjectSchemaWithContext(Session session, JsonObject obj, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex, Deque<String> resolutionStack, Map<java.net.URI, CompiledRoot> sharedRoots) {
       LOG.finest(() -> "compileObjectSchemaWithContext: Starting with object: " + obj);
       Map<String, JsonSchema> properties = new LinkedHashMap<>();
       JsonValue propsValue = obj.members().get("properties");
@@ -2335,7 +2211,7 @@ public sealed interface JsonSchema
         LOG.finest(() -> "compileObjectSchemaWithContext: Processing properties: " + propsObj);
         for (var entry : propsObj.members().entrySet()) {
           LOG.finest(() -> "compileObjectSchemaWithContext: Compiling property '" + entry.getKey() + "': " + entry.getValue());
-          JsonSchema propertySchema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          JsonSchema propertySchema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           LOG.finest(() -> "compileObjectSchemaWithContext: Property '" + entry.getKey() + "' compiled to: " + propertySchema);
           properties.put(entry.getKey(), propertySchema);
 
@@ -2360,7 +2236,7 @@ public sealed interface JsonSchema
       if (addPropsValue instanceof JsonBoolean addPropsBool) {
         additionalProperties = addPropsBool.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
       } else if (addPropsValue instanceof JsonObject addPropsObj) {
-        additionalProperties = compileInternalWithContext(session, addPropsObj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+        additionalProperties = compileInternalWithContext(session, addPropsObj, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
       }
 
       // Handle patternProperties
@@ -2371,7 +2247,7 @@ public sealed interface JsonSchema
         for (var entry : patternPropsObj.members().entrySet()) {
           String patternStr = entry.getKey();
           Pattern pattern = Pattern.compile(patternStr);
-          JsonSchema schema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+          JsonSchema schema = compileInternalWithContext(session, entry.getValue(), docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           patternProperties.put(pattern, schema);
         }
       }
@@ -2380,7 +2256,7 @@ public sealed interface JsonSchema
       JsonSchema propertyNames = null;
       JsonValue propNamesValue = obj.members().get("propertyNames");
       if (propNamesValue != null) {
-        propertyNames = compileInternalWithContext(session, propNamesValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+        propertyNames = compileInternalWithContext(session, propNamesValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
       }
 
       Integer minProperties = getInteger(obj, "minProperties");
@@ -2422,7 +2298,7 @@ public sealed interface JsonSchema
           if (schemaValue instanceof JsonBoolean boolValue) {
             schema = boolValue.value() ? AnySchema.INSTANCE : BooleanSchema.FALSE;
           } else {
-            schema = compileInternalWithContext(session, schemaValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+            schema = compileInternalWithContext(session, schemaValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
           }
           dependentSchemas.put(triggerProp, schema);
         }
@@ -2432,11 +2308,11 @@ public sealed interface JsonSchema
     }
 
     /// Array schema compilation with context
-    private static JsonSchema compileArraySchemaWithContext(Session session, JsonObject obj, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex, Deque<String> resolutionStack) {
+    private static JsonSchema compileArraySchemaWithContext(Session session, JsonObject obj, java.net.URI docUri, Deque<WorkItem> workStack, Set<java.net.URI> seenUris, ResolverContext resolverContext, Map<String, JsonSchema> localPointerIndex, Deque<String> resolutionStack, Map<java.net.URI, CompiledRoot> sharedRoots) {
       JsonSchema items = AnySchema.INSTANCE;
       JsonValue itemsValue = obj.members().get("items");
       if (itemsValue != null) {
-        items = compileInternalWithContext(session, itemsValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+        items = compileInternalWithContext(session, itemsValue, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
       }
 
       // Parse prefixItems (tuple validation)
@@ -2445,7 +2321,7 @@ public sealed interface JsonSchema
       if (prefixItemsVal instanceof JsonArray arr) {
         prefixItems = new ArrayList<>(arr.values().size());
         for (JsonValue v : arr.values()) {
-          prefixItems.add(compileInternalWithContext(session, v, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack));
+          prefixItems.add(compileInternalWithContext(session, v, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots));
         }
         prefixItems = List.copyOf(prefixItems);
       }
@@ -2454,7 +2330,7 @@ public sealed interface JsonSchema
       JsonSchema contains = null;
       JsonValue containsVal = obj.members().get("contains");
       if (containsVal != null) {
-        contains = compileInternalWithContext(session, containsVal, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack);
+        contains = compileInternalWithContext(session, containsVal, docUri, workStack, seenUris, resolverContext, localPointerIndex, resolutionStack, sharedRoots);
       }
 
       // Parse minContains / maxContains

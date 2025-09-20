@@ -86,15 +86,29 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             .build();
 
         try {
-            HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+            HttpResponse<java.io.InputStream> response = client.send(request, HttpResponse.BodyHandlers.ofInputStream());
             int status = response.statusCode();
             if (status / 100 != 2) {
                 throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.NOT_FOUND, "HTTP " + status + " fetching " + uri);
             }
 
-            byte[] bytes = response.body().getBytes(StandardCharsets.UTF_8);
-            if (bytes.length > policy.maxDocumentBytes()) {
-                throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE, "Payload too large for " + uri);
+            // Stream with hard cap to enforce maxDocumentBytes during read
+            byte[] bytes;
+            try (java.io.InputStream in = response.body();
+                 java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream()) {
+                byte[] buf = new byte[8192];
+                long cap = policy.maxDocumentBytes();
+                long readTotal = 0L;
+                while (true) {
+                    int n = in.read(buf);
+                    if (n == -1) break;
+                    readTotal += n;
+                    if (readTotal > cap) {
+                        throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE, "Payload too large for " + uri);
+                    }
+                    out.write(buf, 0, n);
+                }
+                bytes = out.toByteArray();
             }
 
             long total = totalBytes.addAndGet(bytes.length);
@@ -102,7 +116,8 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
                 throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED, "Total fetched bytes exceeded policy for " + uri);
             }
 
-            JsonValue json = Json.parse(response.body());
+            String body = new String(bytes, StandardCharsets.UTF_8);
+            JsonValue json = Json.parse(body);
             Duration elapsed = Duration.ofNanos(System.nanoTime() - start);
             return new FetchResult(json, bytes.length, Optional.of(elapsed));
         } catch (HttpTimeoutException e) {
