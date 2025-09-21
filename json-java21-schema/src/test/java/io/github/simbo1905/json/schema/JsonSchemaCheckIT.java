@@ -9,8 +9,13 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
@@ -25,8 +30,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /// Test data location: see src/test/resources/JSONSchemaTestSuite-20250921/DOWNLOAD_COMMANDS.md
 public class JsonSchemaCheckIT {
 
-    private static final File SUITE_ROOT =
-            new File("src/test/resources/JSONSchemaTestSuite-20250921/tests/draft2020-12");
+    private static final Path ZIP_FILE = Paths.get("src/test/resources/json-schema-test-suite-data.zip");
+    private static final Path TARGET_SUITE_DIR = Paths.get("target/test-data/draft2020-12");
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final boolean STRICT = Boolean.getBoolean("json.schema.strict");
     private static final String METRICS_FMT = System.getProperty("json.schema.metrics", "").trim();
@@ -35,12 +40,40 @@ public class JsonSchemaCheckIT {
     @SuppressWarnings("resource")
     @TestFactory
     Stream<DynamicTest> runOfficialSuite() throws Exception {
-        return Files.walk(SUITE_ROOT.toPath())
+        extractTestData();
+        return Files.walk(TARGET_SUITE_DIR)
                 .filter(p -> p.toString().endsWith(".json"))
                 .flatMap(this::testsFromFile);
     }
 
-    private Stream<DynamicTest> testsFromFile(Path file) {
+    static void extractTestData() throws IOException {
+        if (!Files.exists(ZIP_FILE)) {
+            throw new RuntimeException("Test data ZIP file not found: " + ZIP_FILE.toAbsolutePath());
+        }
+        
+        // Create target directory
+        Files.createDirectories(TARGET_SUITE_DIR.getParent());
+        
+        // Extract ZIP file
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(ZIP_FILE.toFile()))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (!entry.isDirectory() && (entry.getName().startsWith("draft2020-12/") || entry.getName().startsWith("remotes/"))) {
+                    Path outputPath = TARGET_SUITE_DIR.resolve(entry.getName());
+                    Files.createDirectories(outputPath.getParent());
+                    Files.copy(zis, outputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                zis.closeEntry();
+            }
+        }
+        
+        // Verify the target directory exists after extraction
+        if (!Files.exists(TARGET_SUITE_DIR)) {
+            throw new RuntimeException("Extraction completed but target directory not found: " + TARGET_SUITE_DIR.toAbsolutePath());
+        }
+    }
+
+    Stream<DynamicTest> testsFromFile(Path file) {
         try {
             final var root = MAPPER.readTree(file.toFile());
             
@@ -141,12 +174,12 @@ public class JsonSchemaCheckIT {
         }
     }
 
-    private static StrictMetrics.FileCounters perFile(Path file) {
+    static StrictMetrics.FileCounters perFile(Path file) {
         return METRICS.perFile.computeIfAbsent(file.getFileName().toString(), k -> new StrictMetrics.FileCounters());
     }
 
     /// Helper to check if we're running in strict mode
-    private static boolean isStrict() {
+    static boolean isStrict() {
         return STRICT;
     }
 
@@ -196,7 +229,7 @@ public class JsonSchemaCheckIT {
         }
     }
 
-    private static String buildJsonSummary(boolean strict, String timestamp) {
+    static String buildJsonSummary(boolean strict, String timestamp) {
         var totals = new StringBuilder();
         totals.append("{\n");
         totals.append("  \"mode\": \"").append(strict ? "STRICT" : "LENIENT").append("\",\n");
@@ -239,7 +272,7 @@ public class JsonSchemaCheckIT {
         return totals.toString();
     }
 
-    private static String buildCsvSummary(boolean strict, String timestamp) {
+    static String buildCsvSummary(boolean strict, String timestamp) {
         var csv = new StringBuilder();
         csv.append("mode,timestamp,groupsDiscovered,testsDiscovered,validationsRun,passed,failed,skippedUnsupported,skipTestException,skippedMismatch\n");
         csv.append(strict ? "STRICT" : "LENIENT").append(",");

@@ -15,6 +15,10 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Logger;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 /// Generates a conformance summary report.
 /// Run with: mvn exec:java -pl json-compatibility-suite
@@ -22,15 +26,39 @@ import java.util.logging.Logger;
 public class JsonTestSuiteSummary {
 
     private static final Logger LOGGER = Logger.getLogger(JsonTestSuiteSummary.class.getName());
-    private static final Path TEST_DIR = Paths.get("src/test/resources/JSONTestSuite-20250921/test_parsing");
+    private static final Path ZIP_FILE = Paths.get("src/test/resources/json-test-suite-data.zip");
+    private static final Path TARGET_TEST_DIR = Paths.get("target/test-data/json-test-suite/test_parsing");
 
     public static void main(String[] args) throws Exception {
         boolean jsonOutput = args.length > 0 && "--json".equals(args[0]);
         JsonTestSuiteSummary summary = new JsonTestSuiteSummary();
+        summary.extractTestData();
         if (jsonOutput) {
             summary.generateJsonReport();
         } else {
             summary.generateConformanceReport();
+        }
+    }
+
+    void extractTestData() throws IOException {
+        if (!Files.exists(ZIP_FILE)) {
+            throw new RuntimeException("Test data ZIP file not found: " + ZIP_FILE.toAbsolutePath());
+        }
+        
+        // Create target directory
+        Files.createDirectories(TARGET_TEST_DIR.getParent());
+        
+        // Extract ZIP file
+        try (ZipInputStream zis = new ZipInputStream(new FileInputStream(ZIP_FILE.toFile()))) {
+            ZipEntry entry;
+            while ((entry = zis.getNextEntry()) != null) {
+                if (!entry.isDirectory() && entry.getName().startsWith("test_parsing/")) {
+                    Path outputPath = TARGET_TEST_DIR.getParent().resolve(entry.getName());
+                    Files.createDirectories(outputPath.getParent());
+                    Files.copy(zis, outputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+                zis.closeEntry();
+            }
         }
     }
 
@@ -85,9 +113,9 @@ public class JsonTestSuiteSummary {
     }
 
     private TestResults runTests() throws Exception {
-        LOGGER.fine(() -> "Walking test files under: " + TEST_DIR.toAbsolutePath());
-        if (!Files.exists(TEST_DIR)) {
-            throw new RuntimeException("Test suite not downloaded. Run: ./mvnw clean compile generate-test-resources -pl json-compatibility-suite");
+        LOGGER.fine(() -> "Walking test files under: " + TARGET_TEST_DIR.toAbsolutePath());
+        if (!Files.exists(TARGET_TEST_DIR)) {
+            throw new RuntimeException("Test data not extracted. Run extractTestData() first.");
         }
         
         List<String> shouldPassButFailed = new ArrayList<>();
@@ -99,7 +127,7 @@ public class JsonTestSuiteSummary {
         int iAccept = 0, iReject = 0;
         
         List<Path> files;
-        try (var stream = Files.walk(TEST_DIR)) {
+        try (var stream = Files.walk(TARGET_TEST_DIR)) {
             files = stream
                 .filter(p -> p.toString().endsWith(".json"))
                 .sorted()
