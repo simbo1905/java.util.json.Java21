@@ -18,10 +18,11 @@ import java.util.logging.Logger;
 
 /// Generates a conformance summary report.
 /// Run with: mvn exec:java -pl json-compatibility-suite
+/// Test data location: see src/test/resources/JSONTestSuite-20250921/DOWNLOAD_COMMANDS.md
 public class JsonTestSuiteSummary {
 
     private static final Logger LOGGER = Logger.getLogger(JsonTestSuiteSummary.class.getName());
-    private static final Path TEST_DIR = Paths.get("json-compatibility-suite/target/test-resources/JSONTestSuite-master/test_parsing");
+    private static final Path TEST_DIR = Paths.get("src/test/resources/JSONTestSuite-20250921/test_parsing");
 
     public static void main(String[] args) throws Exception {
         boolean jsonOutput = args.length > 0 && "--json".equals(args[0]);

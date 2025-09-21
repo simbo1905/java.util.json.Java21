@@ -50,25 +50,6 @@
     <build>
         <plugins>
             <plugin>
-                <groupId>com.googlecode.maven-download-plugin</groupId>
-                <artifactId>download-maven-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>download-json-test-suite</id>
-                        <phase>pre-integration-test</phase>
-                        <goals>
-                            <goal>wget</goal>
-                        </goals>
-                        <configuration>
-                            <url>https://github.com/nst/JSONTestSuite/archive/refs/heads/master.zip</url>
-                            <outputDirectory>${project.build.directory}/test-resources</outputDirectory>
-                            <outputFileName>json-test-suite.zip</outputFileName>
-                            <unpack>true</unpack>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-            <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.4.1</version>

@@ -22,10 +22,11 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /// By default, this is lenient and will SKIP mismatches and unsupported schemas
 /// to provide a compatibility signal without breaking the build. Enable strict
 /// mode with -Djson.schema.strict=true to make mismatches fail the build.
+/// Test data location: see src/test/resources/JSONSchemaTestSuite-20250921/DOWNLOAD_COMMANDS.md
 public class JsonSchemaCheckIT {
 
     private static final File SUITE_ROOT =
-            new File("target/json-schema-test-suite/tests/draft2020-12");
+            new File("src/test/resources/JSONSchemaTestSuite-20250921/tests/draft2020-12");
     private static final ObjectMapper MAPPER = new ObjectMapper();
     private static final boolean STRICT = Boolean.getBoolean("json.schema.strict");
     private static final String METRICS_FMT = System.getProperty("json.schema.metrics", "").trim();
