@@ -13,10 +13,7 @@ import net.jqwik.api.Combinators;
 import net.jqwik.api.ForAll;
 import net.jqwik.api.GenerationMode;
 import net.jqwik.api.Property;
-import net.jqwik.api.UseArbitraryProviders;
-import net.jqwik.api.providers.ArbitraryProvider;
-import net.jqwik.api.providers.SubtypeProvider;
-import net.jqwik.api.providers.TypeUsage;
+import net.jqwik.api.Provide;
 
 import java.math.BigDecimal;
 import java.util.LinkedHashMap;
@@ -29,7 +26,6 @@ import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@UseArbitraryProviders(ITJsonSchemaExhaustiveTest.SchemaArbitraryProvider.class)
 class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
 
     private static final Logger LOGGER = Logger.getLogger(io.github.simbo1905.json.schema.JsonSchema.class.getName());
@@ -45,7 +41,7 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
     );
 
     @Property(generation = GenerationMode.EXHAUSTIVE)
-    void exhaustiveRoundTrip(@ForAll ITJsonSchemaExhaustiveTest.JsonSchema schema) {
+    void exhaustiveRoundTrip(@ForAll("schemas") JsonSchema schema) {
         LOGGER.info(() -> "Executing exhaustiveRoundTrip property test");
 
         final var schemaDescription = describeSchema(schema);
@@ -90,33 +86,33 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
 
     private static JsonValue buildCompliantDocument(JsonSchema schema) {
         return switch (schema) {
-            case ObjectSchema(var properties) -> JsonObject.of(properties.stream()
-                .collect(Collectors.toMap(
+            case JsonSchema.ObjectSchema(var properties) -> JsonObject.of(properties.stream()
+                .collect(Collectors.<JsonSchema.Property, String, JsonValue, LinkedHashMap<String, JsonValue>>toMap(
                     JsonSchema.Property::name,
                     property -> buildCompliantDocument(property.schema()),
                     (left, right) -> left,
                     LinkedHashMap::new
                 )));
-            case ArraySchema(var items) -> JsonArray.of(items.stream()
+            case JsonSchema.ArraySchema(var items) -> JsonArray.of(items.stream()
                 .map(ITJsonSchemaExhaustiveTest::buildCompliantDocument)
                 .toList());
-            case StringSchema ignored -> JsonString.of("valid");
-            case NumberSchema ignored -> JsonNumber.of(BigDecimal.ONE);
-            case BooleanSchema ignored -> JsonBoolean.of(true);
-            case NullSchema ignored -> JsonNull.of();
+            case JsonSchema.StringSchema ignored -> JsonString.of("valid");
+            case JsonSchema.NumberSchema ignored -> JsonNumber.of(BigDecimal.ONE);
+            case JsonSchema.BooleanSchema ignored -> JsonBoolean.of(true);
+            case JsonSchema.NullSchema ignored -> JsonNull.of();
         };
     }
 
     private static List<JsonValue> failingDocuments(JsonSchema schema, JsonValue compliant) {
         return switch (schema) {
-            case ObjectSchema(var properties) -> properties.isEmpty()
+            case JsonSchema.ObjectSchema(var properties) -> properties.isEmpty()
                 ? List.<JsonValue>of(JsonNull.of())
                 : properties.stream()
                     .map(JsonSchema.Property::name)
                     .map(name -> removeProperty((JsonObject) compliant, name))
                     .map(json -> (JsonValue) json)
                     .toList();
-            case ArraySchema(var items) -> {
+            case JsonSchema.ArraySchema(var items) -> {
                 final var values = ((JsonArray) compliant).values();
                 if (values.isEmpty()) {
                     yield List.<JsonValue>of(JsonNull.of());
@@ -124,10 +120,10 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
                 final var truncated = JsonArray.of(values.stream().limit(values.size() - 1L).toList());
                 yield List.<JsonValue>of(truncated);
             }
-            case StringSchema ignored -> List.<JsonValue>of(JsonNumber.of(BigDecimal.TWO));
-            case NumberSchema ignored -> List.<JsonValue>of(JsonString.of("not-a-number"));
-            case BooleanSchema ignored -> List.<JsonValue>of(JsonNull.of());
-            case NullSchema ignored -> List.<JsonValue>of(JsonBoolean.of(true));
+            case JsonSchema.StringSchema ignored -> List.<JsonValue>of(JsonNumber.of(BigDecimal.TWO));
+            case JsonSchema.NumberSchema ignored -> List.<JsonValue>of(JsonString.of("not-a-number"));
+            case JsonSchema.BooleanSchema ignored -> List.<JsonValue>of(JsonNull.of());
+            case JsonSchema.NullSchema ignored -> List.<JsonValue>of(JsonBoolean.of(true));
         };
     }
 
@@ -145,13 +141,13 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
 
     private static JsonObject schemaToJsonObject(JsonSchema schema) {
         return switch (schema) {
-            case ObjectSchema(var properties) -> {
+            case JsonSchema.ObjectSchema(var properties) -> {
                 final var schemaMap = new LinkedHashMap<String, JsonValue>();
                 schemaMap.put("type", JsonString.of("object"));
                 final var propertyMap = properties.isEmpty()
                     ? JsonObject.of(Map.<String, JsonValue>of())
                     : JsonObject.of(properties.stream()
-                        .collect(Collectors.toMap(
+                        .collect(Collectors.<JsonSchema.Property, String, JsonValue, LinkedHashMap<String, JsonValue>>toMap(
                             JsonSchema.Property::name,
                             property -> (JsonValue) schemaToJsonObject(property.schema()),
                             (left, right) -> left,
@@ -167,7 +163,7 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
                 schemaMap.put("additionalProperties", JsonBoolean.of(false));
                 yield JsonObject.of(schemaMap);
             }
-            case ArraySchema(var items) -> {
+            case JsonSchema.ArraySchema(var items) -> {
                 final var schemaMap = new LinkedHashMap<String, JsonValue>();
                 schemaMap.put("type", JsonString.of("array"));
                 final var prefixItems = items.stream()
@@ -180,10 +176,10 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
                 schemaMap.put("maxItems", JsonNumber.of((long) items.size()));
                 yield JsonObject.of(schemaMap);
             }
-            case StringSchema ignored -> primitiveSchema("string");
-            case NumberSchema ignored -> primitiveSchema("number");
-            case BooleanSchema ignored -> primitiveSchema("boolean");
-            case NullSchema ignored -> primitiveSchema("null");
+            case JsonSchema.StringSchema ignored -> primitiveSchema("string");
+            case JsonSchema.NumberSchema ignored -> primitiveSchema("number");
+            case JsonSchema.BooleanSchema ignored -> primitiveSchema("boolean");
+            case JsonSchema.NullSchema ignored -> primitiveSchema("null");
         };
     }
 
@@ -195,42 +191,35 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
 
     private static String describeSchema(JsonSchema schema) {
         return switch (schema) {
-            case ObjectSchema(var properties) -> properties.stream()
+            case JsonSchema.ObjectSchema(var properties) -> properties.stream()
                 .map(property -> property.name() + ":" + describeSchema(property.schema()))
                 .collect(Collectors.joining(",", "object{", "}"));
-            case ArraySchema(var items) -> items.stream()
+            case JsonSchema.ArraySchema(var items) -> items.stream()
                 .map(ITJsonSchemaExhaustiveTest::describeSchema)
                 .collect(Collectors.joining(",", "array[", "]"));
-            case StringSchema ignored -> "string";
-            case NumberSchema ignored -> "number";
-            case BooleanSchema ignored -> "boolean";
-            case NullSchema ignored -> "null";
+            case JsonSchema.StringSchema ignored -> "string";
+            case JsonSchema.NumberSchema ignored -> "number";
+            case JsonSchema.BooleanSchema ignored -> "boolean";
+            case JsonSchema.NullSchema ignored -> "null";
         };
     }
 
-    static final class SchemaArbitraryProvider implements ArbitraryProvider {
-        @Override
-        public boolean canProvideFor(TypeUsage targetType) {
-            return targetType.isOfType(ITJsonSchemaExhaustiveTest.JsonSchema.class);
-        }
-
-        @Override
-        public Set<Arbitrary<?>> provideFor(TypeUsage targetType, SubtypeProvider subtypeProvider) {
-            return Set.of(schemaArbitrary(MAX_DEPTH));
-        }
+    @Provide
+    Arbitrary<JsonSchema> schemas() {
+        return schemaArbitrary(MAX_DEPTH);
     }
 
     private static Arbitrary<JsonSchema> schemaArbitrary(int depth) {
         final var primitives = Arbitraries.of(
-            new StringSchema(),
-            new NumberSchema(),
-            new BooleanSchema(),
-            new NullSchema()
+            new JsonSchema.StringSchema(),
+            new JsonSchema.NumberSchema(),
+            new JsonSchema.BooleanSchema(),
+            new JsonSchema.NullSchema()
         );
         if (depth == 0) {
-            return primitives;
+            return primitives.map(schema -> (JsonSchema) schema);
         }
-        return Arbitraries.oneOf(
+        return Arbitraries.<JsonSchema>oneOf(
             primitives,
             objectSchemaArbitrary(depth),
             arraySchemaArbitrary(depth)
@@ -239,56 +228,56 @@ class ITJsonSchemaExhaustiveTest extends JsonSchemaLoggingConfig {
 
     private static Arbitrary<JsonSchema> objectSchemaArbitrary(int depth) {
         if (depth == 1) {
-            return Arbitraries.of(new ObjectSchema(List.of()));
+            return Arbitraries.of(new JsonSchema.ObjectSchema(List.of()));
         }
         final var childDepth = depth - 1;
-        final var empty = Arbitraries.of(new ObjectSchema(List.of()));
+        final var empty = Arbitraries.of(new JsonSchema.ObjectSchema(List.of()));
         final var single = Combinators.combine(
             Arbitraries.of(PROPERTY_NAMES),
             schemaArbitrary(childDepth)
-        ).as((name, child) -> new ObjectSchema(List.of(new Property(name, child))));
+        ).as((name, child) -> new JsonSchema.ObjectSchema(List.of(new JsonSchema.Property(name, child))));
         final var pair = Combinators.combine(
             Arbitraries.of(PROPERTY_PAIRS),
             schemaArbitrary(childDepth),
             schemaArbitrary(childDepth)
-        ).as((names, first, second) -> new ObjectSchema(List.of(
-            new Property(names.getFirst(), first),
-            new Property(names.getLast(), second)
+        ).as((names, first, second) -> new JsonSchema.ObjectSchema(List.of(
+            new JsonSchema.Property(names.getFirst(), first),
+            new JsonSchema.Property(names.getLast(), second)
         )));
         return Arbitraries.oneOf(empty, single, pair);
     }
 
     private static Arbitrary<JsonSchema> arraySchemaArbitrary(int depth) {
         if (depth == 1) {
-            return Arbitraries.of(new ArraySchema(List.of()));
+            return Arbitraries.of(new JsonSchema.ArraySchema(List.of()));
         }
         final var childDepth = depth - 1;
-        final var empty = Arbitraries.of(new ArraySchema(List.of()));
+        final var empty = Arbitraries.of(new JsonSchema.ArraySchema(List.of()));
         final var single = schemaArbitrary(childDepth)
-            .map(child -> new ArraySchema(List.of(child)));
+            .map(child -> new JsonSchema.ArraySchema(List.of(child)));
         final var pair = Combinators.combine(
             schemaArbitrary(childDepth),
             schemaArbitrary(childDepth)
-        ).as((first, second) -> new ArraySchema(List.of(first, second)));
+        ).as((first, second) -> new JsonSchema.ArraySchema(List.of(first, second)));
         return Arbitraries.oneOf(empty, single, pair);
     }
 
-    sealed interface JsonSchema permits ObjectSchema, ArraySchema, StringSchema, NumberSchema, BooleanSchema, NullSchema {
+    sealed interface JsonSchema permits JsonSchema.ObjectSchema, JsonSchema.ArraySchema, JsonSchema.StringSchema, JsonSchema.NumberSchema, JsonSchema.BooleanSchema, JsonSchema.NullSchema {
         record ObjectSchema(List<Property> properties) implements JsonSchema {
-            ObjectSchema {
+            public ObjectSchema {
                 properties = List.copyOf(properties);
             }
         }
 
         record Property(String name, JsonSchema schema) {
-            Property {
+            public Property {
                 name = Objects.requireNonNull(name);
                 schema = Objects.requireNonNull(schema);
             }
         }
 
         record ArraySchema(List<JsonSchema> items) implements JsonSchema {
-            ArraySchema {
+            public ArraySchema {
                 items = List.copyOf(items);
             }
         }
