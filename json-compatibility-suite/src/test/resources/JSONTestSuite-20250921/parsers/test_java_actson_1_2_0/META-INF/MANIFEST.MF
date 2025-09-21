@@ -1,3 +1,0 @@
-Manifest-Version: 1.0
-Main-Class: TestJSONParsing
-Class-Path: actson-1.2.0.jar
