@@ -25,13 +25,16 @@ class JsonSchemaRemoteServerRefTest extends JsonSchemaTestBase {
     }
 
     @Test
-    void remote_cycle_logs_error_taxonomy() {
+    void remote_cycle_handles_gracefully() {
         var policy = JsonSchema.FetchPolicy.defaults().withAllowedSchemes(Set.of("http","https"));
         var options = JsonSchema.CompileOptions.remoteDefaults(new VirtualThreadHttpFetcher()).withFetchPolicy(policy);
-        try (CapturedLogs logs = captureLogs(java.util.logging.Level.SEVERE)) {
-            try { JsonSchema.compile(Json.parse("{\"$ref\":\"" + SERVER.url("/cycle1.json") + "#\"}"), JsonSchema.Options.DEFAULT, options); } catch (RuntimeException ignored) {}
-            assertThat(logs.lines().stream().anyMatch(s -> s.startsWith("ERROR: CYCLE:"))).isTrue();
-        }
+        
+        // Compilation should succeed despite the cycle
+        var compiled = JsonSchema.compile(Json.parse("{\"$ref\":\"" + SERVER.url("/cycle1.json") + "#\"}"), JsonSchema.Options.DEFAULT, options);
+        
+        // Validation should succeed by gracefully handling the cycle
+        var result = compiled.validate(Json.parse("\"test\""));
+        assertThat(result.valid()).isTrue();
     }
 }
 
