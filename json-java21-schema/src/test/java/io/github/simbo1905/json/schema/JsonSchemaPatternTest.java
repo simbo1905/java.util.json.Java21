@@ -4,7 +4,7 @@ import jdk.sandbox.java.util.json.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaPatternTest extends JsonSchemaLoggingConfig {
+class JsonSchemaPatternTest extends JsonSchemaTestBase {
   @Test
   void testPattern_unanchored_singleChar_findVsMatches() {
     // Unanchored semantics: pattern "a" must validate any string that CONTAINS 'a',

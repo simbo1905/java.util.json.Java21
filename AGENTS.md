@@ -2,14 +2,6 @@
 
 ## Purpose & Scope
 - Operational guidance for human and AI agents working in this repository. This revision preserves all existing expectations while improving structure and wording in line with agents.md best practices.
-- Prefer the Maven Daemon for performance: alias `mvn` to `mvnd` when available so every command below automatically benefits from the daemon.
-
-```bash
-# Use mvnd everywhere if available; otherwise falls back to regular mvn
-if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
-```
-
-- Always run `mvn verify` (or `mvnd verify` once aliased) before pushing to ensure unit and integration coverage across every module.
 
 ## Operating Principles
 - Follow the sequence plan → implement → verify; do not pivot without restating the plan.
@@ -22,36 +14,6 @@ if command -v mvnd >/dev/null 2>&1; then alias mvn=mvnd; fi
 - Never commit unverified mass changes—compile or test first.
 - Do not use Perl or sed for multi-line structural edits; rely on Python 3.2-friendly heredocs.
 
-## Tooling Discipline
-- Prefer `python3` heredocs for non-trivial text transforms and target Python 3.2-safe syntax (no f-strings or modern dependencies).
-
-```bash
-python3 - <<'PY'
-import os, sys, re
-src = 'updates/2025-09-04/upstream/jdk.internal.util.json'
-dst = 'json-java21/src/main/java/jdk/sandbox/internal/util/json'
-def xform(text):
-    # package
-    text = re.sub(r'^package\s+jdk\.internal\.util\.json;', 'package jdk.sandbox.internal.util.json;', text, flags=re.M)
-    # imports for public API
-    text = re.sub(r'^(\s*import\s+)java\.util\.json\.', r'\1jdk.sandbox.java.util.json.', text, flags=re.M)
-    # annotations
-    text = re.sub(r'^\s*@(?:jdk\.internal\..*|ValueBased|StableValue).*\n', '', text, flags=re.M)
-    return text
-for name in os.listdir(src):
-    if not name.endswith('.java') or name == 'StableValue.java':
-        continue
-    data = open(os.path.join(src,name),'r').read()
-    out = xform(data)
-    target = os.path.join(dst,name)
-    tmp = target + '.tmp'
-    open(tmp,'w').write(out)
-    if os.path.getsize(tmp) == 0:
-        sys.stderr.write('Refusing to overwrite 0-byte: '+target+'\n'); sys.exit(1)
-    os.rename(tmp, target)
-print('OK')
-PY
-```
 
 ## Testing & Logging Discipline
 
@@ -61,33 +23,51 @@ PY
 - You MUST NOT add ad-hoc "temporary logging"; only the defined JUL levels above are acceptable.
 - You SHOULD NOT delete logging. Adjust levels downward (finer granularity) instead of removing statements.
 - You MUST add a JUL log statement at INFO level at the top of every test method announcing execution.
-- You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `./mvn-test-no-boilerplate.sh`.
+- You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 - You MUST NOT guess root causes; add targeted logging or additional tests. Treat observability as the path to the fix.
 - YOU MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
+- YOU MUST honour official JUL logging levels:
+  -	SEVERE (1000): Critical errors—application will likely abort.
+  -	WARNING (900): Indications of potential problems or recoverable issues.
+  -	INFO (800): Routine events or significant application milestones.
+  -	CONFIG (700): Static configuration messages (startup configs, environment details).
+  -	FINE (500): General tracing of program flow (basic debug info).
+  -	FINER (400): More detailed tracing than FINE (algorithm steps, loop iterations).
+  -	FINEST (300): Highly detailed debugging, including variable values and low-level logic.
 
-### Script Usage (Required)
-- You MUST prefer the `./mvn-test-no-boilerplate.sh` wrapper for every Maven invocation. Direct `mvn` or `mvnd` calls require additional authorization and skip the curated output controls.
+### Run Tests With Valid Logging
+
+- You MUST prefer the `$(command -v mvnd || command -v mvn || command -v ./mvnw)` wrapper for every Maven invocation.
+- You MUST pass in a `java.util.logging.ConsoleHandler.level` of INFO or more low-level.
+- You SHOULD run all tests in all models or a given `-pl mvn_moduue` passing `-Djava.util.logging.ConsoleHandler.level=INFO` to see which tests run and which tests might hang 
+- You SHOULD run a single test class using `-Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE` as fine will show you basic debug info
+- You SHOULD run a single failing test method using `-Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINER`  
+- If you have run a test more than once and about to start guessing you MAY run a single failing test method using `-Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINEST` after ensuring you have added in detail logging of the data structures. 
+- You MUST not remove logging yet you may move it to be a finer level. 
 
 ```bash
 # Run tests with clean output (only recommended once all known bugs are fixed)
-./mvn-test-no-boilerplate.sh
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -Djava.util.logging.ConsoleHandler.level=INFO
 
-# Run specific test class
-./mvn-test-no-boilerplate.sh -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
+# Run specific test class you should use FINE
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE
 
 # Run specific test method
-./mvn-test-no-boilerplate.sh -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -Dtest=BlahTest#testSomething -Djava.util.logging.ConsoleHandler.level=FINEST
 
 # Run tests in a specific module
-./mvn-test-no-boilerplate.sh -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
-- The script resides in the repository root. Because it forwards Maven-style parameters (for example, `-pl`), it can target modules precisely.
+IMPORTANT: Fix the method with FINEST logging, then fix the test class with FINER logging, then fix the module with FINE logging, then run the whole suite with INFO logging. THERE IS NO TRIVIAL LOGIC LEFT IN THIS PROJECT TO BE SYSTEMATIC. 
 
 ### Output Visibility Requirements
-- You MUST NEVER pipe build or test output to tools (head, tail, grep, etc.) that reduce visibility. Logging uncovers the unexpected; piping hides it.
+
+- You MUST NEVER pipe build or test output to tools (head, tail, grep, etc.) that reduce visibility. Logging uncovers the unexpected; piping hides it. Use the instructions above to zoom in on what you want to see using `-Dtest=BlahTest` and `-Dtest=BlahTest#testSomething` passing the appropriate `Djava.util.logging.ConsoleHandler.level=XXX` to avoid too much outputs
 - You MAY log full data structures at FINEST for deep tracing. Run a single test method at that granularity.
 - If output volume becomes unbounded (for example, due to inadvertent infinite loops), this is the only time head/tail is allowed. Even then, you MUST inspect a sufficiently large sample (thousands of lines) to capture the real issue and avoid focusing on Maven startup noise.
+- My time is far more precious than yours do not error on the side of less information and thrash around guessing. You MUST add more logging and look harder! 
+- Deep debugging employs the same FINE/FINEST discipline: log data structures at FINEST for one test method at a time and expand coverage with additional logging or tests instead of guessing.
 
 ### Logging Practices
 - JUL logging is used for safety and performance. Many consumers rely on SLF4J bridges and search for the literal `ERROR`, not `SEVERE`. When logging at `SEVERE`, prefix the message with `ERROR` to keep cloud log filters effective:
@@ -104,17 +84,8 @@ LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called f
 LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ... );
 ```
 
-### Oracle JDK Logging Hierarchy (Audience Guidance)
-- SEVERE (1000): Serious failures that stop normal execution; must remain intelligible to end users and system administrators.
-- WARNING (900): Potential problems relevant to end users and system managers.
-- INFO (800): Reasonably significant operational messages; use sparingly.
-- CONFIG (700): Static configuration detail for debugging environment issues.
-- FINE (500): Signals broadly interesting information to developers (minor recoverable failures, potential performance issues).
-- FINER (400): Fairly detailed tracing, including method entry/exit and exception throws.
-- FINEST (300): Highly detailed tracing for deep debugging.
-
 ### Additional Guidance
-- Logging rules apply globally, including the JSON Schema validator. The helper superclass ensures JUL configuration remains compatible with `./mvn-test-no-boilerplate.sh`.
+- Logging rules apply globally, including the JSON Schema validator. The helper superclass ensures JUL configuration remains compatible with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 
 ## JSON Compatibility Suite
 ```bash
@@ -162,11 +133,6 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 
 ### Testing Approach
 - Prefer JUnit 5 with AssertJ for fluent assertions.
-- Test organization:
-  - `JsonParserTests`: Parser-specific coverage.
-  - `JsonTypedUntypedTests`: Conversion behaviour.
-  - `JsonRecordMappingTests`: Record mapping validation.
-  - `ReadmeDemoTests`: Documentation example verification.
 
 ### Code Style
 - Follow JEP 467 for documentation (`///` triple-slash comments).
@@ -196,7 +162,6 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 
 ### json-compatibility-suite
 - Automatically downloads the JSON Test Suite from GitHub.
-- Currently reports 99.3% standard conformance.
 - Surfaces known vulnerabilities (for example, StackOverflowError under deep nesting).
 - Intended for education and testing, not production deployment.
 
@@ -210,20 +175,13 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ### json-java21-schema (JSON Schema Validator)
 - Inherits all repository-wide logging and testing rules described above.
 - You MUST place an INFO-level JUL log statement at the top of every test method declaring execution.
-- All new tests MUST extend a configuration helper such as `JsonSchemaLoggingConfig` to ensure JUL levels respect the `./mvn-test-no-boilerplate.sh` environment variables.
-- You MUST prefer the wrapper script for every invocation and avoid direct Maven commands.
-- Deep debugging employs the same FINE/FINEST discipline: log data structures at FINEST for one test method at a time and expand coverage with additional logging or tests instead of guessing.
+- All new tests MUST extend a configuration helper such as `JsonSchemaLoggingConfig` to ensure JUL levels respected. 
+- WARNING: you cannot run `mvn -pl xxxx verify` at the top level it will not work.
+- You must run `cd -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO`
 
 #### Running Tests (Schema Module)
 - All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
-- Remote location of `./mvn-test-no-boilerplate.sh` is the repository root; pass module selectors through it for schema-only runs.
-
-#### JUL Logging 
-- For SEVERE logs, prefix the message with `ERROR` to align with SLF4J-centric filters.
-- Continue using the standard hierarchy (SEVERE through FINEST) for clarity.
-- You MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
-- You MUST NOT create per-class loggers. Collaborating classes must reuse the same logger.
-- Potential performance issues log at FINE with the `PERFORMANCE WARNING:` prefix shown earlier.
+- Remote location of `$(command -v mvnd || command -v mvn || command -v ./mvnw)` is the repository root; pass module selectors through it for schema-only runs.
 
 ## Security Notes
 - Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
@@ -447,3 +405,17 @@ flowchart LR
 - “The path is legacy-free: no recursion; compile-time and runtime both leverage explicit stacks.”
 - Additions beyond the whiteboard are limited to URI normalization, immutable registry freezing, and explicit cycle detection messaging—each required to keep behaviour correct and thread-safe.
 - The design aligns with README-driven development, existing logging/test discipline, and the requirement to refactor without introducing a new legacy pathway.
+
+## Tooling Discipline
+- Prefer `python3` heredocs for non-trivial text transforms and target Python 3.2-safe syntax (no f-strings or modern dependencies).
+
+```bash
+python3 - <<'PY'
+import os, sys, re
+src = 'updates/2025-09-04/upstream/jdk.internal.util.json'
+dst = 'json-java21/src/main/java/jdk/sandbox/internal/util/json'
+def xform(text):
+    # old old python3 stuff here
+print('OK')
+PY
+```

@@ -17,7 +17,7 @@ public class JsonSchemaLoggingConfig {
                 try {
                     targetLevel = Level.parse(levelProp.trim().toUpperCase(Locale.ROOT));
                 } catch (IllegalArgumentException ignored) {
-                    targetLevel = Level.INFO;
+                    System.err.println("Unrecognized logging level from 'java.util.logging.ConsoleHandler.level': " + levelProp);
                 }
             }
         }
@@ -41,4 +41,5 @@ public class JsonSchemaLoggingConfig {
                 () -> "json.schema.test.resources set to " + base);
         }
     }
+
 }

@@ -4,7 +4,7 @@ import jdk.sandbox.java.util.json.*;
 import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaTypeAndEnumTest extends JsonSchemaLoggingConfig {
+class JsonSchemaTypeAndEnumTest extends JsonSchemaTestBase {
 
   @Test
   void testEnum_strict_noTypeCoercion_edgeCases() {

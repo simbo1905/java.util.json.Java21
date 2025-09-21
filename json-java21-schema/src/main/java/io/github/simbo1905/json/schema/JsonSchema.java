@@ -422,6 +422,7 @@ public sealed interface JsonSchema
     Deque<java.net.URI> workStack = new ArrayDeque<>();
     Map<java.net.URI, CompiledRoot> built = new NormalizedUriMap(new LinkedHashMap<>());
     Set<java.net.URI> active = new HashSet<>();
+    Map<java.net.URI, java.net.URI> parentMap = new HashMap<>();
 
     LOG.finest(() -> "compileWorkStack: initialized workStack=" + workStack + ", built=" + built + ", active=" + active);
 
@@ -481,7 +482,7 @@ public sealed interface JsonSchema
           if (refToken instanceof RefToken.RemoteRef remoteRef) {
             LOG.finest(() -> "compileWorkStack: processing RemoteRef object=" + remoteRef + ", base=" + remoteRef.baseUri() + ", target=" + remoteRef.targetUri());
             java.net.URI targetDocUri = normalizeUri(finalCurrentUri, remoteRef.targetUri().toString());
-            boolean scheduled = scheduleRemoteIfUnseen(finalWorkStack, finalBuilt, targetDocUri);
+            boolean scheduled = scheduleRemoteIfUnseen(finalWorkStack, finalBuilt, parentMap, finalCurrentUri, targetDocUri);
             LOG.finer(() -> "compileWorkStack: remote ref scheduled=" + scheduled + ", target=" + targetDocUri);
           }
         }, built, options, compileOptions);
@@ -650,11 +651,22 @@ public sealed interface JsonSchema
   }
 
   /// Schedule remote document for compilation if not seen before
-  static boolean scheduleRemoteIfUnseen(Deque<java.net.URI> workStack, Map<java.net.URI, CompiledRoot> built, java.net.URI targetDocUri) {
+  static boolean scheduleRemoteIfUnseen(Deque<java.net.URI> workStack,
+                                        Map<java.net.URI, CompiledRoot> built,
+                                        Map<java.net.URI, java.net.URI> parentMap,
+                                        java.net.URI currentDocUri,
+                                        java.net.URI targetDocUri) {
     LOG.finer(() -> "scheduleRemoteIfUnseen: target=" + targetDocUri + ", workStack.size=" + workStack.size() + ", built.size=" + built.size());
     LOG.finest(() -> "scheduleRemoteIfUnseen: targetDocUri object=" + targetDocUri + ", scheme=" + targetDocUri.getScheme() + ", host=" + targetDocUri.getHost() + ", path=" + targetDocUri.getPath());
     LOG.finest(() -> "scheduleRemoteIfUnseen: workStack object=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
     LOG.finest(() -> "scheduleRemoteIfUnseen: built map object=" + built + ", keys=" + built.keySet() + ", size=" + built.size());
+
+    // Detect remote cycles by walking parent chain
+    if (formsRemoteCycle(parentMap, currentDocUri, targetDocUri)) {
+      String cycleMessage = "ERROR: CYCLE: remote $ref cycle current=" + currentDocUri + ", target=" + targetDocUri;
+      LOG.severe(() -> cycleMessage);
+      throw new IllegalArgumentException(cycleMessage);
+    }
 
     // Check if already built or already in work stack
     boolean alreadyBuilt = built.containsKey(targetDocUri);
@@ -667,11 +679,35 @@ public sealed interface JsonSchema
       return false;
     }
 
+    // Track parent chain for cycle detection before scheduling child
+    parentMap.putIfAbsent(targetDocUri, currentDocUri);
+
     // Add to work stack
     workStack.push(targetDocUri);
     LOG.finer(() -> "scheduleRemoteIfUnseen: scheduled remote document: " + targetDocUri);
     LOG.finest(() -> "scheduleRemoteIfUnseen: workStack after push=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
     return true;
+  }
+
+  private static boolean formsRemoteCycle(Map<java.net.URI, java.net.URI> parentMap,
+                                          java.net.URI currentDocUri,
+                                          java.net.URI targetDocUri) {
+    if (currentDocUri.equals(targetDocUri)) {
+      return true;
+    }
+
+    java.net.URI cursor = currentDocUri;
+    while (cursor != null) {
+      java.net.URI parent = parentMap.get(cursor);
+      if (parent == null) {
+        break;
+      }
+      if (parent.equals(targetDocUri)) {
+        return true;
+      }
+      cursor = parent;
+    }
+    return false;
   }
 
   /// Detect and throw on compile-time cycles
@@ -1464,6 +1500,7 @@ public sealed interface JsonSchema
       final Map<String, JsonSchema> definitions = new LinkedHashMap<>();
       final Map<String, JsonSchema> compiledByPointer = new LinkedHashMap<>();
       final Map<String, JsonValue> rawByPointer = new LinkedHashMap<>();
+      final Map<java.net.URI, java.net.URI> parentMap = new LinkedHashMap<>();
       JsonSchema currentRootSchema;
       Options currentOptions;
       long totalFetchedBytes;
@@ -1473,7 +1510,8 @@ public sealed interface JsonSchema
     private static java.net.URI stripFragment(java.net.URI uri) {
       String s = uri.toString();
       int i = s.indexOf('#');
-      return i >= 0 ? java.net.URI.create(s.substring(0, i)) : uri;
+      java.net.URI base = i >= 0 ? java.net.URI.create(s.substring(0, i)) : uri;
+      return base.normalize();
     }
     // removed static mutable state; state now lives in Session
 
@@ -1953,13 +1991,26 @@ public sealed interface JsonSchema
           // Handle remote refs by adding to work stack
           if (refToken instanceof RefToken.RemoteRef remoteRef) {
             LOG.finer(() -> "Remote ref detected: " + remoteRef.targetUri());
-            // Get document URI without fragment
             java.net.URI targetDocUri = stripFragment(remoteRef.targetUri());
-            if (!seenUris.contains(targetDocUri)) {
+            LOG.fine(() -> "Remote ref scheduling from docUri=" + docUri + " to target=" + targetDocUri);
+            LOG.finest(() -> "Remote ref parentMap before cycle check: " + session.parentMap);
+            if (formsRemoteCycle(session.parentMap, docUri, targetDocUri)) {
+              String cycleMessage = "ERROR: CYCLE: remote $ref cycle current=" + docUri + ", target=" + targetDocUri;
+              LOG.severe(() -> cycleMessage);
+              throw new IllegalArgumentException(cycleMessage);
+            }
+            boolean alreadySeen = seenUris.contains(targetDocUri);
+            LOG.finest(() -> "Remote ref alreadySeen=" + alreadySeen + " for target=" + targetDocUri);
+            if (!alreadySeen) {
               workStack.push(new WorkItem(targetDocUri));
               seenUris.add(targetDocUri);
+              session.parentMap.putIfAbsent(targetDocUri, docUri);
               LOG.finer(() -> "Added to work stack: " + targetDocUri);
+            } else {
+              session.parentMap.putIfAbsent(targetDocUri, docUri);
+              LOG.finer(() -> "Remote ref already scheduled or compiled: " + targetDocUri);
             }
+            LOG.finest(() -> "Remote ref parentMap after scheduling: " + session.parentMap);
             LOG.finest(() -> "compileInternalWithContext: Creating RefSchema for remote ref " + remoteRef.targetUri());
 
             LOG.fine(() -> "Creating RefSchema for remote ref " + remoteRef.targetUri() +

@@ -8,7 +8,7 @@ import static org.assertj.core.api.Assertions.*;
 /// Covers annotation-only keywords from JSON Schema such as
 /// title, description, $comment, and examples. These MUST NOT
 /// affect validation (they are informational).
-class JsonSchemaAnnotationsTest extends JsonSchemaLoggingConfig {
+class JsonSchemaAnnotationsTest extends JsonSchemaTestBase {
 
     @Test
     void examplesDoNotAffectValidation() {
@@ -69,4 +69,3 @@ class JsonSchemaAnnotationsTest extends JsonSchemaLoggingConfig {
         assertThat(schema.validate(Json.parse("123"))).extracting("valid").isEqualTo(false);
     }
 }
-

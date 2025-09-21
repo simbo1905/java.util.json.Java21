@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /// Test local reference resolution for JSON Schema 2020-12
-class JsonSchemaRefLocalTest extends JsonSchemaLoggingConfig {
+class JsonSchemaRefLocalTest extends JsonSchemaTestBase {
 
     @Test
     void testRootReference() {

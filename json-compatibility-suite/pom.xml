@@ -55,7 +55,7 @@
                 <executions>
                     <execution>
                         <id>download-json-test-suite</id>
-                        <phase>generate-test-resources</phase>
+                        <phase>pre-integration-test</phase>
                         <goals>
                             <goal>wget</goal>
                         </goals>

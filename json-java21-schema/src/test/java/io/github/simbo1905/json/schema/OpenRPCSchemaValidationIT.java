@@ -16,13 +16,14 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 /// Integration tests: validate OpenRPC documents using a minimal embedded meta-schema.
 /// Resources:
 /// - Schema: src/test/resources/openrpc/schema.json
 /// - Examples: src/test/resources/openrpc/examples/*.json
 ///   Files containing "-bad-" are intentionally invalid and must fail validation.
-public class OpenRPCSchemaValidationIT {
+class OpenRPCSchemaValidationIT extends JsonSchemaTestBase {
 
     private static String readResource(String name) throws IOException {
         try {
@@ -35,31 +36,18 @@ public class OpenRPCSchemaValidationIT {
 
     @TestFactory
     Stream<DynamicTest> validateOpenRPCExamples() throws Exception {
+        LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#validateOpenRPCExamples");
         // Compile the minimal OpenRPC schema (self-contained, no remote $ref)
-        String schemaJson = readResource("openrpc/schema.json");
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson));
+        JsonSchema schema = OpenRPCTestSupport.loadOpenRpcSchema();
 
         // Discover example files
-        URL dirUrl = Objects.requireNonNull(getClass().getClassLoader().getResource("openrpc/examples"),
-                "missing openrpc examples directory");
-        Path dir = Path.of(dirUrl.toURI());
-
-        try (Stream<Path> files = Files.list(dir)) {
-            List<Path> jsons = files
-                    .filter(p -> p.getFileName().toString().endsWith(".json"))
-                    .sorted()
-                    .toList();
-
-            assertThat(jsons).isNotEmpty();
-
-            return jsons.stream().map(path -> DynamicTest.dynamicTest(path.getFileName().toString(), () -> {
-                String doc = Files.readString(path, StandardCharsets.UTF_8);
-                boolean expectedValid = !path.getFileName().toString().contains("-bad-");
-                boolean actualValid = schema.validate(Json.parse(doc)).valid();
-                Assertions.assertThat(actualValid)
-                        .as("validation of %s", path.getFileName())
-                        .isEqualTo(expectedValid);
-            }));
-        }
+        List<String> names = OpenRPCTestSupport.exampleNames();
+        assertThat(names).isNotEmpty();
+        return names.stream().map(name -> DynamicTest.dynamicTest(name, () -> {
+            LOG.info(() -> "TEST: " + getClass().getSimpleName() + "#" + name);
+            boolean expectedValid = !name.contains("-bad-");
+            boolean actualValid = OpenRPCTestSupport.validateExample(name).valid();
+            Assertions.assertThat(actualValid).as("validation of %s", name).isEqualTo(expectedValid);
+        }));
     }
 }

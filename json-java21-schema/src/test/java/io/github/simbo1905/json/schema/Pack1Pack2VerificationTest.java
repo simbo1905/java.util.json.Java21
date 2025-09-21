@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.*;
 
 /// Verification test for Pack 1 and Pack 2 implementation completeness
-class Pack1Pack2VerificationTest extends JsonSchemaLoggingConfig {
+class Pack1Pack2VerificationTest extends JsonSchemaTestBase {
 
     @Test
     void testPatternSemantics_unanchoredFind() {

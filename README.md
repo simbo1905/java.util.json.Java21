@@ -46,6 +46,9 @@ JsonValue backToJson = Json.fromUntyped(Map.of(
     "age", user.age(),
     "active", user.active()
 ));
+
+// Covert back to a JSON string
+String jsonString = backToJson.toString();
 ```
 
 ## Backport Project Goals
@@ -74,8 +77,8 @@ The original proposal and design rationale can be found in the included PDF: [To
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
-- Replaced StableValue with double-checked locking pattern.
-- Removed value-based class annotations.
+- Replaced `StableValue.of()` with double-checked locking pattern.
+- Removed `@ValueBased` annotations.
 - Compatible with JDK 21.
 
 ## Security Considerations
@@ -112,13 +115,13 @@ The validator now provides defensible compatibility statistics:
 
 ```bash
 # Run with console metrics (default)
-./mvn-test-no-boilerplate.sh -pl json-java21-schema
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
 
 # Export detailed JSON metrics
-./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=json
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=json
 
 # Export CSV metrics for analysis
-./mvn-test-no-boilerplate.sh -pl json-java21-schema -Djson.schema.metrics=csv
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=csv
 ```
 
 **Current measured compatibility**:

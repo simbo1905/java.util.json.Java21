@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.*;
 
-class JsonSchemaErrorMessagesTest extends JsonSchemaLoggingConfig {
+class JsonSchemaErrorMessagesTest extends JsonSchemaTestBase {
 
     @Test
     void typeMismatchMessages() {
