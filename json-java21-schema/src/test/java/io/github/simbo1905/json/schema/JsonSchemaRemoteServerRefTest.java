@@ -25,16 +25,17 @@ class JsonSchemaRemoteServerRefTest extends JsonSchemaTestBase {
     }
 
     @Test
-    void remote_cycle_handles_gracefully() {
+    void remote_cycle_detected_and_throws() {
         var policy = JsonSchema.FetchPolicy.defaults().withAllowedSchemes(Set.of("http","https"));
         var options = JsonSchema.CompileOptions.remoteDefaults(new VirtualThreadHttpFetcher()).withFetchPolicy(policy);
         
-        // Compilation should succeed despite the cycle
-        var compiled = JsonSchema.compile(Json.parse("{\"$ref\":\"" + SERVER.url("/cycle1.json") + "#\"}"), JsonSchema.Options.DEFAULT, options);
-        
-        // Validation should succeed by gracefully handling the cycle
-        var result = compiled.validate(Json.parse("\"test\""));
-        assertThat(result.valid()).isTrue();
+        // Cycles should be detected and throw an exception regardless of scheme
+        assertThatThrownBy(() -> JsonSchema.compile(
+            Json.parse("{\"$ref\":\"" + SERVER.url("/cycle1.json") + "#\"}"), 
+            JsonSchema.Options.DEFAULT, 
+            options
+        )).isInstanceOf(IllegalStateException.class)
+          .hasMessageContaining("ERROR: CYCLE: remote $ref cycle");
     }
 }
 

@@ -303,7 +303,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
                 """),
                 JsonSchema.Options.DEFAULT,
                 options
-            )).isInstanceOf(IllegalArgumentException.class)
+            )).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("ERROR: CYCLE: remote $ref cycle");
             assertThat(logs.lines().stream().anyMatch(line -> line.startsWith("ERROR: CYCLE:"))).isTrue();
         }
