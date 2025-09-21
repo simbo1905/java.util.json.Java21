@@ -20,6 +20,9 @@ public class ReadmeDemoTests {
     JsonObject obj = (JsonObject) value;
     assertThat(((JsonString) obj.members().get("name")).value()).isEqualTo("Alice");
     assertThat(((JsonNumber) obj.members().get("age")).toNumber()).isEqualTo(30L);
+
+    String roundTrip = value.toString();
+    assertThat(roundTrip).isEqualTo(jsonString);
   }
 
   // Domain model using records

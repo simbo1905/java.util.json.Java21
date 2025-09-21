@@ -46,6 +46,9 @@ JsonValue backToJson = Json.fromUntyped(Map.of(
     "age", user.age(),
     "active", user.active()
 ));
+
+// Covert back to a JSON string
+String jsonString = backToJson.toString();
 ```
 
 ## Backport Project Goals
@@ -74,8 +77,8 @@ The original proposal and design rationale can be found in the included PDF: [To
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
-- Replaced StableValue with double-checked locking pattern.
-- Removed value-based class annotations.
+- Replaced `StableValue.of()` with double-checked locking pattern.
+- Removed `@ValueBased` annotations.
 - Compatible with JDK 21.
 
 ## Security Considerations

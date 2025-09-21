@@ -59,8 +59,6 @@
         <download-maven-plugin.version>1.7.1</download-maven-plugin.version>
     </properties>
 
-    
-
     <dependencyManagement>
         <dependencies>
             <dependency>
