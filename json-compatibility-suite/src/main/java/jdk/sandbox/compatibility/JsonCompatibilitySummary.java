@@ -26,8 +26,26 @@ import java.util.zip.ZipInputStream;
 public class JsonCompatibilitySummary {
 
     private static final Logger LOGGER = Logger.getLogger(JsonCompatibilitySummary.class.getName());
-    private static final Path ZIP_FILE = Paths.get("src/test/resources/json-test-suite-data.zip");
+    private static final Path ZIP_FILE = findZipFile();
     private static final Path TARGET_TEST_DIR = Paths.get("target/test-data/json-test-suite/test_parsing");
+
+    private static Path findZipFile() {
+        // Try different possible locations for the ZIP file
+        Path[] candidates = {
+            Paths.get("src/test/resources/json-test-suite-data.zip"),
+            Paths.get("json-compatibility-suite/src/test/resources/json-test-suite-data.zip"),
+            Paths.get("../json-compatibility-suite/src/test/resources/json-test-suite-data.zip")
+        };
+        
+        for (Path candidate : candidates) {
+            if (Files.exists(candidate)) {
+                return candidate;
+            }
+        }
+        
+        // If none found, return the first candidate and let it fail with a clear message
+        return candidates[0];
+    }
 
     public static void main(String[] args) throws Exception {
         boolean jsonOutput = args.length > 0 && "--json".equals(args[0]);
