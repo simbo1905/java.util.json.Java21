@@ -90,11 +90,11 @@ This is a simplified backport with the following changes from the original:
 
 These vulnerabilities exist in the upstream OpenJDK sandbox implementation and are reported here for transparency.
 
-## JSON Schema Validator (2020-12)
+## JSON Schema Validator
 
 By including a basic schema validator that demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
 
-A simple JSON Schema (2020-12 subset) validator is included (module: json-java21-schema).
+A simple JSON Schema validator is included (module: json-java21-schema).
 
 ```java
 var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
@@ -328,12 +328,9 @@ This backport includes a compatibility report tool that tests against the [JSON 
 
 ### Running the Compatibility Report
 
-First, build the project and download the test suite:
+The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ```bash
-# Build project and download test suite
-mvn clean compile generate-test-resources -pl json-compatibility-suite
-
 # Run human-readable report
 mvn exec:java -pl json-compatibility-suite
 

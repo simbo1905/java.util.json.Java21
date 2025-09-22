@@ -663,9 +663,9 @@ public sealed interface JsonSchema
 
     // Detect remote cycles by walking parent chain
     if (formsRemoteCycle(parentMap, currentDocUri, targetDocUri)) {
-      String cycleMessage = "ERROR: CYCLE: remote $ref cycle current=" + currentDocUri + ", target=" + targetDocUri;
+      String cycleMessage = "ERROR: CYCLE: remote $ref cycle detected current=" + currentDocUri + ", target=" + targetDocUri;
       LOG.severe(() -> cycleMessage);
-      throw new IllegalArgumentException(cycleMessage);
+      throw new IllegalStateException(cycleMessage);
     }
 
     // Check if already built or already in work stack
@@ -1995,9 +1995,9 @@ public sealed interface JsonSchema
             LOG.fine(() -> "Remote ref scheduling from docUri=" + docUri + " to target=" + targetDocUri);
             LOG.finest(() -> "Remote ref parentMap before cycle check: " + session.parentMap);
             if (formsRemoteCycle(session.parentMap, docUri, targetDocUri)) {
-              String cycleMessage = "ERROR: CYCLE: remote $ref cycle current=" + docUri + ", target=" + targetDocUri;
+              String cycleMessage = "ERROR: CYCLE: remote $ref cycle detected current=" + docUri + ", target=" + targetDocUri;
               LOG.severe(() -> cycleMessage);
-              throw new IllegalArgumentException(cycleMessage);
+              throw new IllegalStateException(cycleMessage);
             }
             boolean alreadySeen = seenUris.contains(targetDocUri);
             LOG.finest(() -> "Remote ref alreadySeen=" + alreadySeen + " for target=" + targetDocUri);
