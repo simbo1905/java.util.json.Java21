@@ -338,7 +338,7 @@ AI as **Augmented Intelligence** is most welcome here. Contributions that enhanc
 
 When submitting Issues or PRs, please use a "deep research" tool to sanity check your proposal. Then **before** submission un your submission through a strong model with a prompt such as:
 
-> "Please review the AGENTS.md and README.md along with this draft PR/Issue and check that it does not have any gaps — why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
+> "Please review the AGENTS.md and README.md along with this draft PR/Issue and check that it does not have any gaps and why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
 
 Please attach the output of that model’s review to your Issue or PR.
 
