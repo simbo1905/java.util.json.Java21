@@ -1,6 +1,6 @@
 # java.util.json – Backport from the OpenJDK sandbox
 
-Experimental backport of the proposed `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21+.
+This is a backport of the `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21 and above. 
 
 References:
 - OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/master/src/java.json
@@ -11,8 +11,26 @@ You can find this code on [Maven Central](https://central.sonatype.com/artifact/
 
 To kick the tyres on the New JSON API this repo uses to implement a JSON Schema Validator which is released on Maven Central as [java.util.json.schema](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.schema).
 
+We welcome contributes to the JSON Schema Validator incubating within this repo. 
 
-## Quick Start
+## Usage Examples
+
+## API Overview
+
+The API provides immutable JSON value types:
+- `JsonValue` - Base type for all JSON values
+- `JsonObject` - JSON objects (key-value pairs)
+- `JsonArray` - JSON arrays
+- `JsonString` - JSON strings
+- `JsonNumber` - JSON numbers
+- `JsonBoolean` - JSON booleans (true/false)
+- `JsonNull` - JSON null
+
+Parsing is done via the `Json` class:
+
+```java
+JsonValue value = Json.parse(jsonString);
+```
 
 ### Parsing JSON to Maps and Objects
 
@@ -28,7 +46,7 @@ int age = ((JsonNumber) obj.members().get("age")).intValue();
 boolean active = ((JsonBoolean) obj.members().get("active")).value();
 ```
 
-### Record Mapping
+### Simple Record Mapping
 
 ```java
 // Define records for structured data
@@ -55,119 +73,6 @@ JsonValue backToJson = Json.fromUntyped(Map.of(
 // Covert back to a JSON string
 String jsonString = backToJson.toString();
 ```
-
-## Backport Project Goals
-
-- **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
-- **✅API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed. 
-- **✅Track upstream API**: Match emerging API updates to be a potential "unofficial backport" if a final official solution ever lands. 
-- **✅Host Examples / Counter Examples**: Only if there is community interest. 
-
-## Non-Goals
-
-- **🛑Performance competition**: This backport is not intended to be the fastest JSON library. The JDK internal annotations that boost performance had to be removed. 
-- **🛑Feature additions**: No features beyond what's in the experimental upstream branches. Contributions of example code or internal improvements are welcome. 
-- **🛑Production / API stability**: Its an unstable API. It is currently only for educational or experimenal usage. 
-- **🛑Advoocacy / Counter Advocacy**: This repo is not an endorsement of the proposed API nor a rejection of other solutions. Please only use the official Java email lists to debate the API or the general topic.
-
-## Current Status
-
-This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json” branch at commit [a8e7de8b49e4e4178eb53c94ead2fa2846c30635](https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635) ("Produce path/col during path building", 2025-08-14 UTC).
-
-The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
-
-### CI: Upstream API Tracking
-- A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. Implication: differences do not currently fail the build or auto‑open issues; check the workflow logs (or adjust the workflow to fail on diffs) if you need notifications.
-
-## Modifications
-
-This is a simplified backport with the following changes from the original:
-- Replaced `StableValue.of()` with double-checked locking pattern.
-- Removed `@ValueBased` annotations.
-- Compatible with JDK 21.
-
-## Security Considerations
-
-**⚠️ This unstable API contains undocumented security vulnerabilities.** The compatibility test suite (documented below) includes crafted attack vectors that expose these issues:
-
-- **Stack exhaustion attacks**: Deeply nested JSON structures can trigger `StackOverflowError`, potentially leaving applications in an undefined state and enabling denial-of-service attacks
-- **API contract violations**: The `Json.parse()` method documentation only declares `JsonParseException` and `NullPointerException`, but malicious inputs can trigger undeclared exceptions
-
-These vulnerabilities exist in the upstream OpenJDK sandbox implementation and are reported here for transparency.
-
-## JSON Schema Validator
-
-By including a basic schema validator that demonstrates how to build a realistic feature out of the core API. To demonstrate the power of the core API, it follows Data Oriented Programming principles: it parses JSON Schema into an immutable structure of records, then for validation it parses the JSON to the generic structure and uses the thread-safe parsed schema as the model to validate the JSON being checked.
-
-A simple JSON Schema validator is included (module: json-java21-schema).
-
-```java
-var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
-    jdk.sandbox.java.util.json.Json.parse("""
-      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
-    """));
-var result = schema.validate(
-    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
-);
-// result.valid() => true
-```
-
-Compatibility: runs the official 2020‑12 JSON Schema Test Suite on `verify`; **strict compatibility is 61.6%** (1024 of 1,663 validations). [Overall including all discovered tests: 56.2% (1024 of 1,822)].
-
-### JSON Schema Test Suite Metrics
-
-The validator now provides defensible compatibility statistics:
-
-```bash
-# Run with console metrics (default)
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
-
-# Export detailed JSON metrics
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=json
-
-# Export CSV metrics for analysis
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=csv
-```
-
-**Current measured compatibility**:
-- **Strict (headline)**: 61.6% (1024 of 1,663 validations)
-- **Overall (incl. out‑of‑scope)**: 56.2% (1024 of 1,822 discovered tests)
-- **Test coverage**: 420 test groups, 1,663 validation attempts
-- **Skip breakdown**: 65 unsupported schema groups, 0 test exceptions, 647 lenient mismatches
-
-## Building
-
-Requires JDK 21 or later. Build with Maven:
-
-```bash
-mvn clean compile
-mvn package
-```
-
-## License
-
-Licensed under the GNU General Public License version 2 with Classpath exception. See [LICENSE](LICENSE) for details.
-
-## API Overview
-
-The API provides immutable JSON value types:
-- `JsonValue` - Base type for all JSON values
-- `JsonObject` - JSON objects (key-value pairs)
-- `JsonArray` - JSON arrays
-- `JsonString` - JSON strings
-- `JsonNumber` - JSON numbers
-- `JsonBoolean` - JSON booleans (true/false)
-- `JsonNull` - JSON null
-
-Parsing is done via the `Json` class:
-
-```java
-JsonValue value = Json.parse(jsonString);
-```
-
-## Type Conversion Utilities
-
-The `Json` class provides bidirectional conversion between `JsonValue` objects and standard Java types:
 
 ### Converting from Java Objects to JSON (`fromUntyped`)
 
@@ -203,9 +108,7 @@ This is useful for:
 - Serializing/deserializing to formats that expect Java types
 - Working with frameworks that use reflection on standard types
 
-## Usage Examples
-
-### Record Mapping
+### Realistic Record Mapping
 
 A powerful feature is mapping between Java records and JSON:
 
@@ -343,20 +246,102 @@ mvn exec:java -pl json-compatibility-suite
 mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ```
 
-### Current Status
 
-The implementation achieves **99.3% overall conformance** with the JSON Test Suite:
+## Backport Project Goals
 
-- **Valid JSON**: 97.9% success rate (93/95 files pass)
-- **Invalid JSON**: 100% success rate (correctly rejects all invalid JSON)
-- **Implementation-defined**: Handles 35 edge cases per implementation choice (27 accepted, 8 rejected)
+- **✅Enable early adoption**: Let developers try the unstable Java JSON patterns today on JDK 21+
+- **✅API compatibility over performance**: Focus on matching the emerging "batteries included" API design rather than competing with existing JSON libraries on speed. 
+- **✅Track upstream API**: Match emerging API updates to be a potential "unofficial backport" if a final official solution ever lands. 
+- **✅Host Examples / Counter Examples**: Only if there is community interest. 
 
-The 2 failing cases involve duplicate object keys, which this implementation rejects (stricter than required by the JSON specification). This is an implementation choice that prioritizes data integrity over permissiveness.
+## Non-Goals
 
-### Understanding the Results
+- **🛑Performance competition**: This backport is not intended to be the fastest JSON library. The JDK internal annotations that boost performance had to be removed. 
+- **🛑Feature additions**: No features beyond what's in the experimental upstream branches. Contributions of example code or internal improvements are welcome. 
+- **🛑Production / API stability**: Its an unstable API. It is currently only for educational or experimenal usage. 
+- **🛑Advoocacy / Counter Advocacy**: This repo is not an endorsement of the proposed API nor a rejection of other solutions. Please only use the official Java email lists to debate the API or the general topic.
 
-- **Files skipped**: Currently 0 files skipped due to robust encoding detection that handles various character encodings
-- **StackOverflowError**: Security vulnerability exposed by malicious deeply nested structures - can leave applications in undefined state  
-- **Duplicate keys**: Implementation choice to reject for data integrity (2 files fail for this reason)
+## Current Status
 
-This tool reports status and is not a criticism of the expermeintal API which is not available for direct public use. This aligning with this project's goal of tracking upstream unstable development without advocacy. If you have opinions, good or bad, about anything you see here please use the official Java email lists to discuss. If you see a bug/mistake/improvement with this repo please raise an issue and ideally submit a PR.
+This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json” branch at commit [a8e7de8b49e4e4178eb53c94ead2fa2846c30635](https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635) ("Produce path/col during path building", 2025-08-14 UTC).
+
+The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
+
+The JSON compatibitlity tests in this repo suggest 99% conformance with a leading test suite when in "strict" mode. The two conformance expecatations that fail assume that duplicated keys in a JSON document are okay. The upstream code at this time appear to take a strict stance that it should not siliently ignore duplicate keys in a json object. 
+
+### CI: Upstream API Tracking
+
+A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. Implication: differences do not currently fail the build or auto‑open issues; check the workflow logs (or adjust the workflow to fail on diffs) if you need notifications.
+
+## Modifications
+
+This is a simplified backport with the following changes from the original:
+- Replaced `StableValue.of()` with double-checked locking pattern.
+- Removed `@ValueBased` annotations.
+- Compatible with JDK 21.
+
+## Security Considerations
+
+**⚠️ This unstable API historically contained a undocumented security vulnerabilities.** The compatibility test suite (documented below) includes crafted attack vectors that expose these issues:
+
+- **Stack exhaustion attacks**: Deeply nested JSON structures can trigger `StackOverflowError`, potentially leaving applications in an undefined state and enabling denial-of-service attacks
+- **API contract violations**: The `Json.parse()` method documentation only declares `JsonParseException` and `NullPointerException`, but malicious inputs can trigger undeclared exceptions
+
+Such vulnerabilities existed at one point in the upstream OpenJDK sandbox implementation and were reported here for transparency. Until the upstream code is stable it is probably better to assume that such issue or similar may be present or may reappear. If you are only going to use this library in small cli programs where the json is configuration you write then you will not parse objects nested to tens of thousands of levels designed crash a parser. Yet you should not at this tiome expose this parser to the internet where someone can choose to attack it in that manner. 
+
+## JSON Schema Validator
+
+This repo contains an incubating schema validator that has the core JSON API as its only depenency. This sub project demonstrates how to build realistic JSON heavy logic using the API. It follows Data Oriented Programming principles: it compiles the JSON Schema into an immutable structure of records. For validation it parses the JSON document to the generic structure and uses the thread-safe parsed schema and a stack to visit and validate the parsed JSON. 
+
+A simple JSON Schema validator is included (module: json-java21-schema).
+
+```java
+var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
+    jdk.sandbox.java.util.json.Json.parse("""
+      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
+    """));
+var result = schema.validate(
+    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
+);
+// result.valid() => true
+```
+
+### JSON Schema Test Suite Metrics
+
+The validator now provides defensible compatibility statistics:
+
+```bash
+# Run with console metrics (default)
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
+
+# Export detailed JSON metrics
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=json
+
+# Export CSV metrics for analysis
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=csv
+```
+
+## Building
+
+Requires JDK 21 or later. Build with Maven:
+
+```bash
+mvn clean compile
+mvn package
+```
+
+Please see AGENTS.md for more guidence such as how to enabled logging when running the JSON Schema Validator. 
+
+## Augmented Intelligence (AI) Welcomed
+
+AI as **Augmented Intelligence** is most welcome here. Contributions that enhance *human + agent collaboration* are encouraged. If you want to suggest new agent‑workflows, prompt patterns, or improvements in tooling / validation / introspection, please submit amendments to **AGENTS.md** via standalone PRs. Your ideas make the difference.
+
+Before submitting Issues or PRs, please use a "deep research" tool. Then *before* submission run your content through a strong model, asking it to proactively work on behalf of this repo's maintainer. For example:
+
+> "Please review the AGENTS.md and README.md and this draft PR/Issue and check that it does not have any gaps — why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
+
+Please attach the output of that model’s review to your Issue or PR.
+
+## License
+
+Licensed under the GNU General Public License version 2 with Classpath exception. See [LICENSE](LICENSE) for details.
