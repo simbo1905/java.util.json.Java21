@@ -1,11 +1,16 @@
-# java.util.json – Backport for Java 21 (OpenJDK sandbox)
+# java.util.json – Backport from the OpenJDK sandbox
 
 Experimental backport of the proposed `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21+.
-This project is not an official release; APIs and behavior may change as upstream evolves.
 
 References:
 - OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/master/src/java.json
 - Design paper: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
+
+This project is not an official release; APIs and behaviour may change as upstream evolves. 
+You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
+
+To kick the tyres on the New JSON API this repo uses to implement a JSON Schema Validator which is released on Maven Central as [java.util.json.schema](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.schema).
+
 
 ## Quick Start
 
