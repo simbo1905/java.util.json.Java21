@@ -1,17 +1,9 @@
----
-name: 🐛 / 💡 Issue (with AI‑Augmented check)
-about: Report a bug or suggest a feature, with a prompt‑agent review before submitting
----
 
-# Augmented Intelligence (AI) Welcomed
-
-AI as **Augmented Intelligence** is most welcome here. Contributions that enhance *human + agent collaboration* are encouraged. If you want to suggest new agent‑workflows, prompt patterns, or improvements in tooling / validation / introspection, please submit amendments to **AGENTS.md** via standalone PRs. Your ideas make the difference.
-
-When submitting Issues or PRs, please use a "deep research" tool to sanity check your proposal. Then before submission run your draft through a strong model with a prompt such as:
+(Optional) When submitting an Issue, please consider using a "deep research" tool to sanity check your proposal. Then **before** submission, run your draft through a strong model with a prompt such as:
 
 > "Please review the AGENTS.md and README.md along with this draft PR/Issue and check that it does not have any gaps — why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
 
-Please attach the output of that model's review to your Issue or PR.
+(Optional)  Please then attach both the prompt and the model's review to the bottom of this template under "Augmented Intelligence Review". 
 
 ---
 
@@ -21,6 +13,7 @@ Please attach the output of that model's review to your Issue or PR.
 *A short, descriptive title*
 
 **What happened / What you expected**:  
+*Please provide plenty of text*
 
 **Steps to reproduce** (for bugs):  
 1.  
@@ -28,11 +21,10 @@ Please attach the output of that model's review to your Issue or PR.
 3.  
 
 **Suggested solution / feature description**:  
+*Please ensure that they align with the stated goals and non-goals of the project*
 
 **Additional context / logs / screenshots**:  
+*screenshots and traces last, please ensure the details above work for anyone, and use this section for your specifics. 
 
-**Environment:**  
-- Version:  
-- OS / Platform:  
-- Dependencies:  
-
+**(Optional) Augmented Intelligence Review**: 
+*Both prompt and model out, asking a strong model to double-check your submission, from the perspective of a maintainer of this repo* 
