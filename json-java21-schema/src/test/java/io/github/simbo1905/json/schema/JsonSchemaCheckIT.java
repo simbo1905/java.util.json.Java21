@@ -77,6 +77,26 @@ public class JsonSchemaCheckIT {
         try {
             final var root = MAPPER.readTree(file.toFile());
             
+            /// The JSON Schema Test Suite contains two types of files:
+            /// 1. Test suite files: Arrays containing test groups with description, schema, and tests fields
+            /// 2. Remote reference files: Plain JSON schema files used as remote references by test cases
+            /// 
+            /// We only process test suite files. Remote reference files (like remotes/baseUriChangeFolder/folderInteger.json)
+            /// are just schema documents that get loaded via $ref during test execution, not test cases themselves.
+            
+            /// Validate that this is a test suite file (array of objects with description, schema, tests)
+            if (!root.isArray() || root.isEmpty()) {
+                // Not a test suite file, skip it
+                return Stream.empty();
+            }
+            
+            /// Validate first group has required fields
+            final var firstGroup = root.get(0);
+            if (!firstGroup.has("description") || !firstGroup.has("schema") || !firstGroup.has("tests")) {
+                // Not a test suite file, skip it
+                return Stream.empty();
+            }
+            
             /// Count groups and tests discovered
             final var groupCount = root.size();
             METRICS.groupsDiscovered.add(groupCount);

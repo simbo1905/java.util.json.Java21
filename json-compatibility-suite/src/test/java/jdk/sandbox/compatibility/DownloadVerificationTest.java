@@ -12,7 +12,7 @@ public class DownloadVerificationTest {
         // The test data is now extracted from ZIP at runtime
         // Create a summary instance and extract the data manually for testing
         try {
-            JsonTestSuiteSummary summary = new JsonTestSuiteSummary();
+            JsonCompatibilitySummary summary = new JsonCompatibilitySummary();
             summary.extractTestData();
             
             // Verify the target directory exists after extraction

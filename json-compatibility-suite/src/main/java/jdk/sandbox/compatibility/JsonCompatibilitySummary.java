@@ -22,16 +22,16 @@ import java.util.zip.ZipInputStream;
 
 /// Generates a conformance summary report.
 /// Run with: mvn exec:java -pl json-compatibility-suite
-/// Test data location: see src/test/resources/JSONTestSuite-20250921/DOWNLOAD_COMMANDS.md
-public class JsonTestSuiteSummary {
+/// Test data location: see src/test/resources/json-test-suite-data.zip
+public class JsonCompatibilitySummary {
 
-    private static final Logger LOGGER = Logger.getLogger(JsonTestSuiteSummary.class.getName());
+    private static final Logger LOGGER = Logger.getLogger(JsonCompatibilitySummary.class.getName());
     private static final Path ZIP_FILE = Paths.get("src/test/resources/json-test-suite-data.zip");
     private static final Path TARGET_TEST_DIR = Paths.get("target/test-data/json-test-suite/test_parsing");
 
     public static void main(String[] args) throws Exception {
         boolean jsonOutput = args.length > 0 && "--json".equals(args[0]);
-        JsonTestSuiteSummary summary = new JsonTestSuiteSummary();
+        JsonCompatibilitySummary summary = new JsonCompatibilitySummary();
         summary.extractTestData();
         if (jsonOutput) {
             summary.generateJsonReport();

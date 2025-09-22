@@ -73,7 +73,7 @@
                 <artifactId>exec-maven-plugin</artifactId>
                 <version>3.4.1</version>
                 <configuration>
-                    <mainClass>jdk.sandbox.compatibility.JsonTestSuiteSummary</mainClass>
+                    <mainClass>jdk.sandbox.compatibility.JsonCompatibilitySummary</mainClass>
                     <includePluginDependencies>false</includePluginDependencies>
                 </configuration>
             </plugin>
