@@ -7,7 +7,7 @@
 - Follow the sequence plan → implement → verify; do not pivot without restating the plan.
 - Stop immediately on unexpected failures and ask before changing approach.
 - Keep edits atomic and avoid leaving mixed partial states.
-- Propose options with trade-offs before invasive changes.
+- Propose jsonSchemaOptions with trade-offs before invasive changes.
 - Prefer mechanical, reversible transforms (especially when syncing upstream sources).
 - Validate that outputs are non-empty before overwriting files.
 - Minimal shims are acceptable only when needed to keep backports compiling.
@@ -287,7 +287,7 @@ git push -u origin "rel-$VERSION" && echo "✅ Success" || echo "🛑 Unable to 
 2. **MVF Flow (Mermaid)**
 ```mermaid
 flowchart TD
-  A[compile(initialDoc, initialUri, options)] --> B[Work Stack (LIFO)]
+  A[compile(initialDoc, initialUri, jsonSchemaOptions)] --> B[Work Stack (LIFO)]
   B -->|push initialUri| C{pop docUri}
   C -->|empty| Z[freeze Roots (immutable) → return primary root facade]
   C --> D[fetch/parse JSON for docUri]
@@ -334,7 +334,7 @@ type RefToken =
   | { kind: "Local";  pointer: JsonPointer }
   | { kind: "Remote"; doc: DocURI; pointer: JsonPointer };
 
-function compile(initialDoc: unknown, initialUri: DocURI, options?: unknown): {
+function compile(initialDoc: unknown, initialUri: DocURI, jsonSchemaOptions?: unknown): {
   primary: Root;
   roots: Roots; // unused by MVF runtime; ready for remote expansions
 } {

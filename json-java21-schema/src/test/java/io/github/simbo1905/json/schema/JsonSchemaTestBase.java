@@ -3,7 +3,7 @@ package io.github.simbo1905.json.schema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInfo;
 
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 
 /// Base class for all schema tests.
 /// - Emits an INFO banner per test.
