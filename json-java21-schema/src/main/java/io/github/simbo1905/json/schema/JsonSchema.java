@@ -299,25 +299,6 @@ public sealed interface JsonSchema
         ", compileOptions.remoteFetcher=" + compileOptions.remoteFetcher().getClass().getSimpleName() +
         ", fetch policy allowedSchemes=" + compileOptions.fetchPolicy().allowedSchemes());
 
-    // Early policy enforcement for root-level remote $ref to avoid unnecessary work
-    // FIXME this is an unnecessary optimization at compile time we should just be optimistic and inline this to the main loop
-    if (schemaJson instanceof JsonObject rootObj) {
-      JsonValue refVal = rootObj.members().get("$ref");
-      if (refVal instanceof JsonString refStr) {
-        try {
-          java.net.URI refUri = java.net.URI.create(refStr.value());
-          String scheme = refUri.getScheme();
-          if (scheme != null && !compileOptions.fetchPolicy().allowedSchemes().contains(scheme)) {
-            throw new RemoteResolutionException(refUri, RemoteResolutionException.Reason.POLICY_DENIED,
-                "Scheme not allowed by policy: " + refUri);
-          }
-        } catch (IllegalArgumentException ignore) {
-          // FIXME this feels unsafe lets fail fast here
-          // Not a URI, ignore - normal compilation will handle it
-        }
-      }
-    }
-
     // Placeholder context (not used post-compile; schemas embed resolver contexts during build)
     Map<URI, CompiledRoot> emptyRoots = new LinkedHashMap<>();
     Map<String, JsonSchema> emptyPointerIndex = new LinkedHashMap<>();
@@ -358,25 +339,6 @@ public sealed interface JsonSchema
     return result;
   }
 
-  /// Normalize URI for dedup correctness
-  static java.net.URI normalizeUri(java.net.URI baseUri, String refString) {
-    LOG.fine(() -> "normalizeUri: entry with base=" + baseUri + ", refString=" + refString);
-    LOG.finest(() -> "normalizeUri: baseUri object=" + baseUri + ", scheme=" + baseUri.getScheme() + ", host=" + baseUri.getHost() + ", path=" + baseUri.getPath());
-    try {
-      java.net.URI refUri = java.net.URI.create(refString);
-      LOG.finest(() -> "normalizeUri: created refUri=" + refUri + ", scheme=" + refUri.getScheme() + ", host=" + refUri.getHost() + ", path=" + refUri.getPath());
-      java.net.URI resolved = baseUri.resolve(refUri);
-      LOG.finest(() -> "normalizeUri: resolved URI=" + resolved + ", scheme=" + resolved.getScheme() + ", host=" + resolved.getHost() + ", path=" + resolved.getPath());
-      java.net.URI normalized = resolved.normalize();
-      LOG.finer(() -> "normalizeUri: normalized result=" + normalized);
-      LOG.finest(() -> "normalizeUri: final normalized URI=" + normalized + ", scheme=" + normalized.getScheme() + ", host=" + normalized.getHost() + ", path=" + normalized.getPath());
-      return normalized;
-    } catch (IllegalArgumentException e) {
-      LOG.severe(() -> "ERROR: SCHEMA: normalizeUri failed ref=" + refString + " base=" + baseUri);
-      throw new IllegalArgumentException("Invalid URI reference: " + refString);
-    }
-  }
-
   /// Core work-stack compilation loop
   static CompiledRegistry compileWorkStack(JsonValue initialJson,
                                            java.net.URI initialUri,
@@ -391,7 +353,6 @@ public sealed interface JsonSchema
     Deque<java.net.URI> workStack = new ArrayDeque<>();
     Map<java.net.URI, CompiledRoot> built = new NormalizedUriMap(new LinkedHashMap<>());
     Set<java.net.URI> active = new HashSet<>();
-    Map<java.net.URI, java.net.URI> parentMap = new HashMap<>();
 
     // Push initial document
     workStack.push(initialUri);
@@ -433,8 +394,8 @@ public sealed interface JsonSchema
         );
 
         // Get the compiled schema from the bundle
-        JsonSchema schema = bundle.entry().schema();
-        LOG.finest(() -> "buildRoot: compiled schema object=" + schema + ", class=" + schema.getClass().getSimpleName());
+        JsonSchema rootSchema = bundle.entry().schema();
+        LOG.finest(() -> "buildRoot: compiled schema object=" + rootSchema + ", class=" + rootSchema.getClass().getSimpleName());
 
         // Register all compiled roots from the bundle into the global built map
         LOG.finest(() -> "buildRoot: registering " + bundle.all().size() + " compiled roots from bundle into global registry");
@@ -450,8 +411,7 @@ public sealed interface JsonSchema
         // Process any discovered refs from the compilation
         // The compileBundle method should have already processed remote refs through the work stack
         LOG.finer(() -> "buildRoot: MVF compilation completed, work stack processed remote refs");
-        LOG.finer(() -> "buildRoot: completed for docUri=" + currentUri + ", schema type=" + schema.getClass().getSimpleName());
-        JsonSchema rootSchema = schema;
+        LOG.finer(() -> "buildRoot: completed for docUri=" + currentUri + ", schema type=" + rootSchema.getClass().getSimpleName());
         LOG.finest(() -> "compileWorkStack: built rootSchema object=" + rootSchema + ", class=" + rootSchema.getClass().getSimpleName());
       } finally {
         active.remove(currentUri);
@@ -534,45 +494,6 @@ public sealed interface JsonSchema
         return fragment != null ? fragment : "";
       }
     }
-  }
-
-  /// Schedule remote document for compilation if not seen before
-  static boolean scheduleRemoteIfUnseen(Deque<java.net.URI> workStack,
-                                        Map<java.net.URI, CompiledRoot> built,
-                                        Map<java.net.URI, java.net.URI> parentMap,
-                                        java.net.URI currentDocUri,
-                                        java.net.URI targetDocUri) {
-    LOG.finer(() -> "scheduleRemoteIfUnseen: target=" + targetDocUri + ", workStack.size=" + workStack.size() + ", built.size=" + built.size());
-    LOG.finest(() -> "scheduleRemoteIfUnseen: targetDocUri object=" + targetDocUri + ", scheme=" + targetDocUri.getScheme() + ", host=" + targetDocUri.getHost() + ", path=" + targetDocUri.getPath());
-    LOG.finest(() -> "scheduleRemoteIfUnseen: workStack object=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
-    LOG.finest(() -> "scheduleRemoteIfUnseen: built map object=" + built + ", keys=" + built.keySet() + ", size=" + built.size());
-
-    // Detect remote cycles by walking parent chain
-    if (SchemaCompiler.formsRemoteCycle(parentMap, currentDocUri, targetDocUri)) {
-      String cycleMessage = "ERROR: CYCLE: remote $ref cycle detected current=" + currentDocUri + ", target=" + targetDocUri;
-      LOG.severe(() -> cycleMessage);
-      throw new IllegalStateException(cycleMessage);
-    }
-
-    // Check if already built or already in work stack
-    boolean alreadyBuilt = built.containsKey(targetDocUri);
-    boolean inWorkStack = workStack.contains(targetDocUri);
-    LOG.finest(() -> "scheduleRemoteIfUnseen: alreadyBuilt=" + alreadyBuilt + ", inWorkStack=" + inWorkStack);
-
-    if (alreadyBuilt || inWorkStack) {
-      LOG.finer(() -> "scheduleRemoteIfUnseen: already seen, skipping");
-      LOG.finest(() -> "scheduleRemoteIfUnseen: skipping targetDocUri=" + targetDocUri);
-      return false;
-    }
-
-    // Track parent chain for cycle detection before scheduling child
-    parentMap.putIfAbsent(targetDocUri, currentDocUri);
-
-    // Add to work stack
-    workStack.push(targetDocUri);
-    LOG.finer(() -> "scheduleRemoteIfUnseen: scheduled remote document: " + targetDocUri);
-    LOG.finest(() -> "scheduleRemoteIfUnseen: workStack after push=" + workStack + ", contents=" + workStack.stream().map(Object::toString).collect(java.util.stream.Collectors.joining(", ", "[", "]")));
-    return true;
   }
 
   /// Detect and throw on compile-time cycles
