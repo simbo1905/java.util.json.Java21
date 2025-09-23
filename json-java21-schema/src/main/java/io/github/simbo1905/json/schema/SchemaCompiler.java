@@ -626,7 +626,7 @@ public final class SchemaCompiler {
     }
 
     if (!(schemaJson instanceof JsonObject obj)) {
-      throw new IllegalArgumentException("Schema must be an object or boolean");
+      throw new IllegalArgumentException("Schema must be an object");
     }
 
     // Process definitions first and build pointer index

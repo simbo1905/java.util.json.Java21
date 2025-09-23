@@ -15,7 +15,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -25,8 +24,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /// By default, this is lenient and will SKIP mismatches and unsupported schemas
 /// to provide a compatibility signal without breaking the build. Enable strict
 /// mode with -Djson.schema.strict=true to make mismatches fail the build.
-/// Test data location: see src/test/resources/JSONSchemaTestSuite-20250921/DOWNLOAD_COMMANDS.md
-public class JsonSchemaCheckIT {
+public class JsonSchemaCheck202012IT {
 
     private static final Path ZIP_FILE = Paths.get("src/test/resources/json-schema-test-suite-data.zip");
     private static final Path TARGET_SUITE_DIR = Paths.get("target/test-data/draft2020-12");
@@ -138,7 +136,7 @@ public class JsonSchemaCheckIT {
                                             perFile(file).run.increment();
                                         } catch (Exception e) {
                                             final var reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                                            System.err.println("[JsonSchemaCheckIT] Skipping test due to exception: "
+                                            System.err.println("[JsonSchemaCheck202012IT] Skipping test due to exception: "
                                                     + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
 
                                             /// Count exception as skipped mismatch in strict metrics
@@ -163,7 +161,7 @@ public class JsonSchemaCheckIT {
                                                 throw e;
                                             }
                                         } else if (expected != actual) {
-                                            System.err.println("[JsonSchemaCheckIT] Mismatch (ignored): "
+                                            System.err.println("[JsonSchemaCheck202012IT] Mismatch (ignored): "
                                                     + groupDesc + " — expected=" + expected + ", actual=" + actual
                                                     + " (" + file.getFileName() + ")");
 
@@ -181,7 +179,7 @@ public class JsonSchemaCheckIT {
                 } catch (Exception ex) {
                     /// Unsupported schema for this group; emit a single skipped test for visibility
                     final var reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-                    System.err.println("[JsonSchemaCheckIT] Skipping group due to unsupported schema: "
+                    System.err.println("[JsonSchemaCheck202012IT] Skipping group due to unsupported schema: "
                             + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
 
                     /// Count unsupported group skip
@@ -329,32 +327,3 @@ public class JsonSchemaCheckIT {
     }
 }
 
-/// Thread-safe metrics container for the JSON Schema Test Suite run.
-/// Thread-safe strict metrics container for the JSON Schema Test Suite run
-final class StrictMetrics {
-    final java.util.concurrent.atomic.LongAdder total = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder run = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder passed = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder failed = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder skippedUnsupported = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder skippedMismatch = new java.util.concurrent.atomic.LongAdder();
-    
-    // Legacy counters for backward compatibility
-    final java.util.concurrent.atomic.LongAdder groupsDiscovered = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder testsDiscovered = new java.util.concurrent.atomic.LongAdder();
-    final java.util.concurrent.atomic.LongAdder skipTestException = new java.util.concurrent.atomic.LongAdder();
-    
-    final ConcurrentHashMap<String, FileCounters> perFile = new ConcurrentHashMap<>();
-    
-    /// Per-file counters for detailed metrics
-    static final class FileCounters {
-        final java.util.concurrent.atomic.LongAdder groups = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder tests = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder run = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder pass = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder fail = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder skipUnsupported = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder skipException = new java.util.concurrent.atomic.LongAdder();
-        final java.util.concurrent.atomic.LongAdder skipMismatch = new java.util.concurrent.atomic.LongAdder();
-    }
-}

@@ -95,7 +95,7 @@ public class JsonSchemaDraft4Test extends JsonSchemaTestBase {
         LOG.fine(()->"Skipping group due to unsupported schema: " + groupDesc + " — " + reason + " (" + ((Path) null).getFileName() + ")");
 
         return Stream.of(DynamicTest.dynamicTest(groupDesc + " – SKIPPED: " + reason, () -> {
-          if (JsonSchemaCheckIT.isStrict()) throw ex;
+          if (JsonSchemaCheck202012IT.isStrict()) throw ex;
           Assumptions.assumeTrue(false, "Unsupported schema: " + reason);
         }));
       }
