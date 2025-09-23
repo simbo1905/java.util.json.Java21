@@ -7,9 +7,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
@@ -17,7 +15,38 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
+  static CapturedLogs captureLogs() {
+    return new CapturedLogs(java.util.logging.Level.SEVERE);
+  }
 
+  static final class CapturedLogs implements AutoCloseable {
+    private final java.util.logging.Handler handler;
+    private final List<String> lines = new ArrayList<>();
+    private final java.util.logging.Level original;
+
+    CapturedLogs(java.util.logging.Level level) {
+      original = LOG.getLevel();
+      LOG.setLevel(level);
+      handler = new java.util.logging.Handler() {
+        @Override public void publish(java.util.logging.LogRecord record) {
+          if (record.getLevel().intValue() >= level.intValue()) {
+            lines.add(record.getMessage());
+          }
+        }
+        @Override public void flush() { }
+        @Override public void close() throws SecurityException { }
+      };
+      LOG.addHandler(handler);
+    }
+
+    List<String> lines() { return List.copyOf(lines); }
+
+    @Override
+    public void close() {
+      LOG.removeHandler(handler);
+      LOG.setLevel(original);
+    }
+  }
     @Test
     void resolves_http_ref_to_pointer_inside_remote_doc() {
         LOG.info(() -> "START resolves_http_ref_to_pointer_inside_remote_doc");
@@ -296,7 +325,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
         final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
         LOG.finer(() -> "Compiling schema expecting cycle detection");
-        try (CapturedLogs logs = captureLogs(java.util.logging.Level.SEVERE)) {
+        try (CapturedLogs logs = captureLogs()) {
             assertThatThrownBy(() -> JsonSchema.compile(
                 toJson("""
                 {"$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
