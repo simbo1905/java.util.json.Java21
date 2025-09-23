@@ -74,7 +74,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
         assertThat(schemaAnnotation.validate(Json.parse("\"not-a-uuid\"")).valid()).isTrue();
         
         // With format assertion enabled - only valid UUIDs should pass
-        JsonSchema schemaAssertion = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schemaAssertion = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         assertThat(schemaAssertion.validate(Json.parse("\"123e4567-e89b-12d3-a456-426614174000\"")).valid()).isTrue();
         assertThat(schemaAssertion.validate(Json.parse("\"123e4567e89b12d3a456426614174000\"")).valid()).isFalse();
         assertThat(schemaAssertion.validate(Json.parse("\"not-a-uuid\"")).valid()).isFalse();
@@ -90,7 +90,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid emails
         assertThat(schema.validate(Json.parse("\"a@b.co\"")).valid()).isTrue();
@@ -112,7 +112,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid IPv4
         assertThat(schema.validate(Json.parse("\"192.168.0.1\"")).valid()).isTrue();
@@ -132,7 +132,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid IPv6
         assertThat(schema.validate(Json.parse("\"2001:0db8::1\"")).valid()).isTrue();
@@ -152,7 +152,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid URI
         assertThat(schema.validate(Json.parse("\"https://example.com/x?y#z\"")).valid()).isTrue();
@@ -171,7 +171,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid URI references
         assertThat(schema.validate(Json.parse("\"../rel/path?x=1\"")).valid()).isTrue();
@@ -191,7 +191,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid hostnames
         assertThat(schema.validate(Json.parse("\"example.com\"")).valid()).isTrue();
@@ -212,7 +212,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid date
         assertThat(schema.validate(Json.parse("\"2025-09-16\"")).valid()).isTrue();
@@ -231,7 +231,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid times
         assertThat(schema.validate(Json.parse("\"23:59:59\"")).valid()).isTrue();
@@ -252,7 +252,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid date-times
         assertThat(schema.validate(Json.parse("\"2025-09-16T12:34:56Z\"")).valid()).isTrue();
@@ -273,7 +273,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid regex
         assertThat(schema.validate(Json.parse("\"[A-Z]{2,3}\"")).valid()).isTrue();
@@ -298,7 +298,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
         assertThat(schemaAnnotation.validate(Json.parse("\"\"")).valid()).isTrue();
         
         // With format assertion enabled - unknown format should be no-op (no errors)
-        JsonSchema schemaAssertion = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schemaAssertion = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         assertThat(schemaAssertion.validate(Json.parse("\"x\"")).valid()).isTrue();
         assertThat(schemaAssertion.validate(Json.parse("\"\"")).valid()).isTrue();
     }
@@ -380,7 +380,7 @@ class JsonSchemaFormatTest extends JsonSchemaTestBase {
             }
             """;
         
-        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.Options(true));
+        JsonSchema schema = JsonSchema.compile(Json.parse(schemaJson), new JsonSchema.JsonSchemaOptions(true));
         
         // Valid: meets all constraints
         assertThat(schema.validate(Json.parse("\"test@example.com\"")).valid()).isTrue();

@@ -1,6 +1,5 @@
 package io.github.simbo1905.json.schema;
 
-import jdk.sandbox.java.util.json.Json;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -15,8 +14,8 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 import static org.assertj.core.api.Assertions.assertThat;
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
 /// Integration tests: validate OpenRPC documents using a minimal embedded meta-schema.
 /// Resources:

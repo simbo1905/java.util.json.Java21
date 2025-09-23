@@ -3,7 +3,7 @@ package io.github.simbo1905.json.schema;
 import jdk.sandbox.java.util.json.Json;
 import org.junit.jupiter.api.Test;
 
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /// Unit tests that exercise OpenRPC-like schema fragments using only

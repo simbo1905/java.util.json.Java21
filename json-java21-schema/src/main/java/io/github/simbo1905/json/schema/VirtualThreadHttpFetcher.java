@@ -21,7 +21,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
+
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 
 /// `RemoteFetcher` implementation that performs blocking HTTP requests
 /// on Java 21 virtual threads. Reuses responses via an in-memory cache
@@ -32,22 +33,32 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
     private final ConcurrentMap<URI, FetchResult> cache = new ConcurrentHashMap<>();
     private final AtomicInteger documentCount = new AtomicInteger();
     private final AtomicLong totalBytes = new AtomicLong();
+    private final String scheme;
 
-    VirtualThreadHttpFetcher() {
-        this(HttpClient.newBuilder().build());
-        // Centralized network logging banner
-        LOG.config(() -> "http.fetcher init redirectPolicy=default timeout=" + 0 + "ms");
+    VirtualThreadHttpFetcher(String scheme) {
+        this(scheme, HttpClient.newBuilder().build());
+        LOG.config(() -> "http.fetcher init scheme=" + this.scheme);
     }
 
-    VirtualThreadHttpFetcher(HttpClient client) {
+    VirtualThreadHttpFetcher(String scheme, HttpClient client) {
+        this.scheme = Objects.requireNonNull(scheme, "scheme").toLowerCase(Locale.ROOT);
         this.client = client;
     }
 
     @Override
-    public FetchResult fetch(URI uri, JsonSchema.FetchPolicy policy) {
+    public String scheme() {
+        return scheme;
+    }
+
+    @Override
+    public FetchResult fetch(URI uri, FetchPolicy policy) {
         Objects.requireNonNull(uri, "uri");
         Objects.requireNonNull(policy, "policy");
-        ensureSchemeAllowed(uri, policy.allowedSchemes());
+        String uriScheme = ensureSchemeAllowed(uri, policy.allowedSchemes());
+        if (!scheme.equals(uriScheme)) {
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED,
+                "Fetcher configured for scheme " + scheme + " but received " + uriScheme);
+        }
 
         FetchResult cached = cache.get(uri);
         if (cached != null) {
@@ -60,25 +71,25 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
         return previous != null ? previous : fetched;
     }
 
-    private FetchResult fetchOnVirtualThread(URI uri, JsonSchema.FetchPolicy policy) {
+    private FetchResult fetchOnVirtualThread(URI uri, FetchPolicy policy) {
         try (var executor = Executors.newVirtualThreadPerTaskExecutor()) {
             Future<FetchResult> future = executor.submit(() -> performFetch(uri, policy));
             return future.get();
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOG.severe(() -> "ERROR: FETCH: " + uri + " - interrupted TIMEOUT");
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.TIMEOUT, "Interrupted while fetching " + uri, e);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.TIMEOUT, "Interrupted while fetching " + uri, e);
         } catch (java.util.concurrent.ExecutionException e) {
             Throwable cause = e.getCause();
-            if (cause instanceof JsonSchema.RemoteResolutionException ex) {
+            if (cause instanceof RemoteResolutionException ex) {
                 throw ex;
             }
             LOG.severe(() -> "ERROR: FETCH: " + uri + " - exec NETWORK_ERROR");
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR, "Failed fetching " + uri, cause);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NETWORK_ERROR, "Failed fetching " + uri, cause);
         }
     }
 
-    private FetchResult performFetch(URI uri, JsonSchema.FetchPolicy policy) {
+    private FetchResult performFetch(URI uri, FetchPolicy policy) {
         enforceDocumentLimits(uri, policy);
         LOG.finer(() -> "http.fetch start method=GET uri=" + uri);
 
@@ -94,7 +105,7 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             int status = response.statusCode();
             if (status / 100 != 2) {
                 LOG.severe(() -> "ERROR: FETCH: " + uri + " - " + status + " NOT_FOUND");
-                throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.NOT_FOUND, "HTTP " + status + " fetching " + uri);
+                throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NOT_FOUND, "HTTP " + status + " fetching " + uri);
             }
 
             // Stream with hard cap to enforce maxDocumentBytes during read
@@ -110,7 +121,7 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
                     readTotal += n;
                     if (readTotal > cap) {
                         LOG.severe(() -> "ERROR: FETCH: " + uri + " - 413 PAYLOAD_TOO_LARGE");
-                        throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE, "Payload too large for " + uri);
+                        throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE, "Payload too large for " + uri);
                     }
                     out.write(buf, 0, n);
                 }
@@ -120,7 +131,7 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             long total = totalBytes.addAndGet(bytes.length);
             if (total > policy.maxTotalBytes()) {
                 LOG.severe(() -> "ERROR: FETCH: " + uri + " - policy TOTAL_BYTES_EXCEEDED");
-                throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED, "Total fetched bytes exceeded policy for " + uri);
+                throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED, "Total fetched bytes exceeded policy for " + uri);
             }
 
             String body = new String(bytes, StandardCharsets.UTF_8);
@@ -130,28 +141,29 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             return new FetchResult(json, bytes.length, Optional.of(elapsed));
         } catch (HttpTimeoutException e) {
             LOG.severe(() -> "ERROR: FETCH: " + uri + " - timeout TIMEOUT");
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.TIMEOUT, "Fetch timeout for " + uri, e);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.TIMEOUT, "Fetch timeout for " + uri, e);
         } catch (IOException e) {
             LOG.severe(() -> "ERROR: FETCH: " + uri + " - io NETWORK_ERROR");
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR, "I/O error fetching " + uri, e);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NETWORK_ERROR, "I/O error fetching " + uri, e);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             LOG.severe(() -> "ERROR: FETCH: " + uri + " - interrupted TIMEOUT");
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.TIMEOUT, "Interrupted fetching " + uri, e);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.TIMEOUT, "Interrupted fetching " + uri, e);
         }
     }
 
-    private void ensureSchemeAllowed(URI uri, Set<String> allowedSchemes) {
-        String scheme = uri.getScheme();
-        if (scheme == null || !allowedSchemes.contains(scheme.toLowerCase(Locale.ROOT))) {
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED, "Disallowed scheme: " + scheme);
+    private String ensureSchemeAllowed(URI uri, Set<String> allowedSchemes) {
+        String uriScheme = uri.getScheme();
+        if (uriScheme == null || !allowedSchemes.contains(uriScheme.toLowerCase(Locale.ROOT))) {
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED, "Disallowed scheme: " + uriScheme);
         }
+        return uriScheme.toLowerCase(Locale.ROOT);
     }
 
-    private void enforceDocumentLimits(URI uri, JsonSchema.FetchPolicy policy) {
+    private void enforceDocumentLimits(URI uri, FetchPolicy policy) {
         int docs = documentCount.incrementAndGet();
         if (docs > policy.maxDocuments()) {
-            throw new JsonSchema.RemoteResolutionException(uri, JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED, "Maximum document count exceeded for " + uri);
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED, "Maximum document count exceeded for " + uri);
         }
     }
 
@@ -162,7 +174,7 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
         
         try {
             long start = System.nanoTime();
-            JsonSchema.FetchPolicy policy = JsonSchema.FetchPolicy.defaults();
+            FetchPolicy policy = FetchPolicy.defaults();
             LOG.finest(() -> "fetchSchemaJson: policy object=" + policy + ", allowedSchemes=" + policy.allowedSchemes() + ", maxDocumentBytes=" + policy.maxDocumentBytes() + ", timeout=" + policy.timeout());
             
             JsonSchema.RemoteFetcher.FetchResult result = fetch(docUri, policy);
@@ -173,12 +185,12 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
             LOG.finest(() -> "fetchSchemaJson: returning document object=" + result.document() + ", type=" + result.document().getClass().getSimpleName() + ", content=" + result.document().toString());
             
             return result.document();
-        } catch (JsonSchema.RemoteResolutionException e) {
+        } catch (RemoteResolutionException e) {
             // Already logged by the fetch path; rethrow
             throw e;
         } catch (Exception e) {
             LOG.severe(() -> "ERROR: FETCH: " + docUri + " - unexpected NETWORK_ERROR");
-            throw new JsonSchema.RemoteResolutionException(docUri, JsonSchema.RemoteResolutionException.Reason.NETWORK_ERROR, "Failed to fetch schema", e);
+            throw new RemoteResolutionException(docUri, RemoteResolutionException.Reason.NETWORK_ERROR, "Failed to fetch schema", e);
         }
     }
 }

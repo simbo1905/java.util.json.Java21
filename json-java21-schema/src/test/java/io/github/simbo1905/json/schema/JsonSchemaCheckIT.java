@@ -8,7 +8,6 @@ import org.junit.jupiter.api.TestFactory;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assumptions;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -17,7 +16,6 @@ import java.nio.file.Paths;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.LongAdder;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -108,93 +106,97 @@ public class JsonSchemaCheckIT {
             }
             METRICS.testsDiscovered.add(testCount);
             perFile(file).tests.add(testCount);
-            
-            return StreamSupport.stream(root.spliterator(), false)
-                    .flatMap(group -> {
-                        final var groupDesc = group.get("description").asText();
-                        try {
-                            /// Attempt to compile the schema for this group; if unsupported features
-                            /// (e.g., unresolved anchors) are present, skip this group gracefully.
-                            final var schema = JsonSchema.compile(
-                                    Json.parse(group.get("schema").toString()));
 
-                            return StreamSupport.stream(group.get("tests").spliterator(), false)
-                                    .map(test -> DynamicTest.dynamicTest(
-                                            groupDesc + " – " + test.get("description").asText(),
-                                            () -> {
-                                                final var expected = test.get("valid").asBoolean();
-                                                final boolean actual;
-                                                try {
-                                                    actual = schema.validate(
-                                                            Json.parse(test.get("data").toString())).valid();
-                                                    
-                                                    /// Count validation attempt
-                                                    METRICS.run.increment();
-                                                    perFile(file).run.increment();
-                                                } catch (Exception e) {
-                                                    final var reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
-                                                    System.err.println("[JsonSchemaCheckIT] Skipping test due to exception: "
-                                                            + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
-                                                    
-                                                    /// Count exception as skipped mismatch in strict metrics
-                                                    METRICS.skippedMismatch.increment();
-                                                    perFile(file).skipMismatch.increment();
-                                                    
-                                                    if (isStrict()) throw e;
-                                                    Assumptions.assumeTrue(false, "Skipped: " + reason);
-                                                    return; /// not reached when strict
-                                                }
-
-                                                if (isStrict()) {
-                                                    try {
-                                                        assertEquals(expected, actual);
-                                                        /// Count pass in strict mode
-                                                        METRICS.passed.increment();
-                                                        perFile(file).pass.increment();
-                                                    } catch (AssertionError e) {
-                                                        /// Count failure in strict mode
-                                                        METRICS.failed.increment();
-                                                        perFile(file).fail.increment();
-                                                        throw e;
-                                                    }
-                                                } else if (expected != actual) {
-                                                    System.err.println("[JsonSchemaCheckIT] Mismatch (ignored): "
-                                                            + groupDesc + " — expected=" + expected + ", actual=" + actual
-                                                            + " (" + file.getFileName() + ")");
-                                                    
-                                                    /// Count lenient mismatch skip
-                                                    METRICS.skippedMismatch.increment();
-                                                    perFile(file).skipMismatch.increment();
-                                                    
-                                                    Assumptions.assumeTrue(false, "Mismatch ignored");
-                                                } else {
-                                                    /// Count pass in lenient mode
-                                                    METRICS.passed.increment();
-                                                    perFile(file).pass.increment();
-                                                }
-                                            }));
-                        } catch (Exception ex) {
-                            /// Unsupported schema for this group; emit a single skipped test for visibility
-                            final var reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-                            System.err.println("[JsonSchemaCheckIT] Skipping group due to unsupported schema: "
-                                    + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
-                            
-                            /// Count unsupported group skip
-                            METRICS.skippedUnsupported.increment();
-                            perFile(file).skipUnsupported.increment();
-                            
-                            return Stream.of(DynamicTest.dynamicTest(
-                                    groupDesc + " – SKIPPED: " + reason,
-                                    () -> { if (isStrict()) throw ex; Assumptions.assumeTrue(false, "Unsupported schema: " + reason); }
-                            ));
-                        }
-                    });
+          return dynamicTestStream(file, root);
         } catch (Exception ex) {
             throw new RuntimeException("Failed to process " + file, ex);
         }
     }
 
-    static StrictMetrics.FileCounters perFile(Path file) {
+  static Stream<DynamicTest> dynamicTestStream(Path file, JsonNode root) {
+    return StreamSupport.stream(root.spliterator(), false)
+            .flatMap(group -> {
+                final var groupDesc = group.get("description").asText();
+                try {
+                    /// Attempt to compile the schema for this group; if unsupported features
+                    /// (e.g., unresolved anchors) are present, skip this group gracefully.
+                    final var schema = JsonSchema.compile(
+                            Json.parse(group.get("schema").toString()));
+
+                    return StreamSupport.stream(group.get("tests").spliterator(), false)
+                            .map(test -> DynamicTest.dynamicTest(
+                                    groupDesc + " – " + test.get("description").asText(),
+                                    () -> {
+                                        final var expected = test.get("valid").asBoolean();
+                                        final boolean actual;
+                                        try {
+                                            actual = schema.validate(
+                                                    Json.parse(test.get("data").toString())).valid();
+
+                                            /// Count validation attempt
+                                            METRICS.run.increment();
+                                            perFile(file).run.increment();
+                                        } catch (Exception e) {
+                                            final var reason = e.getMessage() == null ? e.getClass().getSimpleName() : e.getMessage();
+                                            System.err.println("[JsonSchemaCheckIT] Skipping test due to exception: "
+                                                    + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
+
+                                            /// Count exception as skipped mismatch in strict metrics
+                                            METRICS.skippedMismatch.increment();
+                                            perFile(file).skipMismatch.increment();
+
+                                            if (isStrict()) throw e;
+                                            Assumptions.assumeTrue(false, "Skipped: " + reason);
+                                            return; /// not reached when strict
+                                        }
+
+                                        if (isStrict()) {
+                                            try {
+                                                assertEquals(expected, actual);
+                                                /// Count pass in strict mode
+                                                METRICS.passed.increment();
+                                                perFile(file).pass.increment();
+                                            } catch (AssertionError e) {
+                                                /// Count failure in strict mode
+                                                METRICS.failed.increment();
+                                                perFile(file).fail.increment();
+                                                throw e;
+                                            }
+                                        } else if (expected != actual) {
+                                            System.err.println("[JsonSchemaCheckIT] Mismatch (ignored): "
+                                                    + groupDesc + " — expected=" + expected + ", actual=" + actual
+                                                    + " (" + file.getFileName() + ")");
+
+                                            /// Count lenient mismatch skip
+                                            METRICS.skippedMismatch.increment();
+                                            perFile(file).skipMismatch.increment();
+
+                                            Assumptions.assumeTrue(false, "Mismatch ignored");
+                                        } else {
+                                            /// Count pass in lenient mode
+                                            METRICS.passed.increment();
+                                            perFile(file).pass.increment();
+                                        }
+                                    }));
+                } catch (Exception ex) {
+                    /// Unsupported schema for this group; emit a single skipped test for visibility
+                    final var reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
+                    System.err.println("[JsonSchemaCheckIT] Skipping group due to unsupported schema: "
+                            + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
+
+                    /// Count unsupported group skip
+                    METRICS.skippedUnsupported.increment();
+                    perFile(file).skipUnsupported.increment();
+
+                    return Stream.of(DynamicTest.dynamicTest(
+                            groupDesc + " – SKIPPED: " + reason,
+                            () -> { if (isStrict()) throw ex; Assumptions.assumeTrue(false, "Unsupported schema: " + reason); }
+                    ));
+                }
+            });
+  }
+
+  static StrictMetrics.FileCounters perFile(Path file) {
         return METRICS.perFile.computeIfAbsent(file.getFileName().toString(), k -> new StrictMetrics.FileCounters());
     }
 

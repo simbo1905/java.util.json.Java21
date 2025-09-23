@@ -3,7 +3,8 @@ package io.github.simbo1905.json.schema;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
+
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 
 /// Test utility for handling file:// URLs in remote reference tests
 /// Provides consistent path resolution and configuration for test resources
@@ -23,10 +24,7 @@ public final class TestResourceUtils {
     
     static {
         // Log configuration at CONFIG level for debugging
-        LOG.config(() -> "Test Resource Configuration:");
-        LOG.config(() -> "  TEST_RESOURCE_BASE: " + TEST_RESOURCE_BASE);
-        LOG.config(() -> "  TEST_WORKING_DIR: " + TEST_WORKING_DIR);
-        LOG.config(() -> "  Absolute resource base: " + Paths.get(TEST_RESOURCE_BASE).toAbsolutePath());
+      LOG.config(() -> "Test Resource Configuration:\n  TEST_RESOURCE_BASE: " + TEST_RESOURCE_BASE + "\n  TEST_WORKING_DIR: " + TEST_WORKING_DIR + "\n  Absolute resource base: " + Paths.get(TEST_RESOURCE_BASE).toAbsolutePath());
     }
     
     /// Get a file:// URI for a test resource file

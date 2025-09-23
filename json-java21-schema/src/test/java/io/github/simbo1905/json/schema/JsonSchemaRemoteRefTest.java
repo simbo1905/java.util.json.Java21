@@ -6,409 +6,414 @@ import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import static io.github.simbo1905.json.schema.SchemaLogging.LOG;
 
+import static io.github.simbo1905.json.schema.JsonSchema.LOG;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
 
-    @Test
-    void resolves_http_ref_to_pointer_inside_remote_doc() {
-        LOG.info(() -> "START resolves_http_ref_to_pointer_inside_remote_doc");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
-        final var remoteDoc = Json.parse("""
-            {
-              "$id": "file:///JsonSchemaRemoteRefTest/a.json",
+  @Test
+  void resolves_http_ref_to_pointer_inside_remote_doc() {
+    LOG.info(() -> "START resolves_http_ref_to_pointer_inside_remote_doc");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
+    final var remoteDoc = Json.parse("""
+        {
+          "$id": "file:///JsonSchemaRemoteRefTest/a.json",
+          "$defs": {
+            "X": {
+              "type": "integer",
+              "minimum": 2
+            }
+          }
+        }
+        """);
+    logRemote("remoteDoc=", remoteDoc);
+    final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+
+    LOG.finer(() -> "Compiling schema for file remote ref");
+    final var schema = JsonSchema.compile(URI.create("urn:inmemory:root"), Json.parse("""
+        {"$ref":"file:///JsonSchemaRemoteRefTest/a.json#/$defs/X"}
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, options);
+
+    final var pass = schema.validate(Json.parse("3"));
+    logResult("validate-3", pass);
+    assertThat(pass.valid()).isTrue();
+    final var fail = schema.validate(Json.parse("1"));
+    logResult("validate-1", fail);
+    assertThat(fail.valid()).isFalse();
+  }
+
+  static void logRemote(String label, JsonValue json) {
+    LOG.finest(() -> label + json);
+  }
+
+  static void logResult(String label, JsonSchema.ValidationResult result) {
+    LOG.fine(() -> label + " valid=" + result.valid());
+    if (!result.valid()) {
+      LOG.finest(() -> label + " errors=" + result.errors());
+    }
+  }
+
+  @Test
+  void resolves_relative_ref_against_remote_id_chain() {
+    LOG.info(() -> "START resolves_relative_ref_against_remote_id_chain");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/base/root.json");
+    final var remoteDoc = Json.parse("""
+        {
+          "$id": "%s",
+          "$defs": {
+            "Module": {
+              "$id": "dir/schema.json",
               "$defs": {
-                "X": {
-                  "type": "integer",
-                  "minimum": 2
+                "Name": {
+                  "type": "string",
+                  "minLength": 2
                 }
-              }
+              },
+              "$ref": "#/$defs/Name"
             }
-            """);
-        logRemote("remoteDoc=", remoteDoc);
-        final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+          }
+        }
+        """.formatted(remoteUri));
+    logRemote("remoteDoc=", remoteDoc);
+    final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
-        LOG.finer(() -> "Compiling schema for file remote ref");
-        final var schema = JsonSchema.compile(
-            Json.parse("""
-            {"$ref":"file:///JsonSchemaRemoteRefTest/a.json#/$defs/X"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+    LOG.finer(() -> "Compiling schema for relative remote $id chain");
+    final var schema = JsonSchema.compile(URI.create("urn:inmemory:root"), Json.parse("""
+        {"$ref":"%s#/$defs/Module"}
+        """.formatted(remoteUri)), JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        final var pass = schema.validate(Json.parse("3"));
-        logResult("validate-3", pass);
-        assertThat(pass.valid()).isTrue();
-        final var fail = schema.validate(Json.parse("1"));
-        logResult("validate-1", fail);
-        assertThat(fail.valid()).isFalse();
-    }
+    final var ok = schema.validate(Json.parse("\"Al\""));
+    logResult("validate-Al", ok);
+    assertThat(ok.valid()).isTrue();
+    final var bad = schema.validate(Json.parse("\"A\""));
+    logResult("validate-A", bad);
+    assertThat(bad.valid()).isFalse();
+  }
 
-    @Test
-    void resolves_relative_ref_against_remote_id_chain() {
-        LOG.info(() -> "START resolves_relative_ref_against_remote_id_chain");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/base/root.json");
-        final var remoteDoc = Json.parse("""
-            {
-              "$id": "%s",
-              "$defs": {
-                "Module": {
-                  "$id": "dir/schema.json",
-                  "$defs": {
-                    "Name": {
-                      "type": "string",
-                      "minLength": 2
-                    }
-                  },
-                  "$ref": "#/$defs/Name"
-                }
-              }
+  @Test
+  void resolves_named_anchor_in_remote_doc() {
+    LOG.info(() -> "START resolves_named_anchor_in_remote_doc");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/anchors.json");
+    final var remoteDoc = Json.parse("""
+        {
+          "$id": "%s",
+          "$anchor": "root",
+          "$defs": {
+            "A": {
+              "$anchor": "top",
+              "type": "string"
             }
-            """.formatted(remoteUri));
-        logRemote("remoteDoc=", remoteDoc);
-        final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+          }
+        }
+        """.formatted(remoteUri));
+    logRemote("remoteDoc=", remoteDoc);
+    final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
-        LOG.finer(() -> "Compiling schema for relative remote $id chain");
-        final var schema = JsonSchema.compile(
-            Json.parse("""
-            {"$ref":"%s#/$defs/Module"}
-            """.formatted(remoteUri)),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+    LOG.finer(() -> "Compiling schema for remote anchor");
+    final var schema = JsonSchema.compile(URI.create("urn:inmemory:root"), Json.parse("""
+        {"$ref":"%s#top"}
+        """.formatted(remoteUri)), JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        final var ok = schema.validate(Json.parse("\"Al\""));
-        logResult("validate-Al", ok);
-        assertThat(ok.valid()).isTrue();
-        final var bad = schema.validate(Json.parse("\"A\""));
-        logResult("validate-A", bad);
-        assertThat(bad.valid()).isFalse();
-    }
+    final var pass = schema.validate(Json.parse("\"x\""));
+    logResult("validate-x", pass);
+    assertThat(pass.valid()).isTrue();
+    final var fail = schema.validate(Json.parse("1"));
+    logResult("validate-1", fail);
+    assertThat(fail.valid()).isFalse();
+  }
 
-    @Test
-    void resolves_named_anchor_in_remote_doc() {
-        LOG.info(() -> "START resolves_named_anchor_in_remote_doc");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/anchors.json");
-        final var remoteDoc = Json.parse("""
-            {
-              "$id": "%s",
-              "$anchor": "root",
-              "$defs": {
-                "A": {
-                  "$anchor": "top",
-                  "type": "string"
-                }
-              }
-            }
-            """.formatted(remoteUri));
-        logRemote("remoteDoc=", remoteDoc);
-        final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+  @Test
+  void error_unresolvable_remote_pointer() {
+    LOG.info(() -> "START error_unresolvable_remote_pointer");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
+    final var remoteDoc = Json.parse("""
+        {
+          "$id": "file:///JsonSchemaRemoteRefTest/a.json",
+          "$defs": {
+            "Present": {"type":"integer"}
+          }
+        }
+        """);
+    logRemote("remoteDoc=", remoteDoc);
+    final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
-        LOG.finer(() -> "Compiling schema for remote anchor");
-        final var schema = JsonSchema.compile(
-            Json.parse("""
-            {"$ref":"%s#top"}
-            """.formatted(remoteUri)),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+    LOG.finer(() -> "Attempting compile expecting pointer failure");
+    final ThrowableAssert.ThrowingCallable compile = () -> JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+        {"$ref":"file:///JsonSchemaRemoteRefTest/a.json#/$defs/Missing"}
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        final var pass = schema.validate(Json.parse("\"x\""));
-        logResult("validate-x", pass);
-        assertThat(pass.valid()).isTrue();
-        final var fail = schema.validate(Json.parse("1"));
-        logResult("validate-1", fail);
-        assertThat(fail.valid()).isFalse();
-    }
+    LOG.finer(() -> "Asserting RemoteResolutionException for missing pointer");
+    assertThatThrownBy(compile).isInstanceOf(RemoteResolutionException.class)
+        .hasFieldOrPropertyWithValue("reason", RemoteResolutionException.Reason.POINTER_MISSING)
+        .hasMessageContaining("file:///JsonSchemaRemoteRefTest/a.json#/$defs/Missing");
+  }
 
-    @Test
-    void error_unresolvable_remote_pointer() {
-        LOG.info(() -> "START error_unresolvable_remote_pointer");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
-        final var remoteDoc = Json.parse("""
-            {
-              "$id": "file:///JsonSchemaRemoteRefTest/a.json",
-              "$defs": {
-                "Present": {"type":"integer"}
-              }
-            }
-            """);
-        logRemote("remoteDoc=", remoteDoc);
-        final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+  static JsonValue toJson(String json) {
+    return Json.parse(json);
+  }
 
-        LOG.finer(() -> "Attempting compile expecting pointer failure");
-        final ThrowableAssert.ThrowingCallable compile = () -> JsonSchema.compile(
-            toJson("""
-            {"$ref":"file:///JsonSchemaRemoteRefTest/a.json#/$defs/Missing"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+  final FetchPolicy policy = FetchPolicy.defaults().withAllowedSchemes(Set.of("http", "https","file"));
+  @Test
+  void denies_disallowed_scheme() {
+    LOG.info(() -> "START denies_disallowed_scheme");
+    final var jailRoot = Path.of(System.getProperty("user.dir"), "json-java21-schema", "src", "test", "resources").toAbsolutePath().normalize();
+    final var options = JsonSchema.CompileOptions.remoteDefaults(new FileFetcher(jailRoot)).withFetchPolicy(policy);
 
-        LOG.finer(() -> "Asserting RemoteResolutionException for missing pointer");
-        assertThatThrownBy(compile)
-            .isInstanceOf(JsonSchema.RemoteResolutionException.class)
-            .hasFieldOrPropertyWithValue("reason", JsonSchema.RemoteResolutionException.Reason.POINTER_MISSING)
-            .hasMessageContaining("file:///JsonSchemaRemoteRefTest/a.json#/$defs/Missing");
-    }
+    LOG.finer(() -> "Compiling schema expecting disallowed scheme");
 
-    @Test
-    void denies_disallowed_scheme() {
-        LOG.info(() -> "START denies_disallowed_scheme");
-        final var fetcher = new MapRemoteFetcher(Map.of());
-        final var policy = JsonSchema.FetchPolicy.defaults().withAllowedSchemes(Set.of("http", "https"));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher).withFetchPolicy(policy);
+    final var passwordFile = toJson("""
+        {"$ref":"file:///etc/passwd#/"}
+        """);
 
-        LOG.finer(() -> "Compiling schema expecting disallowed scheme");
-        final ThrowableAssert.ThrowingCallable compile = () -> JsonSchema.compile(
-            toJson("""
-            {"$ref":"file:///etc/passwd#/"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+    final ThrowableAssert.ThrowingCallable compile = () ->
+        JsonSchema.compile(URI.create("urn:inmemory:root"), passwordFile, JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        LOG.finer(() -> "Asserting RemoteResolutionException for scheme policy");
-        assertThatThrownBy(compile)
-            .isInstanceOf(JsonSchema.RemoteResolutionException.class)
-            .hasFieldOrPropertyWithValue("reason", JsonSchema.RemoteResolutionException.Reason.POLICY_DENIED)
-            .hasMessageContaining("file:///etc/passwd");
-    }
+    LOG.finer(() -> "Asserting RemoteResolutionException for scheme policy");
+    assertThatThrownBy(compile)
+        .isInstanceOf(RemoteResolutionException.class)
+        .hasFieldOrPropertyWithValue("reason", RemoteResolutionException.Reason.POLICY_DENIED)
+        .hasMessageContaining("Outside jail")
+        .hasMessageContaining("/etc/passwd");
+  }
 
-    @Test
-    void enforces_timeout_and_size_limits() {
-        LOG.info(() -> "START enforces_timeout_and_size_limits");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/cache.json");
-        final var remoteDoc = toJson("""
-            {"type":"integer"}
-            """);
-        logRemote("remoteDoc=", remoteDoc);
+  @Test
+  void enforces_timeout_and_size_limits() {
+    LOG.info(() -> "START enforces_timeout_and_size_limits");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/cache.json");
+    final var remoteDoc = toJson("""
+        {"type":"integer"}
+        """);
+    logRemote("remoteDoc=", remoteDoc);
 
-        final var policy = JsonSchema.FetchPolicy.defaults()
-            .withMaxDocumentBytes()
-            .withTimeout(Duration.ofMillis(5));
+    final var policy = FetchPolicy.defaults().withMaxDocumentBytes().withTimeout(Duration.ofMillis(5));
 
-        final var oversizedFetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc, 2048, Optional.of(Duration.ofMillis(1)))));
-        final var timeoutFetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc, 1, Optional.of(Duration.ofMillis(50)))));
+    final var oversizedFetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc, 2048, Duration.ofMillis(1))));
+    final var timeoutFetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc, 1, Duration.ofMillis(50))));
 
-        final var oversizedOptions = JsonSchema.CompileOptions.remoteDefaults(oversizedFetcher).withFetchPolicy(policy);
-        final var timeoutOptions = JsonSchema.CompileOptions.remoteDefaults(timeoutFetcher).withFetchPolicy(policy);
+    final var oversizedOptions = JsonSchema.CompileOptions.remoteDefaults(oversizedFetcher).withFetchPolicy(policy);
+    final var timeoutOptions = JsonSchema.CompileOptions.remoteDefaults(timeoutFetcher).withFetchPolicy(policy);
 
-        LOG.finer(() -> "Asserting payload too large");
-        final ThrowableAssert.ThrowingCallable oversizedCompile = () -> JsonSchema.compile(
-            toJson("""
+    LOG.finer(() -> "Asserting payload too large");
+    final ThrowableAssert.ThrowingCallable oversizedCompile = () -> JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+        {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"}
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, oversizedOptions);
+
+    assertThatThrownBy(oversizedCompile)
+        .isInstanceOf(RemoteResolutionException.class)
+        .hasFieldOrPropertyWithValue("reason", RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE)
+        .hasMessageContaining("file:///JsonSchemaRemoteRefTest/cache.json");
+
+    LOG.finer(() -> "Asserting timeout policy violation");
+    final ThrowableAssert.ThrowingCallable timeoutCompile = () -> JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+        {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"}
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, timeoutOptions);
+
+    assertThatThrownBy(timeoutCompile).isInstanceOf(RemoteResolutionException.class).hasFieldOrPropertyWithValue("reason", RemoteResolutionException.Reason.TIMEOUT).hasMessageContaining("file:///JsonSchemaRemoteRefTest/cache.json");
+  }
+
+  @Test
+  void caches_remote_doc_and_reuses_compiled_node() {
+    LOG.info(() -> "START caches_remote_doc_and_reuses_compiled_node");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/cache.json");
+    final var remoteDoc = toJson("""
+        {
+          "$id": "file:///JsonSchemaRemoteRefTest/cache.json",
+          "type": "integer"
+        }
+        """);
+    logRemote("remoteDoc=", remoteDoc);
+
+    final var fetcher = new CountingFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+
+    LOG.finer(() -> "Compiling schema twice with same remote ref");
+    final var schema = JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+        {
+          "allOf": [
+            {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"},
             {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            oversizedOptions
-        );
-
-        assertThatThrownBy(oversizedCompile)
-            .isInstanceOf(JsonSchema.RemoteResolutionException.class)
-            .hasFieldOrPropertyWithValue("reason", JsonSchema.RemoteResolutionException.Reason.PAYLOAD_TOO_LARGE)
-            .hasMessageContaining("file:///JsonSchemaRemoteRefTest/cache.json");
-
-        LOG.finer(() -> "Asserting timeout policy violation");
-        final ThrowableAssert.ThrowingCallable timeoutCompile = () -> JsonSchema.compile(
-            toJson("""
-            {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            timeoutOptions
-        );
-
-        assertThatThrownBy(timeoutCompile)
-            .isInstanceOf(JsonSchema.RemoteResolutionException.class)
-            .hasFieldOrPropertyWithValue("reason", JsonSchema.RemoteResolutionException.Reason.TIMEOUT)
-            .hasMessageContaining("file:///JsonSchemaRemoteRefTest/cache.json");
-    }
-
-    @Test
-    void caches_remote_doc_and_reuses_compiled_node() {
-        LOG.info(() -> "START caches_remote_doc_and_reuses_compiled_node");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/cache.json");
-        final var remoteDoc = toJson("""
-            {
-              "$id": "file:///JsonSchemaRemoteRefTest/cache.json",
-              "type": "integer"
+              ]
             }
-            """);
-        logRemote("remoteDoc=", remoteDoc);
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        final var fetcher = new CountingFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+    assertThat(fetcher.calls()).isEqualTo(1);
+    final var first = schema.validate(toJson("5"));
+    logResult("validate-5-first", first);
+    assertThat(first.valid()).isTrue();
+    final var second = schema.validate(toJson("5"));
+    logResult("validate-5-second", second);
+    assertThat(second.valid()).isTrue();
+    assertThat(fetcher.calls()).isEqualTo(1);
+  }
 
-        LOG.finer(() -> "Compiling schema twice with same remote ref");
-        final var schema = JsonSchema.compile(
-            toJson("""
-            {
-              "allOf": [
-                {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"},
-                {"$ref":"file:///JsonSchemaRemoteRefTest/cache.json"}
-                  ]
-                }
-                """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
+  @Test
+  void detects_cross_document_cycle() {
+    LOG.info(() -> "START detects_cross_document_cycle");
+    final var uriA = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
+    final var uriB = URI.create("file:///JsonSchemaRemoteRefTest/b.json");
+    final var docA = toJson("""
+        {"$id":"file:///JsonSchemaRemoteRefTest/a.json","$ref":"file:///JsonSchemaRemoteRefTest/b.json"}
+        """);
+    final var docB = toJson("""
+        {"$id":"file:///JsonSchemaRemoteRefTest/b.json","$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
+        """);
+    logRemote("docA=", docA);
+    logRemote("docB=", docB);
 
-        assertThat(fetcher.calls()).isEqualTo(1);
-        final var first = schema.validate(toJson("5"));
-        logResult("validate-5-first", first);
-        assertThat(first.valid()).isTrue();
-        final var second = schema.validate(toJson("5"));
-        logResult("validate-5-second", second);
-        assertThat(second.valid()).isTrue();
-        assertThat(fetcher.calls()).isEqualTo(1);
+    final var fetcher = new MapRemoteFetcher(Map.of(uriA, RemoteDocument.json(docA), uriB, RemoteDocument.json(docB)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
+
+    LOG.finer(() -> "Compiling schema expecting cycle detection");
+    try (CapturedLogs logs = captureLogs()) {
+      assertThatThrownBy(() -> JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+          {"$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
+          """), JsonSchema.JsonSchemaOptions.DEFAULT, options)).isInstanceOf(IllegalStateException.class).hasMessageContaining("ERROR: CYCLE: remote $ref cycle");
+      assertThat(logs.lines().stream().anyMatch(line -> line.startsWith("ERROR: CYCLE:"))).isTrue();
     }
+  }
 
-    @Test
-    void detects_cross_document_cycle() {
-        LOG.info(() -> "START detects_cross_document_cycle");
-        final var uriA = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
-        final var uriB = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/b.json");
-        final var docA = toJson("""
-            {"$id":"file:///JsonSchemaRemoteRefTest/a.json","$ref":"file:///JsonSchemaRemoteRefTest/b.json"}
-            """);
-        final var docB = toJson("""
-            {"$id":"file:///JsonSchemaRemoteRefTest/b.json","$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
-            """);
-        logRemote("docA=", docA);
-        logRemote("docB=", docB);
+  static CapturedLogs captureLogs() {
+    return new CapturedLogs(java.util.logging.Level.SEVERE);
+  }
 
-        final var fetcher = new MapRemoteFetcher(Map.of(
-            uriA, RemoteDocument.json(docA),
-            uriB, RemoteDocument.json(docB)
-        ));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
-
-        LOG.finer(() -> "Compiling schema expecting cycle detection");
-        try (CapturedLogs logs = captureLogs(java.util.logging.Level.SEVERE)) {
-            assertThatThrownBy(() -> JsonSchema.compile(
-                toJson("""
-                {"$ref":"file:///JsonSchemaRemoteRefTest/a.json"}
-                """),
-                JsonSchema.Options.DEFAULT,
-                options
-            )).isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("ERROR: CYCLE: remote $ref cycle");
-            assertThat(logs.lines().stream().anyMatch(line -> line.startsWith("ERROR: CYCLE:"))).isTrue();
-        }
-    }
-
-    @Test
-    void resolves_anchor_defined_in_nested_remote_scope() {
-        LOG.info(() -> "START resolves_anchor_defined_in_nested_remote_scope");
-        final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/nest.json");
-        final var remoteDoc = toJson("""
-            {
-              "$id": "file:///JsonSchemaRemoteRefTest/nest.json",
-              "$defs": {
-                "Inner": {
-                  "$anchor": "inner",
-                  "type": "number",
-                  "minimum": 0
-                }
-              }
+  @Test
+  void resolves_anchor_defined_in_nested_remote_scope() {
+    LOG.info(() -> "START resolves_anchor_defined_in_nested_remote_scope");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/nest.json");
+    final var remoteDoc = toJson("""
+        {
+          "$id": "file:///JsonSchemaRemoteRefTest/nest.json",
+          "$defs": {
+            "Inner": {
+              "$anchor": "inner",
+              "type": "number",
+              "minimum": 0
             }
-            """);
-        logRemote("remoteDoc=", remoteDoc);
-
-        final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
-        final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
-
-        LOG.finer(() -> "Compiling schema for nested anchor");
-        final var schema = JsonSchema.compile(
-            toJson("""
-            {"$ref":"file:///JsonSchemaRemoteRefTest/nest.json#inner"}
-            """),
-            JsonSchema.Options.DEFAULT,
-            options
-        );
-
-        final var positive = schema.validate(toJson("1"));
-        logResult("validate-1", positive);
-        assertThat(positive.valid()).isTrue();
-        final var negative = schema.validate(toJson("-1"));
-        logResult("validate-minus1", negative);
-        assertThat(negative.valid()).isFalse();
-    }
-
-    private static JsonValue toJson(String json) {
-        return Json.parse(json);
-    }
-
-    private record RemoteDocument(JsonValue document, long byteSize, Optional<Duration> elapsed) {
-        static RemoteDocument json(JsonValue document) {
-            return new RemoteDocument(document, document.toString().getBytes().length, Optional.empty());
+          }
         }
+        """);
+    logRemote("remoteDoc=", remoteDoc);
 
-        static RemoteDocument json(JsonValue document, long byteSize, Optional<Duration> elapsed) {
-            return new RemoteDocument(document, byteSize, elapsed);
-        }
-    }
+    final var fetcher = new MapRemoteFetcher(Map.of(remoteUri, RemoteDocument.json(remoteDoc)));
+    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher);
 
-    private static final class MapRemoteFetcher implements JsonSchema.RemoteFetcher {
-        private final Map<URI, RemoteDocument> documents;
+    LOG.finer(() -> "Compiling schema for nested anchor");
+    final var schema = JsonSchema.compile(URI.create("urn:inmemory:root"), toJson("""
+        {"$ref":"file:///JsonSchemaRemoteRefTest/nest.json#inner"}
+        """), JsonSchema.JsonSchemaOptions.DEFAULT, options);
 
-        private MapRemoteFetcher(Map<URI, RemoteDocument> documents) {
-            this.documents = Map.copyOf(documents);
+    final var positive = schema.validate(toJson("1"));
+    logResult("validate-1", positive);
+    assertThat(positive.valid()).isTrue();
+    final var negative = schema.validate(toJson("-1"));
+    logResult("validate-minus1", negative);
+    assertThat(negative.valid()).isFalse();
+  }
+
+  static final class CapturedLogs implements AutoCloseable {
+    private final java.util.logging.Handler handler;
+    private final List<String> lines = new ArrayList<>();
+    private final java.util.logging.Level original;
+
+    CapturedLogs(java.util.logging.Level level) {
+      original = LOG.getLevel();
+      LOG.setLevel(level);
+      handler = new java.util.logging.Handler() {
+        @Override
+        public void publish(java.util.logging.LogRecord record) {
+          if (record.getLevel().intValue() >= level.intValue()) {
+            lines.add(record.getMessage());
+          }
         }
 
         @Override
-        public FetchResult fetch(URI uri, JsonSchema.FetchPolicy policy) {
-            final var doc = documents.get(uri);
-            if (doc == null) {
-                throw new JsonSchema.RemoteResolutionException(
-                    uri,
-                    JsonSchema.RemoteResolutionException.Reason.NOT_FOUND,
-                    "No remote document registered for " + uri
-                );
-            }
-            return new FetchResult(doc.document(), doc.byteSize(), doc.elapsed());
-        }
-    }
-
-    private static final class CountingFetcher implements JsonSchema.RemoteFetcher {
-        private final MapRemoteFetcher delegate;
-        private final AtomicInteger calls = new AtomicInteger();
-
-        private CountingFetcher(Map<URI, RemoteDocument> documents) {
-            this.delegate = new MapRemoteFetcher(documents);
+        public void flush() {
         }
 
-        int calls() {
-            return calls.get();
-        }
-        
         @Override
-        public FetchResult fetch(URI uri, JsonSchema.FetchPolicy policy) {
-            calls.incrementAndGet();
-            return delegate.fetch(uri, policy);
+        public void close() throws SecurityException {
         }
+      };
+      LOG.addHandler(handler);
     }
 
-    private static void logRemote(String label, JsonValue json) {
-        LOG.finest(() -> label + json);
+    List<String> lines() {
+      return List.copyOf(lines);
     }
 
-    private static void logResult(String label, JsonSchema.ValidationResult result) {
-        LOG.fine(() -> label + " valid=" + result.valid());
-        if (!result.valid()) {
-            LOG.finest(() -> label + " errors=" + result.errors());
-        }
+    @Override
+    public void close() {
+      LOG.removeHandler(handler);
+      LOG.setLevel(original);
     }
+  }
+
+  record RemoteDocument(JsonValue document, long byteSize, Optional<Duration> elapsed) {
+    static RemoteDocument json(JsonValue document) {
+      return new RemoteDocument(document, document.toString().getBytes().length, Optional.empty());
+    }
+
+    static RemoteDocument json(JsonValue document, long byteSize, Duration elapsed) {
+      return new RemoteDocument(document, byteSize, Optional.ofNullable(elapsed));
+    }
+  }
+
+  record MapRemoteFetcher(String scheme, Map<URI, RemoteDocument> documents) implements JsonSchema.RemoteFetcher {
+    MapRemoteFetcher(Map<URI, RemoteDocument> documents) {
+      this("file", documents);
+    }
+
+    MapRemoteFetcher(String scheme, Map<URI, RemoteDocument> documents) {
+      this.scheme = Objects.requireNonNull(scheme, "scheme");
+      this.documents = Map.copyOf(Objects.requireNonNull(documents, "documents"));
+    }
+
+    @Override
+    public String scheme() {
+      return scheme;
+    }
+
+    @Override
+    public FetchResult fetch(URI uri, FetchPolicy policy) {
+      final var doc = documents.get(uri);
+      if (doc == null) {
+        throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.NOT_FOUND, "No remote document registered for " + uri);
+      }
+      return new FetchResult(doc.document(), doc.byteSize(), doc.elapsed());
+    }
+  }
+
+  static final class CountingFetcher implements JsonSchema.RemoteFetcher {
+    private final MapRemoteFetcher delegate;
+    private final AtomicInteger calls = new AtomicInteger();
+
+    private CountingFetcher(Map<URI, RemoteDocument> documents) {
+      this.delegate = new MapRemoteFetcher(documents);
+    }
+
+    int calls() {
+      return calls.get();
+    }
+
+    @Override
+    public String scheme() {
+      return delegate.scheme();
+    }
+
+    @Override
+    public FetchResult fetch(URI uri, FetchPolicy policy) {
+      calls.incrementAndGet();
+      return delegate.fetch(uri, policy);
+    }
+  }
 }
