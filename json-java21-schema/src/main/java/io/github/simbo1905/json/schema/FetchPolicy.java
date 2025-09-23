@@ -13,6 +13,9 @@ public record FetchPolicy(
     int maxDocuments,
     int maxDepth
 ) {
+  public static final String HTTPS = "https";
+  public static final String HTTP = "http";
+
   public FetchPolicy {
     Objects.requireNonNull(allowedSchemes, "allowedSchemes");
     Objects.requireNonNull(timeout, "timeout");

@@ -6,6 +6,7 @@ import org.assertj.core.api.ThrowableAssert;
 import org.junit.jupiter.api.Test;
 
 import java.net.URI;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -15,12 +16,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
-  final MapRemoteFetcher fetcher = new MapRemoteFetcher(Map.of());
 
   @Test
   void resolves_http_ref_to_pointer_inside_remote_doc() {
     LOG.info(() -> "START resolves_http_ref_to_pointer_inside_remote_doc");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
     final var remoteDoc = Json.parse("""
         {
           "$id": "file:///JsonSchemaRemoteRefTest/a.json",
@@ -63,7 +63,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void resolves_relative_ref_against_remote_id_chain() {
     LOG.info(() -> "START resolves_relative_ref_against_remote_id_chain");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/base/root.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/base/root.json");
     final var remoteDoc = Json.parse("""
         {
           "$id": "%s",
@@ -101,7 +101,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void resolves_named_anchor_in_remote_doc() {
     LOG.info(() -> "START resolves_named_anchor_in_remote_doc");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/anchors.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/anchors.json");
     final var remoteDoc = Json.parse("""
         {
           "$id": "%s",
@@ -134,7 +134,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void error_unresolvable_remote_pointer() {
     LOG.info(() -> "START error_unresolvable_remote_pointer");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
     final var remoteDoc = Json.parse("""
         {
           "$id": "file:///JsonSchemaRemoteRefTest/a.json",
@@ -166,7 +166,8 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void denies_disallowed_scheme() {
     LOG.info(() -> "START denies_disallowed_scheme");
-    final var options = JsonSchema.CompileOptions.remoteDefaults(fetcher).withFetchPolicy(policy);
+    final var jailRoot = Path.of(System.getProperty("user.dir"), "json-java21-schema", "src", "test", "resources").toAbsolutePath().normalize();
+    final var options = JsonSchema.CompileOptions.remoteDefaults(new FileFetcher(jailRoot)).withFetchPolicy(policy);
 
     LOG.finer(() -> "Compiling schema expecting disallowed scheme");
 
@@ -181,13 +182,14 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
     assertThatThrownBy(compile)
         .isInstanceOf(RemoteResolutionException.class)
         .hasFieldOrPropertyWithValue("reason", RemoteResolutionException.Reason.POLICY_DENIED)
-        .hasMessageContaining("file:///etc/passwd");
+        .hasMessageContaining("Outside jail")
+        .hasMessageContaining("/etc/passwd");
   }
 
   @Test
   void enforces_timeout_and_size_limits() {
     LOG.info(() -> "START enforces_timeout_and_size_limits");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/cache.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/cache.json");
     final var remoteDoc = toJson("""
         {"type":"integer"}
         """);
@@ -222,7 +224,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void caches_remote_doc_and_reuses_compiled_node() {
     LOG.info(() -> "START caches_remote_doc_and_reuses_compiled_node");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/cache.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/cache.json");
     final var remoteDoc = toJson("""
         {
           "$id": "file:///JsonSchemaRemoteRefTest/cache.json",
@@ -257,8 +259,8 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void detects_cross_document_cycle() {
     LOG.info(() -> "START detects_cross_document_cycle");
-    final var uriA = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/a.json");
-    final var uriB = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/b.json");
+    final var uriA = URI.create("file:///JsonSchemaRemoteRefTest/a.json");
+    final var uriB = URI.create("file:///JsonSchemaRemoteRefTest/b.json");
     final var docA = toJson("""
         {"$id":"file:///JsonSchemaRemoteRefTest/a.json","$ref":"file:///JsonSchemaRemoteRefTest/b.json"}
         """);
@@ -287,7 +289,7 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
   @Test
   void resolves_anchor_defined_in_nested_remote_scope() {
     LOG.info(() -> "START resolves_anchor_defined_in_nested_remote_scope");
-    final var remoteUri = TestResourceUtils.getTestResourceUri("JsonSchemaRemoteRefTest/nest.json");
+    final var remoteUri = URI.create("file:///JsonSchemaRemoteRefTest/nest.json");
     final var remoteDoc = toJson("""
         {
           "$id": "file:///JsonSchemaRemoteRefTest/nest.json",
@@ -366,9 +368,19 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
     }
   }
 
-  record MapRemoteFetcher(Map<URI, RemoteDocument> documents) implements JsonSchema.RemoteFetcher {
+  record MapRemoteFetcher(String scheme, Map<URI, RemoteDocument> documents) implements JsonSchema.RemoteFetcher {
     MapRemoteFetcher(Map<URI, RemoteDocument> documents) {
-      this.documents = Map.copyOf(documents);
+      this("file", documents);
+    }
+
+    MapRemoteFetcher(String scheme, Map<URI, RemoteDocument> documents) {
+      this.scheme = Objects.requireNonNull(scheme, "scheme");
+      this.documents = Map.copyOf(Objects.requireNonNull(documents, "documents"));
+    }
+
+    @Override
+    public String scheme() {
+      return scheme;
     }
 
     @Override
@@ -391,6 +403,11 @@ final class JsonSchemaRemoteRefTest extends JsonSchemaTestBase {
 
     int calls() {
       return calls.get();
+    }
+
+    @Override
+    public String scheme() {
+      return delegate.scheme();
     }
 
     @Override

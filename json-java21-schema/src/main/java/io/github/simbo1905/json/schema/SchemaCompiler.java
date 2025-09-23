@@ -293,17 +293,6 @@ public final class SchemaCompiler {
           );
         }
 
-        URI first = docUri;
-        if ("file".equalsIgnoreCase(scheme)) {
-          String base = System.getProperty("json.schema.test.resources", "src/test/resources");
-          String path = docUri.getPath();
-          if (path.startsWith("/")) path = path.substring(1);
-          java.nio.file.Path abs = java.nio.file.Paths.get(base, path).toAbsolutePath();
-          URI alt = abs.toUri();
-          first = alt;
-          LOG.fine(() -> "compileBundle: Using file mapping for fetch: " + alt + " (original=" + docUri + ")");
-        }
-
         // Enforce global document count before fetching
         if (session.fetchedDocs + 1 > compileOptions.fetchPolicy().maxDocuments()) {
           throw new RemoteResolutionException(
@@ -313,16 +302,8 @@ public final class SchemaCompiler {
           );
         }
 
-        JsonSchema.RemoteFetcher.FetchResult fetchResult;
-        try {
-          fetchResult = compileOptions.remoteFetcher().fetch(first, compileOptions.fetchPolicy());
-        } catch (RemoteResolutionException e1) {
-          if (!first.equals(docUri)) {
-            fetchResult = compileOptions.remoteFetcher().fetch(docUri, compileOptions.fetchPolicy());
-          } else {
-            throw e1;
-          }
-        }
+        JsonSchema.RemoteFetcher.FetchResult fetchResult =
+            compileOptions.remoteFetcher().fetch(docUri, compileOptions.fetchPolicy());
 
         if (fetchResult.byteSize() > compileOptions.fetchPolicy().maxDocumentBytes()) {
           throw new RemoteResolutionException(
@@ -352,8 +333,8 @@ public final class SchemaCompiler {
 
         documentToCompile = fetchResult.document();
         final String normType = documentToCompile.getClass().getSimpleName();
-        final URI normUri = first;
-        LOG.fine(() -> "compileBundle: Successfully fetched document (normalized): " + normUri + ", document type: " + normType);
+        final URI normUri = docUri;
+        LOG.fine(() -> "compileBundle: Successfully fetched document: " + normUri + ", document type: " + normType);
       }
 
       // Compile the schema

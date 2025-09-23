@@ -33,22 +33,32 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
     private final ConcurrentMap<URI, FetchResult> cache = new ConcurrentHashMap<>();
     private final AtomicInteger documentCount = new AtomicInteger();
     private final AtomicLong totalBytes = new AtomicLong();
+    private final String scheme;
 
-    VirtualThreadHttpFetcher() {
-        this(HttpClient.newBuilder().build());
-        // Centralized network logging banner
-        LOG.config(() -> "http.fetcher init redirectPolicy=default timeout=" + 0 + "ms");
+    VirtualThreadHttpFetcher(String scheme) {
+        this(scheme, HttpClient.newBuilder().build());
+        LOG.config(() -> "http.fetcher init scheme=" + this.scheme);
     }
 
-    VirtualThreadHttpFetcher(HttpClient client) {
+    VirtualThreadHttpFetcher(String scheme, HttpClient client) {
+        this.scheme = Objects.requireNonNull(scheme, "scheme").toLowerCase(Locale.ROOT);
         this.client = client;
+    }
+
+    @Override
+    public String scheme() {
+        return scheme;
     }
 
     @Override
     public FetchResult fetch(URI uri, FetchPolicy policy) {
         Objects.requireNonNull(uri, "uri");
         Objects.requireNonNull(policy, "policy");
-        ensureSchemeAllowed(uri, policy.allowedSchemes());
+        String uriScheme = ensureSchemeAllowed(uri, policy.allowedSchemes());
+        if (!scheme.equals(uriScheme)) {
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED,
+                "Fetcher configured for scheme " + scheme + " but received " + uriScheme);
+        }
 
         FetchResult cached = cache.get(uri);
         if (cached != null) {
@@ -142,11 +152,12 @@ final class VirtualThreadHttpFetcher implements JsonSchema.RemoteFetcher {
         }
     }
 
-    private void ensureSchemeAllowed(URI uri, Set<String> allowedSchemes) {
-        String scheme = uri.getScheme();
-        if (scheme == null || !allowedSchemes.contains(scheme.toLowerCase(Locale.ROOT))) {
-            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED, "Disallowed scheme: " + scheme);
+    private String ensureSchemeAllowed(URI uri, Set<String> allowedSchemes) {
+        String uriScheme = uri.getScheme();
+        if (uriScheme == null || !allowedSchemes.contains(uriScheme.toLowerCase(Locale.ROOT))) {
+            throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED, "Disallowed scheme: " + uriScheme);
         }
+        return uriScheme.toLowerCase(Locale.ROOT);
     }
 
     private void enforceDocumentLimits(URI uri, FetchPolicy policy) {

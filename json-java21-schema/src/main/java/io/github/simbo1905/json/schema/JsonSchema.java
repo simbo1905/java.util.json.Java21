@@ -156,20 +156,73 @@ public sealed interface JsonSchema
       Objects.requireNonNull(policy, "policy");
       return new CompileOptions(remoteFetcher, refRegistry, policy);
     }
+
+    /// Delegating fetcher selecting implementation per URI scheme
+    static final class DelegatingRemoteFetcher implements RemoteFetcher {
+      private final Map<String, RemoteFetcher> byScheme;
+
+      DelegatingRemoteFetcher(RemoteFetcher... fetchers) {
+        Objects.requireNonNull(fetchers, "fetchers");
+        if (fetchers.length == 0) {
+          throw new IllegalArgumentException("At least one RemoteFetcher required");
+        }
+        Map<String, RemoteFetcher> map = new HashMap<>();
+        for (RemoteFetcher fetcher : fetchers) {
+          Objects.requireNonNull(fetcher, "fetcher");
+          String scheme = Objects.requireNonNull(fetcher.scheme(), "fetcher.scheme()").toLowerCase(Locale.ROOT);
+          if (scheme.isEmpty()) {
+            throw new IllegalArgumentException("RemoteFetcher scheme must not be empty");
+          }
+          if (map.putIfAbsent(scheme, fetcher) != null) {
+            throw new IllegalArgumentException("Duplicate RemoteFetcher for scheme: " + scheme);
+          }
+        }
+        this.byScheme = Map.copyOf(map);
+      }
+
+      @Override
+      public String scheme() {
+        return "delegating";
+      }
+
+      @Override
+      public FetchResult fetch(java.net.URI uri, FetchPolicy policy) {
+        Objects.requireNonNull(uri, "uri");
+        String scheme = Optional.ofNullable(uri.getScheme())
+            .map(s -> s.toLowerCase(Locale.ROOT))
+            .orElse("");
+        RemoteFetcher fetcher = byScheme.get(scheme);
+        if (fetcher == null) {
+          LOG.severe(() -> "ERROR: FETCH: " + uri + " - unsupported scheme");
+          throw new RemoteResolutionException(uri, RemoteResolutionException.Reason.POLICY_DENIED,
+              "No RemoteFetcher registered for scheme: " + scheme);
+        }
+        return fetcher.fetch(uri, policy);
+      }
+    }
   }
 
   /// Remote fetcher SPI for loading external schema documents
   interface RemoteFetcher {
+    String scheme();
     FetchResult fetch(java.net.URI uri, FetchPolicy policy) throws RemoteResolutionException;
 
     static RemoteFetcher disallowed() {
-      return (uri, policy) -> {
-        LOG.severe(() -> "ERROR: FETCH: " + uri + " - policy POLICY_DENIED");
-        throw new RemoteResolutionException(
-            Objects.requireNonNull(uri, "uri"),
-            RemoteResolutionException.Reason.POLICY_DENIED,
-            "Remote fetching is disabled"
-        );
+      return new RemoteFetcher() {
+        @Override
+        public String scheme() {
+          return "<disabled>";
+        }
+
+        @Override
+        public FetchResult fetch(java.net.URI uri, FetchPolicy policy) {
+          LOG.severe(() -> "ERROR: FETCH: " + uri + " - policy POLICY_DENIED");
+          throw new RemoteResolutionException(
+              Objects.requireNonNull(uri, "uri"),
+              RemoteResolutionException.Reason.POLICY_DENIED,
+              "Remote fetching is disabled"
+          );
+        }
       };
     }
 
@@ -432,59 +485,30 @@ public sealed interface JsonSchema
 
     // MVF: Fetch remote document using RemoteFetcher from compile options
     LOG.finer(() -> "fetchIfNeeded: fetching remote document: " + docUri);
-    try {
-      // Get the base URI without fragment for document fetching
-      String fragment = docUri.getFragment();
-      java.net.URI docUriWithoutFragment = fragment != null ?
-          java.net.URI.create(docUri.toString().substring(0, docUri.toString().indexOf('#'))) :
-          docUri;
+    // Get the base URI without fragment for document fetching
+    String fragment = docUri.getFragment();
+    java.net.URI docUriWithoutFragment = fragment != null ?
+        java.net.URI.create(docUri.toString().substring(0, docUri.toString().indexOf('#'))) :
+        docUri;
 
-      LOG.finest(() -> "fetchIfNeeded: document URI without fragment: " + docUriWithoutFragment);
+    LOG.finest(() -> "fetchIfNeeded: document URI without fragment: " + docUriWithoutFragment);
 
-      // Enforce allowed schemes
-      String scheme = docUriWithoutFragment.getScheme();
-      if (scheme == null || !compileOptions.fetchPolicy().allowedSchemes().contains(scheme)) {
-        throw new RemoteResolutionException(
-            docUriWithoutFragment,
-            RemoteResolutionException.Reason.POLICY_DENIED,
-            "Scheme not allowed by policy: " + scheme
-        );
-      }
-
-      // Prefer a local file mapping for tests when using file:// URIs
-      java.net.URI fetchUri = docUriWithoutFragment;
-      if ("file".equalsIgnoreCase(scheme)) {
-        String base = System.getProperty("json.schema.test.resources", "src/test/resources");
-        String path = fetchUri.getPath();
-        if (path != null && path.startsWith("/")) path = path.substring(1);
-        java.nio.file.Path abs = java.nio.file.Paths.get(base, path).toAbsolutePath();
-        java.net.URI alt = abs.toUri();
-        fetchUri = alt;
-        LOG.fine(() -> "fetchIfNeeded: Using file mapping for fetch: " + alt + " (original=" + docUriWithoutFragment + ")");
-      }
-
-      // Fetch via provided RemoteFetcher to ensure consistent policy/normalization
-      RemoteFetcher.FetchResult fetchResult;
-      try {
-        fetchResult = compileOptions.remoteFetcher().fetch(fetchUri, compileOptions.fetchPolicy());
-      } catch (RemoteResolutionException e1) {
-        // On mapping miss, retry original URI once
-        if (!fetchUri.equals(docUriWithoutFragment)) {
-          fetchResult = compileOptions.remoteFetcher().fetch(docUriWithoutFragment, compileOptions.fetchPolicy());
-        } else {
-          throw e1;
-        }
-      }
-      JsonValue fetchedDocument = fetchResult.document();
-
-      LOG.finer(() -> "fetchIfNeeded: successfully fetched remote document: " + docUriWithoutFragment + ", document type: " + fetchedDocument.getClass().getSimpleName());
-      return fetchedDocument;
-
-    } catch (Exception e) {
-      // Network failures are logged by the fetcher; suppress here to avoid duplication
-      throw new RemoteResolutionException(docUri, RemoteResolutionException.Reason.NETWORK_ERROR,
-          "Failed to fetch remote document: " + docUri, e);
+    // Enforce allowed schemes
+    String scheme = docUriWithoutFragment.getScheme();
+    if (scheme == null || !compileOptions.fetchPolicy().allowedSchemes().contains(scheme)) {
+      throw new RemoteResolutionException(
+          docUriWithoutFragment,
+          RemoteResolutionException.Reason.POLICY_DENIED,
+          "Scheme not allowed by policy: " + scheme
+      );
     }
+
+    RemoteFetcher.FetchResult fetchResult =
+        compileOptions.remoteFetcher().fetch(docUriWithoutFragment, compileOptions.fetchPolicy());
+    JsonValue fetchedDocument = fetchResult.document();
+
+    LOG.finer(() -> "fetchIfNeeded: successfully fetched remote document: " + docUriWithoutFragment + ", document type: " + fetchedDocument.getClass().getSimpleName());
+    return fetchedDocument;
   }
 
 
