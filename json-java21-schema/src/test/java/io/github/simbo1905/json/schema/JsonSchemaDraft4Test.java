@@ -86,7 +86,7 @@ public class JsonSchemaDraft4Test extends JsonSchemaTestBase {
           try {
             Assertions.assertEquals(expected, actual);
           } catch (AssertionError e) {
-            LOG.fine(() -> "Assertion failed: " + groupDesc + " — expected=" + expected + ", actual=" + actual + " (" + ((Path) null).getFileName() + ")");
+            LOG.fine(() -> "Assertion failed: " + groupDesc + " — expected=" + expected + ", actual=" + actual + " (JsonSchemaDraft4Test.java)");
             throw e;
           }
 
@@ -94,7 +94,7 @@ public class JsonSchemaDraft4Test extends JsonSchemaTestBase {
       } catch (Exception ex) {
         /// Unsupported schema for this group; emit a single skipped test for visibility
         final var reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-        LOG.fine(()->"Skipping group due to unsupported schema: " + groupDesc + " — " + reason + " (" + ((Path) null).getFileName() + ")");
+        LOG.fine(()->"Skipping group due to unsupported schema: " + groupDesc + " — " + reason + " (JsonSchemaDraft4Test.java)");
 
         return Stream.of(DynamicTest.dynamicTest(groupDesc + " – SKIPPED: " + reason, () -> {
           if (JsonSchemaDraft4Test.isStrict()) throw ex;
