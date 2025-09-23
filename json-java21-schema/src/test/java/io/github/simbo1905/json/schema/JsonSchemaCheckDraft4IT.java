@@ -269,7 +269,7 @@ public class JsonSchemaCheckDraft4IT {
               throw e;
             }
           } else if (expected != actual) {
-            System.err.println("[JsonSchemaCheck202012IT] Mismatch (ignored): " + groupDesc + " — expected=" + expected + ", actual=" + actual + " (" + file.getFileName() + ")");
+            System.err.println("[JsonSchemaCheckDraft4IT] Mismatch (ignored): " + groupDesc + " — expected=" + expected + ", actual=" + actual + " (" + file.getFileName() + ")");
 
             /// Count lenient mismatch skip
             METRICS.skippedMismatch.increment();
@@ -285,7 +285,7 @@ public class JsonSchemaCheckDraft4IT {
       } catch (Exception ex) {
         /// Unsupported schema for this group; emit a single skipped test for visibility
         final var reason = ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage();
-        System.err.println("[JsonSchemaCheck202012IT] Skipping group due to unsupported schema: " + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
+        System.err.println("[JsonSchemaCheckDraft4IT] Skipping group due to unsupported schema: " + groupDesc + " — " + reason + " (" + file.getFileName() + ")");
 
         /// Count unsupported group skip
         METRICS.skippedUnsupported.increment();
