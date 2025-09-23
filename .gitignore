@@ -1,3 +1,5 @@
+json-java21-schema/src/test/resources/draft4/
+json-java21-schema/src/test/resources/json-schema-test-suite-data/
 
 .env
 repomix-output*
