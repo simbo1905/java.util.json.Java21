@@ -64,12 +64,13 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     // GitHub base URL for upstream sources
     String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/";
 
+    // Shared HttpClient instance for efficient resource management
+    HttpClient SHARED_HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(10))
+        .build();
+
     /// Fetches content from a URL
     static String fetchFromUrl(String url) {
-        final var httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
-
         try {
             final var request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
@@ -77,7 +78,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 .GET()
                 .build();
 
-            final var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+            final var response = SHARED_HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
                 return response.body();
@@ -209,9 +210,6 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         LOGGER.info("Fetching upstream sources for " + localClasses.size() + " classes");
 
         final var results = new LinkedHashMap<String, String>();
-        final var httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
 
         for (final var clazz : localClasses) {
             final var className = clazz.getName();
@@ -236,7 +234,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                     .GET()
                     .build();
 
-                final var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+                final var response = SHARED_HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() == 200) {
                     final var body = response.body();
