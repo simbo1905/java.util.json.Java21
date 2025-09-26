@@ -3,7 +3,7 @@
 This is a backport of the `java.util.json` API from the OpenJDK jdk‑sandbox “json” branch for use on Java 21 and above. 
 
 References:
-- OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/master/src/java.json
+- OpenJDK sandbox “json” branch: https://github.com/openjdk/jdk-sandbox/tree/json
 - Design paper: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
