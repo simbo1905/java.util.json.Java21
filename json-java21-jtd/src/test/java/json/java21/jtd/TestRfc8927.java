@@ -2,6 +2,7 @@ package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonValue;
+import jdk.sandbox.java.util.json.JsonNumber;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -439,5 +440,94 @@ public class TestRfc8927 extends JtdTestBase {
     assertThat(result.isValid())
       .as("Recursive ref should reject heterogeneous nested data")
       .isFalse();
+  }
+
+  /// Micro test to debug int32 validation with decimal values
+  /// Should reject non-integer values like 3.14 for int32 type
+  @Test
+  public void testInt32RejectsDecimal() throws Exception {
+    JsonValue schema = Json.parse("{\"type\": \"int32\"}");
+    JsonValue decimalValue = JsonNumber.of(new java.math.BigDecimal("3.14"));
+    
+    LOG.info(() -> "Testing int32 validation against decimal value 3.14");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Instance: " + decimalValue);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, decimalValue);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "ERRORS: " + result.errors());
+    }
+    
+    // This should be invalid - int32 should reject decimal values
+    assertThat(result.isValid())
+      .as("int32 should reject decimal value 3.14")
+      .isFalse();
+    assertThat(result.errors())
+      .as("Should have validation errors for decimal value")
+      .isNotEmpty();
+  }
+
+  /// Test that integer types accept valid integer representations with trailing zeros
+  /// RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
+  /// Values like 3.0, 3.000 are valid integers despite positive scale
+  @Test  
+  public void testIntegerTypesAcceptTrailingZeros() throws Exception {
+    JsonValue schema = Json.parse("{\"type\": \"int32\"}");
+    
+    // Valid integer representations with trailing zeros
+    JsonValue[] validIntegers = {
+      JsonNumber.of(new java.math.BigDecimal("3.0")),
+      JsonNumber.of(new java.math.BigDecimal("3.000")),
+      JsonNumber.of(new java.math.BigDecimal("42.00")),
+      JsonNumber.of(new java.math.BigDecimal("0.0"))
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue validValue : validIntegers) {
+      Jtd.Result result = validator.validate(schema, validValue);
+      
+      LOG.fine(() -> "Testing int32 with valid integer representation: " + validValue);
+      
+      assertThat(result.isValid())
+        .as("int32 should accept integer representation %s", validValue)
+        .isTrue();
+      assertThat(result.errors())
+        .as("Should have no validation errors for integer representation %s", validValue)
+        .isEmpty();
+    }
+  }
+
+  /// Test that integer types reject values with actual fractional components
+  /// RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"  
+  @Test
+  public void testIntegerTypesRejectFractionalComponents() throws Exception {
+    JsonValue schema = Json.parse("{\"type\": \"int32\"}");
+    
+    // Invalid values with actual fractional components
+    JsonValue[] invalidValues = {
+      JsonNumber.of(new java.math.BigDecimal("3.1")),
+      JsonNumber.of(new java.math.BigDecimal("3.0001")),
+      JsonNumber.of(new java.math.BigDecimal("3.14")),
+      JsonNumber.of(new java.math.BigDecimal("0.1"))
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue invalidValue : invalidValues) {
+      Jtd.Result result = validator.validate(schema, invalidValue);
+      
+      LOG.fine(() -> "Testing int32 with fractional value: " + invalidValue);
+      
+      assertThat(result.isValid())
+        .as("int32 should reject fractional value %s", invalidValue)
+        .isFalse();
+      assertThat(result.errors())
+        .as("Should have validation errors for fractional value %s", invalidValue)
+        .isNotEmpty();
+    }
   }
 }

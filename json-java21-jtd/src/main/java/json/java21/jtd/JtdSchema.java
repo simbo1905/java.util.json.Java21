@@ -244,6 +244,13 @@ public sealed interface JtdSchema {
           return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
         }
         
+        // Handle BigDecimal - check if it has fractional component (not just scale > 0)
+        // RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
+        // Values like 3.0 or 3.000 are valid integers despite positive scale, but 3.1 is not
+        if (value instanceof java.math.BigDecimal bd && bd.remainder(java.math.BigDecimal.ONE).signum() != 0) {
+          return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
+        }
+        
         // Convert to long for range checking
         long longValue = value.longValue();
         
