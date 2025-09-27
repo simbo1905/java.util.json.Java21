@@ -9,9 +9,9 @@ References:
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
 You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
 
-To kick the tyres on the New JSON API this repo uses to implement a JSON Schema Validator which is released on Maven Central as [java.util.json.schema](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.schema).
+To kick the tyres on the New JSON API this repo includes a JSON Type Definition (JTD) Validator implementing RFC 8927, released on Maven Central as part of this project.
 
-We welcome contributes to the JSON Schema Validator incubating within this repo. 
+We welcome contributions to the JTD Validator incubating within this repo. 
 
 ## Usage Examples
 
@@ -289,37 +289,53 @@ This is a simplified backport with the following changes from the original:
 
 Such vulnerabilities existed at one point in the upstream OpenJDK sandbox implementation and were reported here for transparency. Until the upstream code is stable it is probably better to assume that such issue or similar may be present or may reappear. If you are only going to use this library in small cli programs where the json is configuration you write then you will not parse objects nested to tens of thousands of levels designed crash a parser. Yet you should not at this tiome expose this parser to the internet where someone can choose to attack it in that manner. 
 
-## JSON Schema Validator
+## JSON Type Definition (JTD) Validator
 
-This repo contains an incubating schema validator that has the core JSON API as its only depenency. This sub project demonstrates how to build realistic JSON heavy logic using the API. It follows Data Oriented Programming principles: it compiles the JSON Schema into an immutable structure of records. For validation it parses the JSON document to the generic structure and uses the thread-safe parsed schema and a stack to visit and validate the parsed JSON. 
+This repo contains an incubating JTD validator that has the core JSON API as its only dependency. This sub-project demonstrates how to build realistic JSON heavy logic using the API. It follows Data Oriented Programming principles: it compiles JTD schemas into an immutable structure of records. For validation it parses the JSON document to the generic structure and uses the thread-safe parsed schema and a stack to visit and validate the parsed JSON.
 
-A simple JSON Schema validator is included (module: json-java21-schema).
+A complete JSON Type Definition validator is included (module: json-java21-jtd).
 
 ```java
-var schema = io.github.simbo1905.json.schema.JsonSchema.compile(
-    jdk.sandbox.java.util.json.Json.parse("""
-      {"type":"object","properties":{"name":{"type":"string"}},"required":["name"]}
-    """));
-var result = schema.validate(
-    jdk.sandbox.java.util.json.Json.parse("{\"name\":\"Alice\"}")
-);
-// result.valid() => true
+import json.java21.jtd.Jtd;
+import jdk.sandbox.java.util.json.*;
+
+// Compile JTD schema
+JsonValue schema = Json.parse("""
+  {
+    "properties": {
+      "name": {"type": "string"},
+      "age": {"type": "int32"}
+    }
+  }
+""");
+
+// Validate JSON
+JsonValue data = Json.parse("{\"name\":\"Alice\",\"age\":30}");
+Jtd validator = new Jtd();
+Jtd.Result result = validator.validate(schema, data);
+// result.isValid() => true
 ```
 
-### JSON Schema Test Suite Metrics
+### JTD RFC 8927 Compliance
 
-The validator now provides defensible compatibility statistics:
+The validator provides full RFC 8927 compliance with comprehensive test coverage:
 
 ```bash
-# Run with console metrics (default)
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema
+# Run all JTD compliance tests
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
 
-# Export detailed JSON metrics
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=json
-
-# Export CSV metrics for analysis
-$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-schema -Djson.schema.metrics=csv
+# Run with detailed logging
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
 ```
+
+Features:
+- ✅ Eight mutually-exclusive schema forms (RFC 8927 §2.2)
+- ✅ Standardized error format with instance and schema paths
+- ✅ Primitive type validation with proper ranges
+- ✅ Definition support with reference resolution
+- ✅ Timestamp format validation (RFC 3339 with leap seconds)
+- ✅ Discriminator tag exemption from additional properties
+- ✅ Stack-based validation preventing StackOverflowError
 
 ## Building
 
@@ -330,7 +346,7 @@ mvn clean compile
 mvn package
 ```
 
-Please see AGENTS.md for more guidence such as how to enabled logging when running the JSON Schema Validator. 
+Please see AGENTS.md for more guidance such as how to enable logging when running the JTD Validator. 
 
 ## Augmented Intelligence (AI) Welcomed
 

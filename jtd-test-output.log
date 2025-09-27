@@ -1,0 +1,790 @@
+Sep 27, 2025 6:15:31 PM org.jline.utils.Log logr
+WARNING: Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)
+[main] WARNING org.jline - Unable to create a system terminal, creating a dumb terminal (enable debug logging for more information)
+[INFO] Processing build on daemon 1442a8ac
+[INFO] Scanning for projects...
+[INFO] BuildTimeEventSpy is registered.
+[INFO] 
+[INFO] Using the SmartBuilder implementation with a thread count of 7
+[INFO] 
+[INFO] --------------------------------< io.github.simbo1905.json:java.util.json.jtd >---------------------------------
+[INFO] Building java.util.json Java21 Backport JTD Validator 0.1.9
+[INFO]   from json-java21-jtd/pom.xml
+[INFO] ----------------------------------------------------[ jar ]-----------------------------------------------------
+[WARNING] File 'json-java21/target/classes/jdk/sandbox/internal/util/json/StableValue.class' is more recent than the packaged artifact for 'java.util.json', please run a full `mvn package` build
+[INFO] 
+[INFO] --- resources:3.3.1:resources (default-resources) @ java.util.json.jtd ---
+[INFO] skip non existing resourceDirectory /Users/Shared/java.util.json.Java21/json-java21-jtd/src/main/resources
+[INFO] skip non existing resourceDirectory /Users/Shared/java.util.json.Java21/json-java21-jtd/src/main/resources-filtered
+[INFO] 
+[INFO] --- compiler:3.11.0:compile (default-compile) @ java.util.json.jtd ---
+[INFO] Nothing to compile - all classes are up to date
+[INFO] 
+[INFO] --- resources:3.3.1:testResources (default-testResources) @ java.util.json.jtd ---
+[INFO] Copying 1 resource from src/test/resources to target/test-classes
+[INFO] skip non existing resourceDirectory /Users/Shared/java.util.json.Java21/json-java21-jtd/src/test/resources-filtered
+[INFO] 
+[INFO] --- compiler:3.11.0:testCompile (default-testCompile) @ java.util.json.jtd ---
+[INFO] Changes detected - recompiling the module! :source
+[INFO] Compiling 4 source files with javac [debug release 21] to target/test-classes
+[INFO] 
+[INFO] --- surefire:3.2.5:test (default-test) @ java.util.json.jtd ---
+[INFO] Using auto detected provider org.apache.maven.surefire.junitplatform.JUnitPlatformProvider
+[INFO] 
+[INFO] -------------------------------------------------------
+[INFO]  T E S T S
+[INFO] -------------------------------------------------------
+[INFO] Running json.java21.jtd.JtdSpecIT
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdTestBase announce
+[WARNING] [stderr] INFO: TEST: JtdSpecIT#runJtdSpecSuite
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT runJtdSpecSuite
+[WARNING] [stderr] INFO: Running JTD Test Suite
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT runValidationTests
+[WARNING] [stderr] INFO: Running validation tests from: target/test-data/json-typedef-spec-2025-09-27/tests/validation.json
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT runInvalidSchemaTests
+[WARNING] [stderr] INFO: Running invalid schema tests from: target/test-data/json-typedef-spec-2025-09-27/tests/invalid_schemas.json
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty nullable schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty nullable schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: empty schema with metadata - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - ref to empty definition
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - nested ref
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - ref to type definition, ok
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - ref to type definition, fail
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable ref schema - ref to type definition, ok
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable ref schema - ref to type definition, ok because null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable ref schema - nullable: false ignored
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - recursive schema, ok
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: ref schema - recursive schema, bad
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: boolean type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable boolean type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: float64 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:45 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable float64 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int8 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int8 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint8 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint8 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int16 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int16 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint16 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint16 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable int32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: int32 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable uint32 type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - min value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - max value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - less than min
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: uint32 type schema - more than max
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: string type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable string type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable timestamp type schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - 1985-04-12T23:20:50.52Z
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - 1996-12-19T16:39:57-08:00
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - 1990-12-31T23:59:60Z
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - 1990-12-31T15:59:60-08:00
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: timestamp type schema - 1937-01-01T12:00:27.87+00:20
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable enum schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - value not in enum
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: enum schema - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable elements schema - object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - empty array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - all values ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - some values bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - all values bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - nested elements, ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: elements schema - nested elements, bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable properties schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: properties and optionalProperties schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: optionalProperties schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict properties - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict properties - bad wrong type
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict properties - bad missing property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict properties - bad additional property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict properties - bad additional property with explicit additionalProperties: false
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict properties - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict properties - bad wrong type
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict properties - bad missing property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict properties - ok additional property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict optionalProperties - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict optionalProperties - bad wrong type
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict optionalProperties - ok missing property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict optionalProperties - bad additional property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict optionalProperties - bad additional property with explicit additionalProperties: false
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict optionalProperties - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict optionalProperties - bad wrong type
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict optionalProperties - ok missing property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: non-strict optionalProperties - ok additional property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict mixed properties and optionalProperties - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict mixed properties and optionalProperties - bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: strict mixed properties and optionalProperties - bad additional property
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable values schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - empty object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - all values ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - some values bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - all values bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - nested values, ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: values schema - nested values, bad
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - null
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - float
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - integer
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: nullable discriminator schema - array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - discriminator missing
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - discriminator not string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - discriminator not in mapping
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - instance fails mapping schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createValidationTest$0
+[WARNING] [stderr] INFO: EXECUTING: validation: discriminator schema - ok
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: null schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: boolean schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: integer schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: float schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: string schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: array schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: illegal keyword
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: nullable not boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: definitions not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: definition not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: non-root definitions
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: ref not string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: ref but no definitions
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: ref to non-existent definition
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: sub-schema ref to non-existent definition
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: type not string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: type not valid string value
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: enum not array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: enum empty array
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: enum not array of strings
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: enum contains duplicates
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: elements not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: elements not correct schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: properties not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: properties value not correct schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: optionalProperties not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: optionalProperties value not correct schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: additionalProperties not boolean
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: properties shares keys with optionalProperties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: values not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: values not correct schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: discriminator not string
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: mapping not object
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: mapping value not correct schema
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: mapping value not of properties form
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: mapping value has nullable set to true
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: discriminator shares keys with mapping properties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: discriminator shares keys with mapping optionalProperties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - ref and type
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - type and enum
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - enum and elements
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - elements and properties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - elements and optionalProperties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - elements and additionalProperties
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - additionalProperties alone
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - properties and values
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - values and discriminator
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - discriminator alone
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT lambda$createInvalidSchemaTest$0
+[WARNING] [stderr] INFO: EXECUTING: invalid schema: invalid form - mapping alone
+[WARNING] [stderr] Sept 27, 2025 6:15:46 PM json.java21.jtd.JtdSpecIT printMetrics
+[WARNING] [stderr] INFO: JTD-SPEC-COMPAT: total=365 passed=365 failed=0
+[INFO] Tests run: 365, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 1.354 s -- in json.java21.jtd.JtdSpecIT
+[INFO] 
+[INFO] Results:
+[INFO] 
+[INFO] Tests run: 365, Failures: 0, Errors: 0, Skipped: 0
+[INFO] 
+[INFO] ----------------------------------------------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ----------------------------------------------------------------------------------------------------------------
+[INFO] Total time:  9.579 s (Wall Clock)
+[INFO] Finished at: 2025-09-27T18:15:47+01:00
+[INFO] ----------------------------------------------------------------------------------------------------------------
+Purged 3 log files (log available in /Users/consensussolutions/.m2/mvnd/registry/2.0.0-rc-3/purge-2025-09-27.log)
