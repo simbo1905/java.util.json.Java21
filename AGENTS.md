@@ -220,6 +220,8 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - Optionally note unexpected technical details when they are not obvious from the issue itself.
 - Do not report progress or success in the commit message; nothing is final until merged.
 - Every tidy-up commit requires an accompanying issue. If labels are unavailable, title the issue `Tidy Up: ...` and keep the description minimal.
+- **Do not include advertising or promotional content** such as `🤖 Generated with [XXX YYY](https://XXX/YYY)` in commit messages.
+- **Do not add 'Co-Authored-By' comments** to commit messages; keep attribution within the normal git author fields.
 
 ### Pull Requests
 - Describe what was done, not the rationale or implementation details.
