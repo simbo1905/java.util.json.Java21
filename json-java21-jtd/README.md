@@ -69,6 +69,14 @@ Validates primitive types:
 
 Supported types: `boolean`, `string`, `timestamp`, `int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`, `float32`, `float64`
 
+#### Integer Type Validation
+Integer types (`int8`, `uint8`, `int16`, `uint16`, `int32`, `uint32`) validate based on **numeric value**, not textual representation:
+
+- **Valid integers**: `3`, `3.0`, `3.000`, `42.00` (mathematically integers)
+- **Invalid integers**: `3.1`, `3.14`, `3.0001` (have fractional components)
+
+This follows RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component."
+
 ### 4. Enum Schema
 Validates against string values:
 ```json
