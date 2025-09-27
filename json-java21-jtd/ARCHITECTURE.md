@@ -46,7 +46,7 @@ flowchart TD
 
 ## Core API Design
 
-Following the pattern from json-java21-schema, we use a single public sealed interface with package-private record implementations:
+Following modern Java patterns, we use a single public sealed interface with package-private record implementations:
 
 ```java
 package io.github.simbo1905.json.jtd;
@@ -196,8 +196,8 @@ record CompiledSchema(
 
 ## Simplifications vs JSON Schema
 
-| Aspect | JTD (This Module) | JSON Schema (json-java21-schema) |
-|--------|-------------------|-----------------------------------|
+| Aspect | JTD (This Module) | JSON Schema |
+|--------|-------------------|-------------|
 | Schema Forms | 8 mutually exclusive | 40+ combinable keywords |
 | References | Simple `$ref` to definitions | Complex `$ref` with URI resolution |
 | Validation Logic | Exhaustive switch on sealed types | Complex boolean logic with allOf/anyOf/not |

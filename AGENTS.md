@@ -85,7 +85,7 @@ LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ...
 ```
 
 ### Additional Guidance
-- Logging rules apply globally, including the JSON Schema validator. The helper superclass ensures JUL configuration remains compatible with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
+- Logging rules apply globally. The helper superclass ensures JUL configuration remains compatible with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 
 ## JSON Compatibility Suite
 ```bash
@@ -103,7 +103,7 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - `json-java21`: Core JSON API implementation (main library).
 - `json-java21-api-tracker`: API evolution tracking utilities.
 - `json-compatibility-suite`: JSON Test Suite compatibility validation.
-- `json-java21-schema`: JSON Schema validator (module guide below).
+- `json-java21-jtd`: JSON Type Definition (JTD) validator based on RFC 8927.
 
 ### Core Components
 
@@ -176,16 +176,11 @@ IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **
 - Workflow fetches upstream sources, parses both codebases with the Java compiler API, and reports matching/different/missing elements across modifiers, inheritance, methods, fields, and constructors.
 - Continuous integration prints the report daily. It does not fail or open issues on differences; to trigger notifications, either make the runner exit non-zero when `differentApi > 0` or parse the report and call `core.setFailed()` within CI.
 
-### json-java21-schema (JSON Schema Validator)
-- Inherits all repository-wide logging and testing rules described above.
-- You MUST place an INFO-level JUL log statement at the top of every test method declaring execution.
-- All new tests MUST extend a configuration helper such as `JsonSchemaLoggingConfig` to ensure JUL levels respected. 
-- WARNING: you cannot run `mvn -pl xxxx verify` at the top level it will not work.
-- You must run `cd -Djson.schema.strict=true -Djson.schema.metrics=csv -Djava.util.logging.ConsoleHandler.level=INFO`
-
-#### Running Tests (Schema Module)
-- All prohibitions on output filtering apply. Do not pipe logs unless you must constrain an infinite stream, and even then examine a large sample (thousands of lines).
-- Remote location of `$(command -v mvnd || command -v mvn || command -v ./mvnw)` is the repository root; pass module selectors through it for schema-only runs.
+### json-java21-jtd (JTD Validator)
+- JSON Type Definition validator implementing RFC 8927 specification.
+- Provides eight mutually-exclusive schema forms for simple, predictable validation.
+- Uses stack-based validation with comprehensive error reporting.
+- Includes full RFC 8927 compliance test suite.
 
 ## Security Notes
 - Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
