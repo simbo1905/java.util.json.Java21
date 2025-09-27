@@ -244,6 +244,11 @@ public sealed interface JtdSchema {
           return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
         }
         
+        // Handle BigDecimal - check if it has fractional part
+        if (value instanceof java.math.BigDecimal bd && bd.scale() > 0) {
+          return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
+        }
+        
         // Convert to long for range checking
         long longValue = value.longValue();
         

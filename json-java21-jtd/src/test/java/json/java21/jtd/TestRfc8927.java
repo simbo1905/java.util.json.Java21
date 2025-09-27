@@ -2,6 +2,7 @@ package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonValue;
+import jdk.sandbox.java.util.json.JsonNumber;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -439,5 +440,33 @@ public class TestRfc8927 extends JtdTestBase {
     assertThat(result.isValid())
       .as("Recursive ref should reject heterogeneous nested data")
       .isFalse();
+  }
+
+  /// Micro test to debug int32 validation with decimal values
+  /// Should reject non-integer values like 3.14 for int32 type
+  @Test
+  public void testInt32RejectsDecimal() throws Exception {
+    JsonValue schema = Json.parse("{\"type\": \"int32\"}");
+    JsonValue decimalValue = JsonNumber.of(new java.math.BigDecimal("3.14"));
+    
+    LOG.info(() -> "Testing int32 validation against decimal value 3.14");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Instance: " + decimalValue);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, decimalValue);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "ERRORS: " + result.errors());
+    }
+    
+    // This should be invalid - int32 should reject decimal values
+    assertThat(result.isValid())
+      .as("int32 should reject decimal value 3.14")
+      .isFalse();
+    assertThat(result.errors())
+      .as("Should have validation errors for decimal value")
+      .isNotEmpty();
   }
 }
