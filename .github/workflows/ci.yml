@@ -39,8 +39,8 @@ jobs:
                       for k in totals: totals[k]+=int(r.get(k,'0'))
                   except Exception:
                       pass
-          exp_tests=4426
-          exp_skipped=1715
+          exp_tests=4436
+          exp_skipped=1692
           if totals['tests']!=exp_tests or totals['skipped']!=exp_skipped:
               print(f"Unexpected test totals: {totals} != expected tests={exp_tests}, skipped={exp_skipped}")
               sys.exit(1)

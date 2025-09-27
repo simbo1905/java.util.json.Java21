@@ -63,6 +63,21 @@ class StableValue<T> {
         }
         return result;
       }
+
+      @Override
+      public String toString() {
+        return get().toString();
+      }
+
+      @Override
+      public int hashCode() {
+        return get().hashCode();
+      }
+
+      @Override
+      public boolean equals(Object obj) {
+        return get().equals(obj);
+      }
     };
   }
 }
