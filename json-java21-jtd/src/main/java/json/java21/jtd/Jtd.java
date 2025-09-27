@@ -256,4 +256,68 @@ public class Jtd {
       return failure(List.of(error));
     }
   }
+
+  /// Standardized validation error types for JTD schema validation
+  /// Provides consistent error messages following RFC 8927 specification
+  public enum Error {
+    /// Unknown type specified in schema
+    UNKNOWN_TYPE("unknown type: %s"),
+
+    /// Expected boolean but got different type
+    EXPECTED_BOOLEAN("expected boolean, got %s"),
+
+    /// Expected string but got different type
+    EXPECTED_STRING("expected string, got %s"),
+
+    /// Expected timestamp string but got different type
+    EXPECTED_TIMESTAMP("expected timestamp (string), got %s"),
+
+    /// Expected integer but got float
+    EXPECTED_INTEGER("expected integer, got float"),
+
+    /// Expected specific numeric type but got different type
+    EXPECTED_NUMERIC_TYPE("expected %s, got %s"),
+
+    /// Expected array but got different type
+    EXPECTED_ARRAY("expected array, got %s"),
+
+    /// Expected object but got different type
+    EXPECTED_OBJECT("expected object, got %s"),
+
+    /// String value not in enum
+    VALUE_NOT_IN_ENUM("value '%s' not in enum: %s"),
+
+    /// Expected string for enum but got different type
+    EXPECTED_STRING_FOR_ENUM("expected string for enum, got %s"),
+
+    /// Missing required property
+    MISSING_REQUIRED_PROPERTY("missing required property: %s"),
+
+    /// Additional property not allowed
+    ADDITIONAL_PROPERTY_NOT_ALLOWED("additional property not allowed: %s"),
+
+    /// Discriminator must be a string
+    DISCRIMINATOR_MUST_BE_STRING("discriminator '%s' must be a string"),
+
+    /// Discriminator value not in mapping
+    DISCRIMINATOR_VALUE_NOT_IN_MAPPING("discriminator value '%s' not in mapping");
+
+    private final String messageTemplate;
+
+    Error(String messageTemplate) {
+      this.messageTemplate = messageTemplate;
+    }
+
+    /// Creates a concise error message without the actual JSON value
+    public String message(Object... args) {
+      return String.format(messageTemplate, args);
+    }
+
+    /// Creates a verbose error message including the actual JSON value
+    public String message(JsonValue invalidValue, Object... args) {
+      String baseMessage = String.format(messageTemplate, args);
+      String displayValue = Json.toDisplayString(invalidValue, 0); // Use compact format
+      return baseMessage + " (was: " + displayValue + ")";
+    }
+  }
 }
