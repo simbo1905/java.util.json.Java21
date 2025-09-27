@@ -64,21 +64,23 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     // GitHub base URL for upstream sources
     String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/";
 
-    // Shared HttpClient instance for efficient resource management
-    HttpClient SHARED_HTTP_CLIENT = HttpClient.newBuilder()
-        .connectTimeout(Duration.ofSeconds(10))
-        .build();
+    // HttpClient factory method for proper resource management
+    static HttpClient createHttpClient() {
+        return HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
+            .build();
+    }
 
     /// Fetches content from a URL
     static String fetchFromUrl(String url) {
-        try {
+        try (final var httpClient = createHttpClient()) {
             final var request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
                 .timeout(Duration.ofSeconds(30))
                 .GET()
                 .build();
 
-            final var response = SHARED_HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+            final var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() == 200) {
                 return response.body();
@@ -227,14 +229,14 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
             LOGGER.info("Fetching upstream source: " + url);
 
-            try {
+            try (final var httpClient = createHttpClient()) {
                 final var request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
                     .timeout(Duration.ofSeconds(30))
                     .GET()
                     .build();
 
-                final var response = SHARED_HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+                final var response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
                 if (response.statusCode() == 200) {
                     final var body = response.body();

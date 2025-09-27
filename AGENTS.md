@@ -220,6 +220,8 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - Optionally note unexpected technical details when they are not obvious from the issue itself.
 - Do not report progress or success in the commit message; nothing is final until merged.
 - Every tidy-up commit requires an accompanying issue. If labels are unavailable, title the issue `Tidy Up: ...` and keep the description minimal.
+- **Do not include advertising or promotional content** such as `🤖 Generated with [XXX YYY](https://XXX/YYY)` in commit messages.
+- **Do not add 'Co-Authored-By' comments** to commit messages; keep attribution within the normal git author fields.
 
 ### Pull Requests
 - Describe what was done, not the rationale or implementation details.
@@ -422,7 +424,7 @@ PY
 
 # Java DOP Coding Standards ####################
 
-This file is a Gen AI summary of CODING_STYLE.md to use less tokens of context window. Read the original file for full details.
+This section contains the Java DOP (Data-Oriented Programming) coding standards and guidelines.
 
 IMPORTANT: We do TDD so all code must include targeted unit tests.
 IMPORTANT: Never disable tests written for logic that we are yet to write we do Red-Green-Refactor coding.
@@ -455,6 +457,7 @@ IMPORTANT: Never disable tests written for logic that we are yet to write we do 
     * Pattern matching for structural decomposition
     * Sealed classes for exhaustive switches
     * Virtual threads for concurrent processing
+    * **Use try-with-resources for all AutoCloseable resources** (HttpClient, streams, etc.)
 
 ## Package Structure
 
