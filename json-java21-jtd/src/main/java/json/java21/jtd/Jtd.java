@@ -442,8 +442,8 @@ public class Jtd {
       }
       additionalProperties = bool.value();
     } else if (properties.isEmpty() && optionalProperties.isEmpty()) {
-      // Empty schema with no properties defined allows additional properties by default
-      additionalProperties = true;
+      // Empty schema with no properties defined rejects additional properties by default
+      additionalProperties = false;
     }
     
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);

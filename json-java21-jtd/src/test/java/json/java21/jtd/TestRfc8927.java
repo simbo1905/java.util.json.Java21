@@ -530,4 +530,23 @@ public class TestRfc8927 extends JtdTestBase {
         .isNotEmpty();
     }
   }
+
+  /// Test for Issue #91: additionalProperties should default to false when no properties defined
+  /// Empty properties schema should reject additional properties
+  @Test
+  public void testAdditionalPropertiesDefaultsToFalse() throws Exception {
+    JsonValue schema = Json.parse("{\"elements\": {\"properties\": {}}}");
+    JsonValue invalidData = Json.parse("[{\"extraProperty\":\"extra-value\"}]");
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, invalidData);
+    
+    // This should fail validation because additionalProperties defaults to false
+    assertThat(result.isValid())
+      .as("Empty properties schema should reject additional properties by default")
+      .isFalse();
+    assertThat(result.errors())
+      .as("Should have validation error for additional property")
+      .isNotEmpty();
+  }
 }
