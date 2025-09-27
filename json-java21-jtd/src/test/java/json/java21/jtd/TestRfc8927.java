@@ -327,4 +327,114 @@ public class TestRfc8927 extends JtdTestBase {
       LOG.fine(() -> "Boolean type invalid test - value: " + invalidValue + ", errors: " + result.errors());
     }
   }
+
+  /// Test nullable default behavior - non-nullable schemas must reject null
+  @Test
+  public void testNonNullableBooleanRejectsNull() throws Exception {
+    JsonValue schema = Json.parse("{\"type\":\"boolean\"}");
+    JsonValue instance = Json.parse("null");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isFalse();
+    assertThat(result.errors()).anySatisfy(err -> assertThat(err).contains("expected boolean"));
+  }
+
+  /// Test nullable boolean accepts null when explicitly nullable
+  @Test
+  public void testNullableBooleanAcceptsNull() throws Exception {
+    JsonValue schema = Json.parse("{\"type\":\"boolean\",\"nullable\":true}");
+    JsonValue instance = Json.parse("null");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isTrue();
+  }
+
+  /// Test timestamp validation with leap second
+  @Test
+  public void testTimestampLeapSecond() throws Exception {
+    JsonValue schema = Json.parse("{\"type\":\"timestamp\"}");
+    JsonValue instance = Json.parse("\"1990-12-31T23:59:60Z\"");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isTrue();
+  }
+
+  /// Test timestamp validation with timezone offset
+  @Test
+  public void testTimestampWithTimezoneOffset() throws Exception {
+    JsonValue schema = Json.parse("{\"type\":\"timestamp\"}");
+    JsonValue instance = Json.parse("\"1990-12-31T15:59:60-08:00\"");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isTrue();
+  }
+
+  /// Test nested ref schema resolution
+  @Test
+  public void testRefSchemaNested() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "definitions": {
+          "id": {"type": "string"},
+          "user": {"properties": {"id": {"ref": "id"}}}
+        },
+        "ref": "user"
+      }""");
+    JsonValue instance = Json.parse("{\"id\":\"abc123\"}");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isTrue();
+  }
+
+  /// Test recursive ref schema resolution
+  @Test
+  public void testRefSchemaRecursive() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "definitions": {
+          "node": {
+            "properties": {
+              "value": {"type":"string"},
+              "next": {"nullable": true, "ref": "node"}
+            }
+          }
+        },
+        "ref": "node"
+      }""");
+    JsonValue instance = Json.parse("{\"value\":\"root\",\"next\":{\"value\":\"child\",\"next\":null}}");
+    Jtd.Result result = new Jtd().validate(schema, instance);
+    assertThat(result.isValid()).isTrue();
+  }
+
+  /// Test recursive ref schema validation - should reject invalid nested data
+  /// "ref schema - recursive schema, bad" from JTD specification test suite
+  @Test
+  public void testRefSchemaRecursiveBad() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "definitions": {
+          "root": {
+            "elements": {
+              "ref": "root"
+            }
+          }
+        },
+        "ref": "root"
+      }""");
+    
+    // This should be invalid - nested array contains mixed types (arrays and strings)
+    JsonValue instance = Json.parse("[[],[[]],[[[],[\"a\"]]]]");
+    
+    LOG.info(() -> "Testing recursive ref schema validation - should reject mixed types");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Instance: " + instance);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, instance);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "ERRORS: " + result.errors());
+    }
+    
+    // This should be invalid according to RFC 8927 (recursive elements should be homogeneous)
+    assertThat(result.isValid())
+      .as("Recursive ref should reject heterogeneous nested data")
+      .isFalse();
+  }
 }

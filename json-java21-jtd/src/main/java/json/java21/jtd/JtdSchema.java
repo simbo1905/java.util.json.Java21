@@ -75,22 +75,41 @@ public sealed interface JtdSchema {
   }
   
   /// Ref schema - references a definition in the schema's definitions
-  record RefSchema(String ref, JtdSchema resolvedSchema) implements JtdSchema {
+  record RefSchema(String ref, java.util.Map<String, JtdSchema> definitions) implements JtdSchema {
+    JtdSchema target() {
+      JtdSchema schema = definitions.get(ref);
+      if (schema == null) {
+        throw new IllegalStateException("Ref not resolved: " + ref);
+      }
+      return schema;
+    }
+
     @Override
     public Jtd.Result validate(JsonValue instance) {
-      return resolvedSchema.validate(instance);
+      return target().validate(instance);
     }
 
     @Override
     public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-      // Create new frame with the resolved schema but preserve all context including discriminator key
-      Jtd.Frame resolvedFrame = new Jtd.Frame(resolvedSchema, frame.instance(), frame.ptr(), frame.crumbs(), frame.discriminatorKey());
-      return resolvedSchema.validateWithFrame(resolvedFrame, errors, verboseErrors);
+      JtdSchema resolved = target();
+      Jtd.Frame resolvedFrame = new Jtd.Frame(resolved, frame.instance(), frame.ptr(),
+          frame.crumbs(), frame.discriminatorKey());
+      return resolved.validateWithFrame(resolvedFrame, errors, verboseErrors);
+    }
+
+    @Override
+    public String toString() {
+      return "RefSchema(ref=" + ref + ")";
     }
   }
   
   /// Type schema - validates specific primitive types
   record TypeSchema(String type) implements JtdSchema {
+    /// RFC 3339 timestamp pattern with leap second support
+    private static final java.util.regex.Pattern RFC3339 = java.util.regex.Pattern.compile(
+      "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:(\\d{2}|60)(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2}))$"
+    );
+    
     @Override
     public Jtd.Result validate(JsonValue instance) {
       return validate(instance, false);
@@ -144,18 +163,15 @@ public sealed interface JtdSchema {
     
     Jtd.Result validateTimestamp(JsonValue instance, boolean verboseErrors) {
       if (instance instanceof JsonString str) {
-        String timestamp = str.value();
-        
-        // Use static functional validation for RFC 3339 with leap second support
-        if (isValidRfc3339Timestamp(timestamp)) {
-          return Jtd.Result.success();
+        String value = str.value();
+        if (RFC3339.matcher(value).matches()) {
+          try {
+            // Replace :60 with :59 to allow leap seconds through parsing
+            String normalized = value.replace(":60", ":59");
+            OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            return Jtd.Result.success();
+          } catch (Exception ignore) {}
         }
-        
-        // Invalid RFC 3339 timestamp format
-        String error = verboseErrors
-            ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
-            : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
-        return Jtd.Result.failure(error);
       }
       String error = verboseErrors
           ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
@@ -312,6 +328,10 @@ public sealed interface JtdSchema {
   /// Elements schema - validates array elements against a schema
   record ElementsSchema(JtdSchema elements) implements JtdSchema {
     @Override
+    public String toString() {
+      return "ElementsSchema[elements=" + elements.getClass().getSimpleName() + "]";
+    }
+    @Override
     public Jtd.Result validate(JsonValue instance) {
       return validate(instance, false);
     }
@@ -358,6 +378,12 @@ public sealed interface JtdSchema {
       java.util.Map<String, JtdSchema> optionalProperties,
       boolean additionalProperties
   ) implements JtdSchema {
+    @Override
+    public String toString() {
+      return "PropertiesSchema[required=" + properties.keySet() +
+             ", optional=" + optionalProperties.keySet() +
+             ", additionalProperties=" + additionalProperties + "]";
+    }
     @Override
     public Jtd.Result validate(JsonValue instance) {
       return validate(instance, false);
@@ -436,6 +462,11 @@ public sealed interface JtdSchema {
   /// Values schema - validates object values against a schema
   record ValuesSchema(JtdSchema values) implements JtdSchema {
     @Override
+    public String toString() {
+      return "ValuesSchema[values=" + values.getClass().getSimpleName() + "]";
+    }
+    
+    @Override
     public Jtd.Result validate(JsonValue instance) {
       return validate(instance, false);
     }
@@ -483,6 +514,10 @@ public sealed interface JtdSchema {
       String discriminator,
       java.util.Map<String, JtdSchema> mapping
   ) implements JtdSchema {
+    @Override
+    public String toString() {
+      return "DiscriminatorSchema[discriminator=" + discriminator + ", mapping=" + mapping.keySet() + "]";
+    }
     @Override
     public Jtd.Result validate(JsonValue instance) {
       return validate(instance, false);

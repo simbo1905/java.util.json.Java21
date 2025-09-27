@@ -16,14 +16,21 @@ public class Jtd {
   private static final Logger LOG = Logger.getLogger(Jtd.class.getName());
   
   /// Top-level definitions map for ref resolution
-  private final Map<String, JsonValue> definitionValues = new java.util.HashMap<>();
-  private final Map<String, JtdSchema> compiledDefinitions = new java.util.HashMap<>();
+  private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
   
   /// Stack frame for iterative validation with path and offset tracking
   record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
     /// Constructor for normal validation without discriminator context
     Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {
       this(schema, instance, ptr, crumbs, null);
+    }
+    
+    @Override
+    public String toString() {
+      final var kind = schema.getClass().getSimpleName();
+      final var tag  = (schema instanceof JtdSchema.RefSchema r) ? "(ref=" + r.ref() + ")" : "";
+      return "Frame[schema=" + kind + tag + ", instance=" + instance + ", ptr=" + ptr +
+             ", crumbs=" + crumbs + ", discriminatorKey=" + discriminatorKey + "]";
     }
   }
   
@@ -71,12 +78,8 @@ public class Jtd {
     LOG.fine(() -> "JTD validation - schema: " + schema + ", instance: " + instance);
     
     try {
-      // Clear previous definitions and extract top-level definitions
-      definitionValues.clear();
-      compiledDefinitions.clear();
-      if (schema instanceof JsonObject obj) {
-        extractTopLevelDefinitions(obj);
-      }
+      // Clear previous definitions
+      definitions.clear();
       
       JtdSchema jtdSchema = compileSchema(schema);
       Result result = validateWithStack(jtdSchema, instance);
@@ -102,12 +105,16 @@ public class Jtd {
     Frame rootFrame = new Frame(schema, instance, "#", Crumbs.root());
     stack.push(rootFrame);
     
-    LOG.fine(() -> "Starting stack validation - initial frame: " + rootFrame);
+    LOG.fine(() -> "Starting stack validation - schema=" +
+        rootFrame.schema.getClass().getSimpleName() +
+        (rootFrame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
+        ", ptr=#");
     
     // Process frames iteratively
     while (!stack.isEmpty()) {
       Frame frame = stack.pop();
       LOG.fine(() -> "Processing frame - schema: " + frame.schema.getClass().getSimpleName() + 
+                     (frame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
                      ", ptr: " + frame.ptr + ", off: " + offsetOf(frame.instance));
       
       // Validate current frame
@@ -246,22 +253,49 @@ public class Jtd {
           }
         }
       }
-      default -> // Simple schemas (Empty, Type, Enum, Nullable, Ref) don't push child frames
+      case JtdSchema.RefSchema refSchema -> {
+        try {
+          JtdSchema resolved = refSchema.target();
+          Frame resolvedFrame = new Frame(resolved, instance, frame.ptr,
+              frame.crumbs, frame.discriminatorKey());
+          pushChildFrames(resolvedFrame, stack);
+          LOG.finer(() -> "Pushed ref schema resolved to " +
+              resolved.getClass().getSimpleName() + " for ref: " + refSchema.ref());
+        } catch (IllegalStateException e) {
+          LOG.finer(() -> "No child frames for unresolved ref: " + refSchema.ref());
+        }
+      }
+      default -> // Simple schemas (Empty, Type, Enum, Nullable) don't push child frames
           LOG.finer(() -> "No child frames for schema type: " + schema.getClass().getSimpleName());
     }
   }
   
   /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
   JtdSchema compileSchema(JsonValue schema) {
-    if (schema == null) {
-      throw new IllegalArgumentException("Schema cannot be null");
+    if (!(schema instanceof JsonObject obj)) {
+      throw new IllegalArgumentException("Schema must be an object");
     }
-    
-    if (schema instanceof JsonObject obj) {
-      return compileObjectSchema(obj);
+
+    // First pass: register definition keys as placeholders
+    if (obj.members().containsKey("definitions")) {
+      JsonObject defsObj = (JsonObject) obj.members().get("definitions");
+      for (String key : defsObj.members().keySet()) {
+        definitions.putIfAbsent(key, null);
+      }
     }
-    
-    throw new IllegalArgumentException("Schema must be an object, got: " + schema.getClass().getSimpleName());
+
+    // Second pass: compile each definition if not already compiled
+    if (obj.members().containsKey("definitions")) {
+      JsonObject defsObj = (JsonObject) obj.members().get("definitions");
+      for (String key : defsObj.members().keySet()) {
+        if (definitions.get(key) == null) {
+          JtdSchema compiled = compileSchema(defsObj.members().get(key));
+          definitions.put(key, compiled);
+        }
+      }
+    }
+
+    return compileObjectSchema(obj);
   }
   
   /// Compiles an object schema according to RFC 8927
@@ -289,16 +323,6 @@ public class Jtd {
       throw new IllegalArgumentException("Schema has multiple forms: " + forms);
     }
     
-    // Handle nullable flag (can be combined with any form)
-    boolean nullable = false;
-    if (members.containsKey("nullable")) {
-      JsonValue nullableValue = members.get("nullable");
-      if (!(nullableValue instanceof JsonBoolean bool)) {
-        throw new IllegalArgumentException("nullable must be a boolean");
-      }
-      nullable = bool.value();
-    }
-    
     // Parse the specific schema form
     JtdSchema schema;
     
@@ -320,54 +344,26 @@ public class Jtd {
       };
     }
     
-    // Wrap with nullable if needed
-    if (nullable) {
-      return new JtdSchema.NullableSchema(schema);
+    // Handle nullable flag (can be combined with any form)
+    if (members.containsKey("nullable")) {
+      JsonValue nullableValue = members.get("nullable");
+      if (!(nullableValue instanceof JsonBoolean bool)) {
+        throw new IllegalArgumentException("nullable must be a boolean");
+      }
+      if (bool.value()) {
+        return new JtdSchema.NullableSchema(schema);
+      }
     }
-    
+    // Default: non-nullable
     return schema;
   }
   
   JtdSchema compileRefSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
-    JsonValue refValue = members.get("ref");
+    JsonValue refValue = obj.members().get("ref");
     if (!(refValue instanceof JsonString str)) {
       throw new IllegalArgumentException("ref must be a string");
     }
-    String refName = str.value();
-    
-    // Look for definitions in the stored top-level definitions
-    JsonValue definitionValue = definitionValues.get(refName);
-    if (definitionValue == null) {
-      // Fallback: check if definitions exist in current object (for backward compatibility)
-      JsonValue definitionsValue = members.get("definitions");
-      if (definitionsValue instanceof JsonObject definitions) {
-        definitionValue = definitions.members().get(refName);
-      }
-      
-      if (definitionValue == null) {
-        throw new IllegalArgumentException("ref '" + refName + "' not found in definitions");
-      }
-    }
-    
-    // Check for circular references and compile the referenced schema
-    if (compiledDefinitions.containsKey(refName)) {
-      // Already compiled, return cached version
-      return compiledDefinitions.get(refName);
-    }
-    
-    // Mark as being compiled to handle circular references
-    compiledDefinitions.put(refName, null); // placeholder
-    
-    try {
-      JtdSchema resolvedSchema = compileSchema(definitionValue);
-      compiledDefinitions.put(refName, resolvedSchema);
-      return new JtdSchema.RefSchema(refName, resolvedSchema);
-    } catch (Exception e) {
-      // Remove placeholder on error
-      compiledDefinitions.remove(refName);
-      throw e;
-    }
+    return new JtdSchema.RefSchema(str.value(), definitions);
   }
   
   JtdSchema compileTypeSchema(JsonObject obj) {
@@ -478,17 +474,6 @@ public class Jtd {
   }
   
   /// Extracts and stores top-level definitions for ref resolution
-  void extractTopLevelDefinitions(JsonObject schema) {
-    JsonValue definitionsValue = schema.members().get("definitions");
-    if (definitionsValue instanceof JsonObject definitions) {
-      for (String name : definitions.members().keySet()) {
-        JsonValue definitionValue = definitions.members().get(name);
-        definitionValues.put(name, definitionValue);
-        LOG.fine(() -> "Extracted definition: " + name);
-      }
-    }
-  }
-  
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
     Map<String, JtdSchema> schemas = new java.util.HashMap<>();
     for (String key : propsObj.members().keySet()) {
