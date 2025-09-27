@@ -113,7 +113,7 @@ public class Utils {
                 + ((jv instanceof JsonValueImpl jvi && jvi.doc() != null) ? JsonPath.getPath(jvi) : ""));
     }
 
-    public static String getPath(JsonValueImpl jvi) {
+    static String getPath(JsonValueImpl jvi) {
         return JsonPath.getPath(jvi);
     }
 
