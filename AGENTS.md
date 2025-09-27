@@ -117,10 +117,14 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - `JsonBoolean`: JSON booleans.
 - `JsonNull`: JSON null.
 
+IMPORTANT: This API **MUST NOT** deviate from the upstream jdk.sandbox repo which is will track.  
+
 #### Internal Implementation (`jdk.sandbox.internal.util.json`)
 - `JsonParser`: Recursive descent JSON parser.
 - `Json*Impl`: Immutable implementations of `Json*` types.
 - `Utils`: Internal utilities and factory methods.
+
+IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **MUST** be fixed upstream. Only bugs in any backporting machinery such as the double-check-locking class that is a polyfill for a future JDK `@StableValue` feature may be fixed in this repo. 
 
 ### Design Patterns
 - Algebraic Data Types: Sealed interfaces enable exhaustive pattern matching.
