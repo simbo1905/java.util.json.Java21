@@ -174,12 +174,12 @@ public class JtdSpecIT extends JtdTestBase {
       // INFO level logging as required by AGENTS.md - announce test execution
       LOG.info(() -> "EXECUTING: " + testName);
       
+      // Extract test data outside try block so they're available in catch
+      JsonNode schemaNode = testCase.get("schema");
+      JsonNode instanceNode = testCase.get("instance");
+      JsonNode expectedErrorsNode = testCase.get("errors");
+      
       try {
-        // Extract test data
-        JsonNode schemaNode = testCase.get("schema");
-        JsonNode instanceNode = testCase.get("instance");
-        JsonNode expectedErrorsNode = testCase.get("errors");
-        
         // FINE level logging for test details
         LOG.fine(() -> String.format("Test details - schema: %s, instance: %s, expected errors: %s", 
                                      schemaNode, instanceNode, expectedErrorsNode));
@@ -199,7 +199,9 @@ public class JtdSpecIT extends JtdTestBase {
         if (expectedValid != actualValid) {
           String message = String.format("Validation mismatch - expected: %s, actual: %s, errors: %s", 
                                        expectedValid, actualValid, result.errors());
-          LOG.warning(() -> message);
+          // Log SEVERE for test failures with full details
+          LOG.severe(() -> String.format("ERROR: Test failure in %s\nSchema: %s\nDocument: %s\nExpected valid: %s\nActual valid: %s\nErrors: %s", 
+                                       testName, schemaNode, instanceNode, expectedValid, actualValid, result.errors()));
           throw new AssertionError(message);
         }
         
@@ -211,7 +213,9 @@ public class JtdSpecIT extends JtdTestBase {
         
       } catch (Exception e) {
         failedTests++;
-        LOG.warning(() -> String.format("Validation test FAILED: %s - %s", testName, e.getMessage()));
+        // Log SEVERE for test failures with full details
+        LOG.severe(() -> String.format("ERROR: Validation test FAILED: %s\nSchema: %s\nDocument: %s\nException: %s", 
+                                       testName, schemaNode, instanceNode, e.getMessage()));
         throw new RuntimeException("Validation test failed: " + testName, e);
       }
     });
@@ -241,7 +245,7 @@ public class JtdSpecIT extends JtdTestBase {
         
         // If we get here, the schema was accepted (which is wrong for invalid schemas)
         // But we'll pass for now since we're building incrementally
-        LOG.warning(() -> String.format("Invalid schema test %s - schema was accepted but should be rejected: %s", 
+        LOG.severe(() -> String.format("ERROR: Invalid schema test %s - schema was accepted but should be rejected: %s", 
                                        testName, jtdSchema));
         
         passedTests++;
