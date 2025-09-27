@@ -9,7 +9,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /// RFC 8927 compliance tests for failing JTD specification cases
 /// These are the exact test cases that were failing in JtdSpecIT
 /// with explicit multiline strings for schema and JSON documents
-public class TestRfc8927Compliance extends JtdTestBase {
+  public class TestRfc8927Compliance extends JtdTestBase {
 
   /// Test ref schema with nested definitions
   /// "ref schema - nested ref" from JTD specification test suite

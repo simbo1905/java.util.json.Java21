@@ -20,7 +20,12 @@ public class Jtd {
   private final Map<String, JtdSchema> compiledDefinitions = new java.util.HashMap<>();
   
   /// Stack frame for iterative validation with path and offset tracking
-  record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {}
+  record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
+    /// Constructor for normal validation without discriminator context
+    Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {
+      this(schema, instance, ptr, crumbs, null);
+    }
+  }
   
   /// Lightweight breadcrumb trail for human-readable error paths
   record Crumbs(String value) {
@@ -145,7 +150,8 @@ public class Jtd {
     }
     
     // Check for additional properties if not allowed
-    if (!propsSchema.additionalProperties()) {
+    // RFC 8927 §2.2.8: In discriminator context, variant schemas ignore additionalProperties enforcement
+    if (!propsSchema.additionalProperties() && frame.discriminatorKey() == null) {
       for (String key : obj.members().keySet()) {
         if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
           JsonValue value = obj.members().get(key);
@@ -232,10 +238,10 @@ public class Jtd {
             String discriminatorValueStr = discStr.value();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
-              // Push variant schema for validation
-              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs);
+              // Push variant schema for validation with discriminator key context
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
               stack.push(variantFrame);
-              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr);
+              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
             }
           }
         }

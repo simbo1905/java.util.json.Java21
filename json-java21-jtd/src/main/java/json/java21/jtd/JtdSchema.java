@@ -83,8 +83,8 @@ public sealed interface JtdSchema {
 
     @Override
     public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-      // Create new frame with the resolved schema but same instance, path, and crumbs
-      Jtd.Frame resolvedFrame = new Jtd.Frame(resolvedSchema, frame.instance(), frame.ptr(), frame.crumbs());
+      // Create new frame with the resolved schema but preserve all context including discriminator key
+      Jtd.Frame resolvedFrame = new Jtd.Frame(resolvedSchema, frame.instance(), frame.ptr(), frame.crumbs(), frame.discriminatorKey());
       return resolvedSchema.validateWithFrame(resolvedFrame, errors, verboseErrors);
     }
   }
