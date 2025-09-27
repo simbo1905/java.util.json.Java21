@@ -2,6 +2,8 @@ package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.*;
 
+import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 /// JTD Schema interface - validates JSON instances against JTD schemas
@@ -73,15 +75,17 @@ public sealed interface JtdSchema {
   }
   
   /// Ref schema - references a definition in the schema's definitions
-  record RefSchema(String ref) implements JtdSchema {
+  record RefSchema(String ref, JtdSchema resolvedSchema) implements JtdSchema {
     @Override
     public Jtd.Result validate(JsonValue instance) {
-      throw new AssertionError("not implemented");
+      return resolvedSchema.validate(instance);
     }
 
     @Override
     public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-      throw new AssertionError("not implemented");
+      // Create new frame with the resolved schema but same instance, path, and crumbs
+      Jtd.Frame resolvedFrame = new Jtd.Frame(resolvedSchema, frame.instance(), frame.ptr(), frame.crumbs());
+      return resolvedSchema.validateWithFrame(resolvedFrame, errors, verboseErrors);
     }
   }
   
@@ -139,8 +143,18 @@ public sealed interface JtdSchema {
     }
     
     Jtd.Result validateTimestamp(JsonValue instance, boolean verboseErrors) {
-      if (instance instanceof JsonString ignored) {
-        throw new AssertionError("not implemented");
+      if (instance instanceof JsonString str) {
+        try {
+          // Parse using RFC 3339 format (ISO_OFFSET_DATE_TIME)
+          OffsetDateTime.parse(str.value(), DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+          return Jtd.Result.success();
+        } catch (Exception e) {
+          // Invalid RFC 3339 timestamp format
+          String error = verboseErrors
+              ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
+              : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
+          return Jtd.Result.failure(error);
+        }
       }
       String error = verboseErrors
           ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
@@ -151,11 +165,37 @@ public sealed interface JtdSchema {
     Jtd.Result validateInteger(JsonValue instance, String type, boolean verboseErrors) {
       if (instance instanceof JsonNumber num) {
         Number value = num.toNumber();
+        
+        // Check if the number is not integral (has fractional part)
         if (value instanceof Double d && d != Math.floor(d)) {
           return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
         }
-        throw new AssertionError("not implemented");
+        
+        // Convert to long for range checking
+        long longValue = value.longValue();
+        
+        // Check ranges according to RFC 8927 §2.2.3.1
+        boolean valid = switch (type) {
+          case "int8" -> longValue >= -128 && longValue <= 127;
+          case "uint8" -> longValue >= 0 && longValue <= 255;
+          case "int16" -> longValue >= -32768 && longValue <= 32767;
+          case "uint16" -> longValue >= 0 && longValue <= 65535;
+          case "int32" -> longValue >= -2147483648L && longValue <= 2147483647L;
+          case "uint32" -> longValue >= 0 && longValue <= 4294967295L;
+          default -> false;
+        };
+        
+        if (valid) {
+          return Jtd.Result.success();
+        }
+        
+        // Range violation
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
+        return Jtd.Result.failure(error);
       }
+      
       String error = verboseErrors
           ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
           : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());

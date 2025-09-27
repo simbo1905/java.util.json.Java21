@@ -315,7 +315,22 @@ public class Jtd {
     if (!(refValue instanceof JsonString str)) {
       throw new IllegalArgumentException("ref must be a string");
     }
-    return new JtdSchema.RefSchema(str.value());
+    String refName = str.value();
+    
+    // Resolve reference against definitions
+    JsonValue definitionsValue = members.get("definitions");
+    if (!(definitionsValue instanceof JsonObject definitions)) {
+      throw new IllegalArgumentException("ref requires definitions object at root level");
+    }
+    
+    JsonValue definitionValue = definitions.members().get(refName);
+    if (definitionValue == null) {
+      throw new IllegalArgumentException("ref '" + refName + "' not found in definitions");
+    }
+    
+    // Compile the referenced schema
+    JtdSchema resolvedSchema = compileSchema(definitionValue);
+    return new JtdSchema.RefSchema(refName, resolvedSchema);
   }
   
   JtdSchema compileTypeSchema(JsonObject obj) {
