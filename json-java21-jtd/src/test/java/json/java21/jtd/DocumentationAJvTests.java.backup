@@ -15,10 +15,15 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example from docs: { type: "string" }
   @Test
   public void testTypeFormString() throws Exception {
-    JsonValue schema = Json.parse("{ \"type\": \"string\" }");
+    String schemaJson = "{ \"type\": \"string\" }";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid string
-    JsonValue validData = Json.parse("\"hello\"");
+    JsonValue result;
+    result = Json.parse("\"hello\"");
+    JsonValue validData = result;
     assertThat(schema).isNotNull();
     assertThat(validData).isNotNull();
     LOG.fine(() -> "Type form string test - schema: " + schema + ", data: " + validData);
@@ -28,11 +33,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testTypeFormString but tests invalid data
   @Test
   public void testTypeFormStringInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"type\": \"string\" }");
+    String schemaJson = "{ \"type\": \"string\" }";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for non-string
     JsonValue invalidData = Json.parse("123");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -43,11 +51,18 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example from docs: { enum: ["foo", "bar"] }
   @Test
   public void testEnumForm() throws Exception {
-    JsonValue schema = Json.parse("{ \"enum\": [\"foo\", \"bar\"] }");
+    String schemaJson = "{ \"enum\": [\"foo\", \"bar\"] }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid enum values
-    JsonValue validFoo = Json.parse("\"foo\"");
-    JsonValue validBar = Json.parse("\"bar\"");
+    JsonValue result1;
+    result1 = Json.parse("\"foo\"");
+    JsonValue validFoo = result1;
+    JsonValue result;
+    result = Json.parse("\"bar\"");
+    JsonValue validBar = result;
 
     assertThat(schema).isNotNull();
     assertThat(validFoo).isNotNull();
@@ -59,11 +74,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testEnumForm but tests invalid data
   @Test
   public void testEnumFormInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"enum\": [\"foo\", \"bar\"] }");
+    String schemaJson = "{ \"enum\": [\"foo\", \"bar\"] }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for value not in enum
     JsonValue invalidData = Json.parse("\"baz\"");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -74,11 +92,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testElementsForm but tests invalid data
   @Test
   public void testElementsFormInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"elements\": { \"type\": \"string\" } }");
+    String schemaJson = "{ \"elements\": { \"type\": \"string\" } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for array with non-string elements
     JsonValue invalidData = Json.parse("[\"foo\", 123]");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -89,11 +110,18 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Schema example: { elements: { type: "string" } }
   @Test
   public void testElementsForm() throws Exception {
-    JsonValue schema = Json.parse("{ \"elements\": { \"type\": \"string\" } }");
+    String schemaJson = "{ \"elements\": { \"type\": \"string\" } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid arrays
-    JsonValue emptyArray = Json.parse("[]");
-    JsonValue stringArray = Json.parse("[\"foo\", \"bar\"]");
+    JsonValue result1;
+    result1 = Json.parse("[]");
+    JsonValue emptyArray = result1;
+    JsonValue result;
+    result = Json.parse("[\"foo\", \"bar\"]");
+    JsonValue stringArray = result;
 
     assertThat(schema).isNotNull();
     assertThat(emptyArray).isNotNull();
@@ -105,10 +133,15 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example 1: { properties: { foo: { type: "string" } } }
   @Test
   public void testPropertiesFormRequiredOnly() throws Exception {
-    JsonValue schema = Json.parse("{ \"properties\": { \"foo\": { \"type\": \"string\" } } }");
+    String schemaJson = "{ \"properties\": { \"foo\": { \"type\": \"string\" } } }";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid object
-    JsonValue validObject = Json.parse("{\"foo\": \"bar\"}");
+    JsonValue result;
+    result = Json.parse("{\"foo\": \"bar\"}");
+    JsonValue validObject = result;
 
     assertThat(schema).isNotNull();
     assertThat(validObject).isNotNull();
@@ -119,11 +152,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testPropertiesFormRequiredOnly but tests invalid data
   @Test
   public void testPropertiesFormRequiredOnlyInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"properties\": { \"foo\": { \"type\": \"string\" } } }");
+    String schemaJson = "{ \"properties\": { \"foo\": { \"type\": \"string\" } } }";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for missing required property
     JsonValue invalidData = Json.parse("{}");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -134,12 +170,21 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example 2: { properties: { foo: {type: "string"} }, optionalProperties: { bar: {enum: ["1", "2"]} }, additionalProperties: true }
   @Test
   public void testPropertiesFormWithOptional() throws Exception {
-    JsonValue schema = Json.parse("{ \"properties\": { \"foo\": {\"type\": \"string\"} }, \"optionalProperties\": { \"bar\": {\"enum\": [\"1\", \"2\"]} }, \"additionalProperties\": true }");
+    String schemaJson = "{ \"properties\": { \"foo\": {\"type\": \"string\"} }, \"optionalProperties\": { \"bar\": {\"enum\": [\"1\", \"2\"]} }, \"additionalProperties\": true }";
+    JsonValue result3;
+    result3 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid objects
-    JsonValue withRequired = Json.parse("{\"foo\": \"bar\"}");
-    JsonValue withOptional = Json.parse("{\"foo\": \"bar\", \"bar\": \"1\"}");
-    JsonValue withAdditional = Json.parse("{\"foo\": \"bar\", \"additional\": 1}");
+    JsonValue result2;
+    result2 = Json.parse("{\"foo\": \"bar\"}");
+    JsonValue withRequired = result2;
+    JsonValue result1;
+    result1 = Json.parse("{\"foo\": \"bar\", \"bar\": \"1\"}");
+    JsonValue withOptional = result1;
+    JsonValue result;
+    result = Json.parse("{\"foo\": \"bar\", \"additional\": 1}");
+    JsonValue withAdditional = result;
 
     assertThat(schema).isNotNull();
     assertThat(withRequired).isNotNull();
@@ -152,11 +197,18 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example 1: { discriminator: "version", mapping: { "1": { properties: { foo: {type: "string"} } }, "2": { properties: { foo: {type: "uint8"} } } } }
   @Test
   public void testDiscriminatorForm() throws Exception {
-    JsonValue schema = Json.parse("{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }");
+    String schemaJson = "{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid discriminated objects
-    JsonValue version1 = Json.parse("{\"version\": \"1\", \"foo\": \"1\"}");
-    JsonValue version2 = Json.parse("{\"version\": \"2\", \"foo\": 1}");
+    JsonValue result1;
+    result1 = Json.parse("{\"version\": \"1\", \"foo\": \"1\"}");
+    JsonValue version1 = result1;
+    JsonValue result;
+    result = Json.parse("{\"version\": \"2\", \"foo\": 1}");
+    JsonValue version2 = result;
 
     assertThat(schema).isNotNull();
     assertThat(version1).isNotNull();
@@ -168,11 +220,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testDiscriminatorForm but tests invalid data
   @Test
   public void testDiscriminatorFormInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }");
+    String schemaJson = "{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for discriminator value not in mapping
     JsonValue invalidData = Json.parse("{\"version\": \"3\", \"foo\": \"1\"}");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -183,11 +238,18 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example: { values: { type: "uint8" } }
   @Test
   public void testValuesForm() throws Exception {
-    JsonValue schema = Json.parse("{ \"values\": { \"type\": \"uint8\" } }");
+    String schemaJson = "{ \"values\": { \"type\": \"uint8\" } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test valid dictionaries
-    JsonValue emptyObj = Json.parse("{}");
-    JsonValue numberValues = Json.parse("{\"foo\": 1, \"bar\": 2}");
+    JsonValue result1;
+    result1 = Json.parse("{}");
+    JsonValue emptyObj = result1;
+    JsonValue result;
+    result = Json.parse("{\"foo\": 1, \"bar\": 2}");
+    JsonValue numberValues = result;
 
     assertThat(schema).isNotNull();
     assertThat(emptyObj).isNotNull();
@@ -199,11 +261,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testValuesForm but tests invalid data
   @Test
   public void testValuesFormInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"values\": { \"type\": \"uint8\" } }");
+    String schemaJson = "{ \"values\": { \"type\": \"uint8\" } }";
+    JsonValue result2;
+    result2 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for object with mixed value types
     JsonValue invalidData = Json.parse("{\"foo\": 1, \"bar\": \"not-a-number\"}");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -214,7 +279,10 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example 1: { properties: { propFoo: {ref: "foo", nullable: true} }, definitions: { foo: {type: "string"} } }
   @Test
   public void testRefForm() throws Exception {
-    JsonValue schema = Json.parse("{ \"properties\": { \"propFoo\": {\"ref\": \"foo\", \"nullable\": true} }, \"definitions\": { \"foo\": {\"type\": \"string\"} } }");
+    String schemaJson = "{ \"properties\": { \"propFoo\": {\"ref\": \"foo\", \"nullable\": true} }, \"definitions\": { \"foo\": {\"type\": \"string\"} } }";
+    JsonValue result;
+    result = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     assertThat(schema).isNotNull();
     LOG.fine(() -> "Ref form test - schema: " + schema);
@@ -224,10 +292,15 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Example 2: { ref: "tree", definitions: { tree: { properties: { value: {type: "int32"} }, optionalProperties: { left: {ref: "tree"}, right: {ref: "tree"} } } } }
   @Test
   public void testSelfReferencingSchema() throws Exception {
-    JsonValue schema = Json.parse("{ \"ref\": \"tree\", \"definitions\": { \"tree\": { \"properties\": { \"value\": {\"type\": \"int32\"} }, \"optionalProperties\": { \"left\": {\"ref\": \"tree\"}, \"right\": {\"ref\": \"tree\"} } } } }");
+    String schemaJson = "{ \"ref\": \"tree\", \"definitions\": { \"tree\": { \"properties\": { \"value\": {\"type\": \"int32\"} }, \"optionalProperties\": { \"left\": {\"ref\": \"tree\"}, \"right\": {\"ref\": \"tree\"} } } } }";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test tree structure
-    JsonValue tree = Json.parse("{\"value\": 1, \"left\": {\"value\": 2}, \"right\": {\"value\": 3}}");
+    JsonValue result;
+    result = Json.parse("{\"value\": 1, \"left\": {\"value\": 2}, \"right\": {\"value\": 3}}");
+    JsonValue tree = result;
 
     assertThat(schema).isNotNull();
     assertThat(tree).isNotNull();
@@ -237,15 +310,30 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Empty form: any data
   @Test
   public void testEmptyForm() throws Exception {
-    JsonValue schema = Json.parse("{}");
+    String schemaJson = "{}";
+    JsonValue result6;
+    result6 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test various data types
-    JsonValue stringData = Json.parse("\"hello\"");
-    JsonValue numberData = Json.parse("42");
-    JsonValue objectData = Json.parse("{\"key\": \"value\"}");
-    JsonValue arrayData = Json.parse("[1, 2, 3]");
-    JsonValue nullData = Json.parse("null");
-    JsonValue boolData = Json.parse("true");
+    JsonValue result5;
+    result5 = Json.parse("\"hello\"");
+    JsonValue stringData = result5;
+    JsonValue result4;
+    result4 = Json.parse("42");
+    JsonValue numberData = result4;
+    JsonValue result3;
+    result3 = Json.parse("{\"key\": \"value\"}");
+    JsonValue objectData = result3;
+    JsonValue result2;
+    result2 = Json.parse("[1, 2, 3]");
+    JsonValue arrayData = result2;
+    JsonValue result1;
+    result1 = Json.parse("null");
+    JsonValue nullData = result1;
+    JsonValue result;
+    result = Json.parse("true");
+    JsonValue boolData = result;
 
     assertThat(schema).isNotNull();
     assertThat(stringData).isNotNull();
@@ -261,11 +349,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Same schema as testEmptyForm but tests that no data is invalid
   @Test
   public void testEmptyFormInvalid() throws Exception {
-    JsonValue schema = Json.parse("{}");
+    String schemaJson = "{}";
+    JsonValue result1;
+    result1 = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test that empty schema accepts any data - should pass for "invalid" data
     JsonValue anyData = Json.parse("{\"anything\": \"goes\"}");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult result = validator.validate(schema, anyData);
     assertThat(result.isValid()).isTrue();
     assertThat(result.errors()).isEmpty();
@@ -279,7 +370,9 @@ public class DocumentationAJvTests extends JtdTestBase {
     String[] numericSchemas = {"{ \"type\": \"int8\" }", "{ \"type\": \"uint8\" }", "{ \"type\": \"int16\" }", "{ \"type\": \"uint16\" }", "{ \"type\": \"int32\" }", "{ \"type\": \"uint32\" }", "{ \"type\": \"float32\" }", "{ \"type\": \"float64\" }"};
 
     for (String schemaJson : numericSchemas) {
-      JsonValue schema = Json.parse(schemaJson);
+      JsonValue result;
+      result = Json.parse(schemaJson);
+      JsonValue schema = result;
       assertThat(schema).isNotNull();
       LOG.fine(() -> "Numeric type test - schema: " + schema);
     }
@@ -289,11 +382,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Tests that numeric types reject string data
   @Test
   public void testNumericTypesInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"type\": \"int32\" }");
+    String schemaJson = "{ \"type\": \"int32\" }";
+    JsonValue result;
+    result = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for string data
     JsonValue invalidData = Json.parse("\"not-a-number\"");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
@@ -306,7 +402,9 @@ public class DocumentationAJvTests extends JtdTestBase {
     String[] nullableSchemas = {"{ \"type\": \"string\", \"nullable\": true }", "{ \"enum\": [\"foo\", \"bar\"], \"nullable\": true }", "{ \"elements\": { \"type\": \"string\" }, \"nullable\": true }"};
 
     for (String schemaJson : nullableSchemas) {
-      JsonValue schema = Json.parse(schemaJson);
+      JsonValue result;
+      result = Json.parse(schemaJson);
+      JsonValue schema = result;
       assertThat(schema).isNotNull();
       LOG.fine(() -> "Nullable type test - schema: " + schema);
     }
@@ -316,11 +414,14 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Tests that nullable doesn't bypass type validation for non-null values
   @Test
   public void testNullableTypesInvalid() throws Exception {
-    JsonValue schema = Json.parse("{ \"type\": \"string\", \"nullable\": true }");
+    String schemaJson = "{ \"type\": \"string\", \"nullable\": true }";
+    JsonValue result;
+    result = Json.parse(schemaJson);
+    JsonValue schema = result;
 
     // Test validation failure - should fail for non-string, non-null data
     JsonValue invalidData = Json.parse("123");
-    Jtd validator = new Jtd();
+    JtdValidator validator = new JtdValidator();
     ValidationResult invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();

@@ -9,9 +9,9 @@ import java.util.logging.Logger;
 
 /// JTD Validator - validates JSON instances against JTD schemas (RFC 8927)
 /// Implements the eight mutually-exclusive schema forms defined in RFC 8927
-public class JtdValidator {
+public class Jtd {
   
-  private static final Logger LOG = Logger.getLogger(JtdValidator.class.getName());
+  private static final Logger LOG = Logger.getLogger(Jtd.class.getName());
   
   /// Validates a JSON instance against a JTD schema
   /// @param schema The JTD schema as a JsonValue
@@ -21,7 +21,7 @@ public class JtdValidator {
     LOG.fine(() -> "JTD validation - schema: " + schema + ", instance: " + instance);
     
     try {
-      JtdSchema jtdSchema = parseSchema(schema);
+      JtdSchema jtdSchema = compileSchema(schema);
       ValidationResult result = jtdSchema.validate(instance);
       
       LOG.fine(() -> "JTD validation result: " + (result.isValid() ? "VALID" : "INVALID") + 
@@ -34,21 +34,21 @@ public class JtdValidator {
     }
   }
   
-  /// Parses a JsonValue into a JtdSchema based on RFC 8927 rules
-  private JtdSchema parseSchema(JsonValue schema) {
+  /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
+  private JtdSchema compileSchema(JsonValue schema) {
     if (schema == null) {
       throw new IllegalArgumentException("Schema cannot be null");
     }
     
     if (schema instanceof JsonObject obj) {
-      return parseObjectSchema(obj);
+      return compileObjectSchema(obj);
     }
     
     throw new IllegalArgumentException("Schema must be an object, got: " + schema.getClass().getSimpleName());
   }
   
-  /// Parses an object schema according to RFC 8927
-  private JtdSchema parseObjectSchema(JsonObject obj) {
+  /// Compiles an object schema according to RFC 8927
+  private JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
     Map<String, JsonValue> members = obj.members();
@@ -89,16 +89,16 @@ public class JtdValidator {
       // Empty schema - accepts any value
       schema = new JtdSchema.EmptySchema();
     } else {
-      String form = forms.get(0);
+      String form = forms.getFirst();
       schema = switch (form) {
-        case "ref" -> parseRefSchema(obj);
-        case "type" -> parseTypeSchema(obj);
-        case "enum" -> parseEnumSchema(obj);
-        case "elements" -> parseElementsSchema(obj);
-        case "properties" -> parsePropertiesSchema(obj);
-        case "optionalProperties" -> parsePropertiesSchema(obj); // handled together
-        case "values" -> parseValuesSchema(obj);
-        case "discriminator" -> parseDiscriminatorSchema(obj);
+        case "ref" -> compileRefSchema(obj);
+        case "type" -> compileTypeSchema(obj);
+        case "enum" -> compileEnumSchema(obj);
+        case "elements" -> compileElementsSchema(obj);
+        case "properties" -> compilePropertiesSchema(obj);
+        case "optionalProperties" -> compilePropertiesSchema(obj); // handled together
+        case "values" -> compileValuesSchema(obj);
+        case "discriminator" -> compileDiscriminatorSchema(obj);
         default -> throw new IllegalArgumentException("Unknown schema form: " + form);
       };
     }
@@ -111,7 +111,7 @@ public class JtdValidator {
     return schema;
   }
   
-  private JtdSchema parseRefSchema(JsonObject obj) {
+  private JtdSchema compileRefSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue refValue = members.get("ref");
     if (!(refValue instanceof JsonString str)) {
@@ -120,7 +120,7 @@ public class JtdValidator {
     return new JtdSchema.RefSchema(str.value());
   }
   
-  private JtdSchema parseTypeSchema(JsonObject obj) {
+  private JtdSchema compileTypeSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue typeValue = members.get("type");
     if (!(typeValue instanceof JsonString str)) {
@@ -129,7 +129,7 @@ public class JtdValidator {
     return new JtdSchema.TypeSchema(str.value());
   }
   
-  private JtdSchema parseEnumSchema(JsonObject obj) {
+  private JtdSchema compileEnumSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue enumValue = members.get("enum");
     if (!(enumValue instanceof JsonArray arr)) {
@@ -151,14 +151,14 @@ public class JtdValidator {
     return new JtdSchema.EnumSchema(values);
   }
   
-  private JtdSchema parseElementsSchema(JsonObject obj) {
+  private JtdSchema compileElementsSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue elementsValue = members.get("elements");
-    JtdSchema elementsSchema = parseSchema(elementsValue);
+    JtdSchema elementsSchema = compileSchema(elementsValue);
     return new JtdSchema.ElementsSchema(elementsSchema);
   }
   
-  private JtdSchema parsePropertiesSchema(JsonObject obj) {
+  private JtdSchema compilePropertiesSchema(JsonObject obj) {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
     boolean additionalProperties = true;
@@ -195,14 +195,14 @@ public class JtdValidator {
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
   }
   
-  private JtdSchema parseValuesSchema(JsonObject obj) {
+  private JtdSchema compileValuesSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue valuesValue = members.get("values");
-    JtdSchema valuesSchema = parseSchema(valuesValue);
+    JtdSchema valuesSchema = compileSchema(valuesValue);
     return new JtdSchema.ValuesSchema(valuesSchema);
   }
   
-  private JtdSchema parseDiscriminatorSchema(JsonObject obj) {
+  private JtdSchema compileDiscriminatorSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue discriminatorValue = members.get("discriminator");
     if (!(discriminatorValue instanceof JsonString discStr)) {
@@ -217,7 +217,7 @@ public class JtdValidator {
     Map<String, JtdSchema> mapping = new java.util.HashMap<>();
     for (String key : mappingObj.members().keySet()) {
       JsonValue variantValue = mappingObj.members().get(key);
-      JtdSchema variantSchema = parseSchema(variantValue);
+      JtdSchema variantSchema = compileSchema(variantValue);
       mapping.put(key, variantSchema);
     }
     
@@ -228,7 +228,7 @@ public class JtdValidator {
     Map<String, JtdSchema> schemas = new java.util.HashMap<>();
     for (String key : propsObj.members().keySet()) {
       JsonValue schemaValue = propsObj.members().get(key);
-      schemas.put(key, parseSchema(schemaValue));
+      schemas.put(key, compileSchema(schemaValue));
     }
     return schemas;
   }

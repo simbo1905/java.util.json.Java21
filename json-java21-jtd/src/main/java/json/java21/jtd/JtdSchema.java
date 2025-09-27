@@ -77,7 +77,7 @@ public sealed interface JtdSchema {
     }
     
     private ValidationResult validateTimestamp(JsonValue instance) {
-      if (instance instanceof JsonString str) {
+      if (instance instanceof JsonString ignored) {
         // Basic RFC 3339 timestamp validation - must be a string
         // TODO: Add actual timestamp format validation
         return ValidationResult.success();

@@ -191,7 +191,7 @@ public class JtdSpecIT extends JtdTestBase {
         JsonValue instance = Json.parse(instanceNode.toString());
         
         // Create validator and validate
-        JtdValidator validator = new JtdValidator();
+        Jtd validator = new Jtd();
         ValidationResult result = validator.validate(schema, instance);
         
         // Check if validation result matches expected
@@ -233,7 +233,7 @@ public class JtdSpecIT extends JtdTestBase {
         LOG.fine(() -> String.format("Invalid schema test %s - schema: %s", testName, jtdSchema));
         
         // Try to parse the schema - it should fail for invalid schemas
-        JtdValidator validator = new JtdValidator();
+        Jtd validator = new Jtd();
         
         // Create a dummy instance to test schema parsing
         JsonValue dummyInstance = Json.parse("null");

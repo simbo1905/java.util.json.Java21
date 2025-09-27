@@ -1,9 +1,0 @@
-{
-  "$id": "file:///JsonSchemaRemoteRefTest/nest.json",
-  "$defs": {
-    "inner": {
-      "$anchor": "inner",
-      "type": "string"
-    }
-  }
-}
