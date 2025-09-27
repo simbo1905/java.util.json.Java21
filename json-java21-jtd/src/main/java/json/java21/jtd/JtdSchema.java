@@ -144,22 +144,79 @@ public sealed interface JtdSchema {
     
     Jtd.Result validateTimestamp(JsonValue instance, boolean verboseErrors) {
       if (instance instanceof JsonString str) {
-        try {
-          // Parse using RFC 3339 format (ISO_OFFSET_DATE_TIME)
-          OffsetDateTime.parse(str.value(), DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+        String timestamp = str.value();
+        
+        // Use static functional validation for RFC 3339 with leap second support
+        if (isValidRfc3339Timestamp(timestamp)) {
           return Jtd.Result.success();
-        } catch (Exception e) {
-          // Invalid RFC 3339 timestamp format
-          String error = verboseErrors
-              ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
-              : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
-          return Jtd.Result.failure(error);
         }
+        
+        // Invalid RFC 3339 timestamp format
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
+        return Jtd.Result.failure(error);
       }
       String error = verboseErrors
           ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
           : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
       return Jtd.Result.failure(error);
+    }
+    
+    /// Package-protected static validation for RFC 3339 timestamp format with leap second support
+    /// RFC 3339 grammar: date-time = full-date "T" full-time
+    /// Supports leap seconds (seconds = 60 when minutes = 59)
+    static boolean isValidRfc3339Timestamp(String timestamp) {
+      // RFC 3339 regex pattern with leap second support
+      String rfc3339Pattern = "^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$";
+      java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(rfc3339Pattern);
+      java.util.regex.Matcher matcher = pattern.matcher(timestamp);
+      
+      if (!matcher.matches()) {
+        return false;
+      }
+      
+      try {
+        int year = Integer.parseInt(matcher.group(1));
+        int month = Integer.parseInt(matcher.group(2));
+        int day = Integer.parseInt(matcher.group(3));
+        int hour = Integer.parseInt(matcher.group(4));
+        int minute = Integer.parseInt(matcher.group(5));
+        int second = Integer.parseInt(matcher.group(6));
+        
+        // Validate basic date/time components
+        if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
+          return false;
+        }
+        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+          return false;
+        }
+        
+        // Handle leap seconds: seconds = 60 is valid only if minutes = 59
+        if (second == 60) {
+          if (minute != 59) {
+            return false;
+          }
+          // For leap seconds, we accept the format but don't validate the specific date
+          // This matches RFC 8927 behavior - format validation only
+          return true;
+        }
+        
+        if (second < 0 || second > 59) {
+          return false;
+        }
+        
+        // For normal timestamps, delegate to OffsetDateTime.parse for full validation
+        try {
+          OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+          return true;
+        } catch (Exception e) {
+          return false;
+        }
+        
+      } catch (NumberFormatException e) {
+        return false;
+      }
     }
     
     Jtd.Result validateInteger(JsonValue instance, String type, boolean verboseErrors) {

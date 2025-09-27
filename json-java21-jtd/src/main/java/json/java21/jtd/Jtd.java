@@ -15,6 +15,10 @@ public class Jtd {
   
   private static final Logger LOG = Logger.getLogger(Jtd.class.getName());
   
+  /// Top-level definitions map for ref resolution
+  private final Map<String, JsonValue> definitionValues = new java.util.HashMap<>();
+  private final Map<String, JtdSchema> compiledDefinitions = new java.util.HashMap<>();
+  
   /// Stack frame for iterative validation with path and offset tracking
   record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {}
   
@@ -62,6 +66,13 @@ public class Jtd {
     LOG.fine(() -> "JTD validation - schema: " + schema + ", instance: " + instance);
     
     try {
+      // Clear previous definitions and extract top-level definitions
+      definitionValues.clear();
+      compiledDefinitions.clear();
+      if (schema instanceof JsonObject obj) {
+        extractTopLevelDefinitions(obj);
+      }
+      
       JtdSchema jtdSchema = compileSchema(schema);
       Result result = validateWithStack(jtdSchema, instance);
       
@@ -71,7 +82,9 @@ public class Jtd {
       return result;
     } catch (Exception e) {
       LOG.warning(() -> "JTD validation failed: " + e.getMessage());
-      return Result.failure("Schema parsing failed: " + e.getMessage());
+      String error = enrichedError("Schema parsing failed: " + e.getMessage(), 
+                                   new Frame(null, schema, "#", Crumbs.root()), schema);
+      return Result.failure(error);
     }
   }
   
@@ -317,20 +330,38 @@ public class Jtd {
     }
     String refName = str.value();
     
-    // Resolve reference against definitions
-    JsonValue definitionsValue = members.get("definitions");
-    if (!(definitionsValue instanceof JsonObject definitions)) {
-      throw new IllegalArgumentException("ref requires definitions object at root level");
-    }
-    
-    JsonValue definitionValue = definitions.members().get(refName);
+    // Look for definitions in the stored top-level definitions
+    JsonValue definitionValue = definitionValues.get(refName);
     if (definitionValue == null) {
-      throw new IllegalArgumentException("ref '" + refName + "' not found in definitions");
+      // Fallback: check if definitions exist in current object (for backward compatibility)
+      JsonValue definitionsValue = members.get("definitions");
+      if (definitionsValue instanceof JsonObject definitions) {
+        definitionValue = definitions.members().get(refName);
+      }
+      
+      if (definitionValue == null) {
+        throw new IllegalArgumentException("ref '" + refName + "' not found in definitions");
+      }
     }
     
-    // Compile the referenced schema
-    JtdSchema resolvedSchema = compileSchema(definitionValue);
-    return new JtdSchema.RefSchema(refName, resolvedSchema);
+    // Check for circular references and compile the referenced schema
+    if (compiledDefinitions.containsKey(refName)) {
+      // Already compiled, return cached version
+      return compiledDefinitions.get(refName);
+    }
+    
+    // Mark as being compiled to handle circular references
+    compiledDefinitions.put(refName, null); // placeholder
+    
+    try {
+      JtdSchema resolvedSchema = compileSchema(definitionValue);
+      compiledDefinitions.put(refName, resolvedSchema);
+      return new JtdSchema.RefSchema(refName, resolvedSchema);
+    } catch (Exception e) {
+      // Remove placeholder on error
+      compiledDefinitions.remove(refName);
+      throw e;
+    }
   }
   
   JtdSchema compileTypeSchema(JsonObject obj) {
@@ -374,7 +405,6 @@ public class Jtd {
   JtdSchema compilePropertiesSchema(JsonObject obj) {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
-    boolean additionalProperties = true;
     
     Map<String, JsonValue> members = obj.members();
     
@@ -396,13 +426,17 @@ public class Jtd {
       optionalProperties = parsePropertySchemas(optPropsObj);
     }
     
-    // Check additionalProperties
+    // RFC 8927: additionalProperties defaults to false when properties or optionalProperties are defined
+    boolean additionalProperties = false;
     if (members.containsKey("additionalProperties")) {
       JsonValue addPropsValue = members.get("additionalProperties");
       if (!(addPropsValue instanceof JsonBoolean bool)) {
         throw new IllegalArgumentException("additionalProperties must be a boolean");
       }
       additionalProperties = bool.value();
+    } else if (properties.isEmpty() && optionalProperties.isEmpty()) {
+      // Empty schema with no properties defined allows additional properties by default
+      additionalProperties = true;
     }
     
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
@@ -435,6 +469,18 @@ public class Jtd {
     }
     
     return new JtdSchema.DiscriminatorSchema(discStr.value(), mapping);
+  }
+  
+  /// Extracts and stores top-level definitions for ref resolution
+  void extractTopLevelDefinitions(JsonObject schema) {
+    JsonValue definitionsValue = schema.members().get("definitions");
+    if (definitionsValue instanceof JsonObject definitions) {
+      for (String name : definitions.members().keySet()) {
+        JsonValue definitionValue = definitions.members().get(name);
+        definitionValues.put(name, definitionValue);
+        LOG.fine(() -> "Extracted definition: " + name);
+      }
+    }
   }
   
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
