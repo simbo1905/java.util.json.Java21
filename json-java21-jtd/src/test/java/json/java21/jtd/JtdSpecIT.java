@@ -9,12 +9,10 @@ import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
@@ -192,7 +190,7 @@ public class JtdSpecIT extends JtdTestBase {
         
         // Create validator and validate
         Jtd validator = new Jtd();
-        ValidationResult result = validator.validate(schema, instance);
+        Jtd.Result result = validator.validate(schema, instance);
         
         // Check if validation result matches expected
         boolean expectedValid = expectedErrorsNode.isArray() && expectedErrorsNode.size() == 0;

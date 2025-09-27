@@ -7,7 +7,6 @@ import org.junit.jupiter.api.Test;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /// Comprehensive RFC 8927 compliance tests
-/// Tests all the TODO items and requirements identified in the analysis:
 /// - Ref schema validation with definitions
 /// - Timestamp format validation (RFC 3339)
 /// - Integer range validation for all types
@@ -24,7 +23,7 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue validData = Json.parse("\"123 Main St\"");
     
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, validData);
+    Jtd.Result result = validator.validate(schema, validData);
     
     assertThat(result.isValid()).isTrue();
     assertThat(result.errors()).isEmpty();
@@ -39,7 +38,7 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue data = Json.parse("\"anything\"");
     
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, data);
+    Jtd.Result result = validator.validate(schema, data);
     
     assertThat(result.isValid())
       .as("Ref schema should fail when definition doesn't exist, but implementation is broken")
@@ -65,7 +64,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String timestamp : validTimestamps) {
       JsonValue validData = Json.parse(timestamp);
-      ValidationResult result = validator.validate(schema, validData);
+      Jtd.Result result = validator.validate(schema, validData);
       assertThat(result.isValid()).isTrue();
       LOG.fine(() -> "Timestamp valid test - data: " + validData);
     }
@@ -92,7 +91,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String timestamp : invalidTimestamps) {
       JsonValue invalidData = Json.parse(timestamp);
-      ValidationResult result = validator.validate(schema, invalidData);
+      Jtd.Result result = validator.validate(schema, invalidData);
       
       assertThat(result.isValid())
         .as("Timestamp should reject invalid RFC 3339 format: " + invalidData)
@@ -137,7 +136,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String value : validValues) {
       JsonValue validData = Json.parse(value);
-      ValidationResult result = validator.validate(schema, validData);
+      Jtd.Result result = validator.validate(schema, validData);
       assertThat(result.isValid()).isTrue();
       LOG.fine(() -> "Integer range valid test - type: " + type + ", value: " + value);
     }
@@ -153,7 +152,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String value : invalidValues) {
       JsonValue invalidData = Json.parse(value);
-      ValidationResult result = validator.validate(schema, invalidData);
+      Jtd.Result result = validator.validate(schema, invalidData);
       
       assertThat(result.isValid())
         .as("Integer type \"" + type + "\" should reject value \"" + value + "\" as out of range")
@@ -170,15 +169,15 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue invalidData = Json.parse("{\"name\": 123, \"age\": \"not-a-number\"}");
     
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, invalidData);
+    Jtd.Result result = validator.validate(schema, invalidData);
     
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).isNotEmpty();
     
     // Each error should have path information (currently only message is implemented)
-    for (ValidationError error : result.errors()) {
-      assertThat(error.message()).isNotNull();
-      LOG.fine(() -> "Error path test - message: " + error.message());
+    for (String error : result.errors()) {
+      assertThat(error).isNotNull();
+      LOG.fine(() -> "Error path test: " + error);
     }
   }
 
@@ -190,7 +189,7 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue invalidData = Json.parse("[123, 456, \"valid\", 789]");
     
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, invalidData);
+    Jtd.Result result = validator.validate(schema, invalidData);
     
     assertThat(result.isValid()).isFalse();
     
@@ -201,8 +200,8 @@ public class TestRfc8927 extends JtdTestBase {
     LOG.fine(() -> "Multiple error collection test - errors count: " + result.errors().size());
     
     // Log all errors for debugging
-    for (ValidationError error : result.errors()) {
-      LOG.fine(() -> "Multiple error - message: " + error.message());
+    for (String error : result.errors()) {
+      LOG.fine(() -> "Multiple error: " + error);
     }
   }
 
@@ -221,8 +220,8 @@ public class TestRfc8927 extends JtdTestBase {
     Jtd validator = new Jtd();
     
     // Both should be valid - discriminator is exempt from additional properties check
-    ValidationResult result1 = validator.validate(schema, validData1);
-    ValidationResult result2 = validator.validate(schema, validData2);
+    Jtd.Result result1 = validator.validate(schema, validData1);
+    Jtd.Result result2 = validator.validate(schema, validData2);
     
     assertThat(result1.isValid()).isTrue();
     assertThat(result2.isValid()).isTrue();
@@ -237,7 +236,7 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue invalidData = Json.parse("{\"type\": \"invalid\", \"name\": \"John\"}");
     
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, invalidData);
+    Jtd.Result result = validator.validate(schema, invalidData);
     
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).isNotEmpty();
@@ -258,8 +257,8 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String floatValue : validFloats) {
       JsonValue validData = Json.parse(floatValue);
-      ValidationResult result32 = validator.validate(schema32, validData);
-      ValidationResult result64 = validator.validate(schema64, validData);
+      Jtd.Result result32 = validator.validate(schema32, validData);
+      Jtd.Result result64 = validator.validate(schema64, validData);
       
       assertThat(result32.isValid()).isTrue();
       assertThat(result64.isValid()).isTrue();
@@ -280,7 +279,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String invalidValue : invalidValues) {
       JsonValue invalidData = Json.parse(invalidValue);
-      ValidationResult result = validator.validate(schema, invalidData);
+      Jtd.Result result = validator.validate(schema, invalidData);
       
       assertThat(result.isValid()).isFalse();
       assertThat(result.errors()).isNotEmpty();
@@ -300,8 +299,8 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue trueValue = Json.parse("true");
     JsonValue falseValue = Json.parse("false");
     
-    ValidationResult result1 = validator.validate(schema, trueValue);
-    ValidationResult result2 = validator.validate(schema, falseValue);
+    Jtd.Result result1 = validator.validate(schema, trueValue);
+    Jtd.Result result2 = validator.validate(schema, falseValue);
     
     assertThat(result1.isValid()).isTrue();
     assertThat(result2.isValid()).isTrue();
@@ -321,7 +320,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     for (String invalidValue : invalidValues) {
       JsonValue invalidData = Json.parse(invalidValue);
-      ValidationResult result = validator.validate(schema, invalidData);
+      Jtd.Result result = validator.validate(schema, invalidData);
       
       assertThat(result.isValid()).isFalse();
       assertThat(result.errors()).isNotEmpty();

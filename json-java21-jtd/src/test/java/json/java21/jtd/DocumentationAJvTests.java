@@ -1,6 +1,5 @@
 package json.java21.jtd;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonValue;
 import org.junit.jupiter.api.Test;
@@ -33,7 +32,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for non-string
     JsonValue invalidData = Json.parse("123");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Type form string invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -64,7 +63,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for value not in enum
     JsonValue invalidData = Json.parse("\"baz\"");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Enum form invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -79,7 +78,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for array with non-string elements
     JsonValue invalidData = Json.parse("[\"foo\", 123]");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Elements form invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -124,7 +123,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for missing required property
     JsonValue invalidData = Json.parse("{}");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Properties form (required only) invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -173,7 +172,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for discriminator value not in mapping
     JsonValue invalidData = Json.parse("{\"version\": \"3\", \"foo\": \"1\"}");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Discriminator form invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -204,7 +203,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for object with mixed value types
     JsonValue invalidData = Json.parse("{\"foo\": 1, \"bar\": \"not-a-number\"}");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Values form invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -266,7 +265,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test that empty schema accepts any data - should pass for "invalid" data
     JsonValue anyData = Json.parse("{\"anything\": \"goes\"}");
     Jtd validator = new Jtd();
-    ValidationResult result = validator.validate(schema, anyData);
+    Jtd.Result result = validator.validate(schema, anyData);
     assertThat(result.isValid()).isTrue();
     assertThat(result.errors()).isEmpty();
     LOG.fine(() -> "Empty form invalid test - schema: " + schema + ", any data should pass: " + anyData);
@@ -294,7 +293,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for string data
     JsonValue invalidData = Json.parse("\"not-a-number\"");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Numeric types invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());
@@ -321,7 +320,7 @@ public class DocumentationAJvTests extends JtdTestBase {
     // Test validation failure - should fail for non-string, non-null data
     JsonValue invalidData = Json.parse("123");
     Jtd validator = new Jtd();
-    ValidationResult invalidResult = validator.validate(schema, invalidData);
+    Jtd.Result invalidResult = validator.validate(schema, invalidData);
     assertThat(invalidResult.isValid()).isFalse();
     assertThat(invalidResult.errors()).isNotEmpty();
     LOG.fine(() -> "Nullable types invalid test - schema: " + schema + ", invalid data: " + invalidData + ", errors: " + invalidResult.errors());

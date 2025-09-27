@@ -10,15 +10,15 @@ public sealed interface JtdSchema {
   
   /// Validates a JSON instance against this schema
   /// @param instance The JSON value to validate
-  /// @return ValidationResult containing errors if validation fails
-  ValidationResult validate(JsonValue instance);
+  /// @return Result containing errors if validation fails
+  Jtd.Result validate(JsonValue instance);
   
   /// Nullable schema wrapper - allows null values
   record NullableSchema(JtdSchema wrapped) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (instance instanceof JsonNull) {
-        return ValidationResult.success();
+        return Jtd.Result.success();
       }
       return wrapped.validate(instance);
     }
@@ -27,88 +27,84 @@ public sealed interface JtdSchema {
   /// Empty schema - accepts any value (null, boolean, number, string, array, object)
   record EmptySchema() implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       // Empty schema accepts any JSON value
-      return ValidationResult.success();
+      return Jtd.Result.success();
     }
   }
   
   /// Ref schema - references a definition in the schema's definitions
   record RefSchema(String ref) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
-      // TODO: Implement ref resolution when definitions are supported
-      return ValidationResult.success();
+    public Jtd.Result validate(JsonValue instance) {
+      throw new AssertionError("not implemented");
     }
   }
   
   /// Type schema - validates specific primitive types
   record TypeSchema(String type) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       return switch (type) {
         case "boolean" -> validateBoolean(instance);
         case "string" -> validateString(instance);
         case "timestamp" -> validateTimestamp(instance);
         case "int8", "uint8", "int16", "uint16", "int32", "uint32" -> validateInteger(instance, type);
         case "float32", "float64" -> validateFloat(instance, type);
-        default -> ValidationResult.failure(List.of(
-            new ValidationError("unknown type: " + type)
+        default -> Jtd.Result.failure(List.of(
+            "unknown type: " + type
         ));
       };
     }
     
-    private ValidationResult validateBoolean(JsonValue instance) {
+    Jtd.Result validateBoolean(JsonValue instance) {
       if (instance instanceof JsonBoolean) {
-        return ValidationResult.success();
+        return Jtd.Result.success();
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected boolean, got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected boolean, got " + instance.getClass().getSimpleName()
       ));
     }
     
-    private ValidationResult validateString(JsonValue instance) {
+    Jtd.Result validateString(JsonValue instance) {
       if (instance instanceof JsonString) {
-        return ValidationResult.success();
+        return Jtd.Result.success();
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected string, got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected string, got " + instance.getClass().getSimpleName()
       ));
     }
     
-    private ValidationResult validateTimestamp(JsonValue instance) {
+    Jtd.Result validateTimestamp(JsonValue instance) {
       if (instance instanceof JsonString ignored) {
-        // Basic RFC 3339 timestamp validation - must be a string
-        // TODO: Add actual timestamp format validation
-        return ValidationResult.success();
+        throw new AssertionError("not implemented");
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected timestamp (string), got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected timestamp (string), got " + instance.getClass().getSimpleName()
       ));
     }
     
-    private ValidationResult validateInteger(JsonValue instance, String type) {
+    Jtd.Result validateInteger(JsonValue instance, String type) {
       if (instance instanceof JsonNumber num) {
         Number value = num.toNumber();
         if (value instanceof Double d && d != Math.floor(d)) {
-          return ValidationResult.failure(List.of(
-              new ValidationError("expected integer, got float")
+          return Jtd.Result.failure(List.of(
+              "expected integer, got float"
           ));
         }
-        // TODO: Add range validation for different integer types
-        return ValidationResult.success();
+        throw new AssertionError("not implemented");
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected " + type + ", got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected " + type + ", got " + instance.getClass().getSimpleName()
       ));
     }
     
-    private ValidationResult validateFloat(JsonValue instance, String type) {
+    Jtd.Result validateFloat(JsonValue instance, String type) {
       if (instance instanceof JsonNumber) {
-        return ValidationResult.success();
+        return Jtd.Result.success();
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected " + type + ", got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected " + type + ", got " + instance.getClass().getSimpleName()
       ));
     }
   }
@@ -116,17 +112,17 @@ public sealed interface JtdSchema {
   /// Enum schema - validates against a set of string values
   record EnumSchema(List<String> values) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (instance instanceof JsonString str) {
         if (values.contains(str.value())) {
-          return ValidationResult.success();
+          return Jtd.Result.success();
         }
-        return ValidationResult.failure(List.of(
-            new ValidationError("value '" + str.value() + "' not in enum: " + values)
+        return Jtd.Result.failure(List.of(
+            "value '" + str.value() + "' not in enum: " + values
         ));
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected string for enum, got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected string for enum, got " + instance.getClass().getSimpleName()
       ));
     }
   }
@@ -134,18 +130,18 @@ public sealed interface JtdSchema {
   /// Elements schema - validates array elements against a schema
   record ElementsSchema(JtdSchema elements) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (instance instanceof JsonArray arr) {
         for (JsonValue element : arr.values()) {
-          ValidationResult result = elements.validate(element);
+          Jtd.Result result = elements.validate(element);
           if (!result.isValid()) {
             return result;
           }
         }
-        return ValidationResult.success();
+        return Jtd.Result.success();
       }
-      return ValidationResult.failure(List.of(
-          new ValidationError("expected array, got " + instance.getClass().getSimpleName())
+      return Jtd.Result.failure(List.of(
+          "expected array, got " + instance.getClass().getSimpleName()
       ));
     }
   }
@@ -157,10 +153,10 @@ public sealed interface JtdSchema {
       boolean additionalProperties
   ) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (!(instance instanceof JsonObject obj)) {
-        return ValidationResult.failure(List.of(
-            new ValidationError("expected object, got " + instance.getClass().getSimpleName())
+        return Jtd.Result.failure(List.of(
+            "expected object, got " + instance.getClass().getSimpleName()
         ));
       }
       
@@ -171,12 +167,12 @@ public sealed interface JtdSchema {
         
         JsonValue value = obj.members().get(key);
         if (value == null) {
-          return ValidationResult.failure(List.of(
-              new ValidationError("missing required property: " + key)
+          return Jtd.Result.failure(List.of(
+              "missing required property: " + key
           ));
         }
         
-        ValidationResult result = schema.validate(value);
+        Jtd.Result result = schema.validate(value);
         if (!result.isValid()) {
           return result;
         }
@@ -189,7 +185,7 @@ public sealed interface JtdSchema {
         
         JsonValue value = obj.members().get(key);
         if (value != null) {
-          ValidationResult result = schema.validate(value);
+          Jtd.Result result = schema.validate(value);
           if (!result.isValid()) {
             return result;
           }
@@ -200,35 +196,35 @@ public sealed interface JtdSchema {
       if (!additionalProperties) {
         for (String key : obj.members().keySet()) {
           if (!properties.containsKey(key) && !optionalProperties.containsKey(key)) {
-            return ValidationResult.failure(List.of(
-                new ValidationError("additional property not allowed: " + key)
+            return Jtd.Result.failure(List.of(
+                "additional property not allowed: " + key
             ));
           }
         }
       }
       
-      return ValidationResult.success();
+      return Jtd.Result.success();
     }
   }
   
   /// Values schema - validates object values against a schema
   record ValuesSchema(JtdSchema values) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (!(instance instanceof JsonObject obj)) {
-        return ValidationResult.failure(List.of(
-            new ValidationError("expected object, got " + instance.getClass().getSimpleName())
+        return Jtd.Result.failure(List.of(
+            "expected object, got " + instance.getClass().getSimpleName()
         ));
       }
       
       for (JsonValue value : obj.members().values()) {
-        ValidationResult result = values.validate(value);
+        Jtd.Result result = values.validate(value);
         if (!result.isValid()) {
           return result;
         }
       }
       
-      return ValidationResult.success();
+      return Jtd.Result.success();
     }
   }
   
@@ -238,25 +234,25 @@ public sealed interface JtdSchema {
       java.util.Map<String, JtdSchema> mapping
   ) implements JtdSchema {
     @Override
-    public ValidationResult validate(JsonValue instance) {
+    public Jtd.Result validate(JsonValue instance) {
       if (!(instance instanceof JsonObject obj)) {
-        return ValidationResult.failure(List.of(
-            new ValidationError("expected object, got " + instance.getClass().getSimpleName())
+        return Jtd.Result.failure(List.of(
+            "expected object, got " + instance.getClass().getSimpleName()
         ));
       }
       
       JsonValue discriminatorValue = obj.members().get(discriminator);
       if (!(discriminatorValue instanceof JsonString discStr)) {
-        return ValidationResult.failure(List.of(
-            new ValidationError("discriminator '" + discriminator + "' must be a string")
+        return Jtd.Result.failure(List.of(
+            "discriminator '" + discriminator + "' must be a string"
         ));
       }
       
       String discriminatorValueStr = discStr.value();
       JtdSchema variantSchema = mapping.get(discriminatorValueStr);
       if (variantSchema == null) {
-        return ValidationResult.failure(List.of(
-            new ValidationError("discriminator value '" + discriminatorValueStr + "' not in mapping")
+        return Jtd.Result.failure(List.of(
+            "discriminator value '" + discriminatorValueStr + "' not in mapping"
         ));
       }
       

@@ -3,6 +3,7 @@ package json.java21.jtd;
 import jdk.sandbox.java.util.json.*;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.logging.Logger;
@@ -16,13 +17,13 @@ public class Jtd {
   /// Validates a JSON instance against a JTD schema
   /// @param schema The JTD schema as a JsonValue
   /// @param instance The JSON instance to validate
-  /// @return ValidationResult containing validation status and any errors
-  public ValidationResult validate(JsonValue schema, JsonValue instance) {
+  /// @return Result containing validation status and any errors
+  public Result validate(JsonValue schema, JsonValue instance) {
     LOG.fine(() -> "JTD validation - schema: " + schema + ", instance: " + instance);
     
     try {
       JtdSchema jtdSchema = compileSchema(schema);
-      ValidationResult result = jtdSchema.validate(instance);
+      Result result = jtdSchema.validate(instance);
       
       LOG.fine(() -> "JTD validation result: " + (result.isValid() ? "VALID" : "INVALID") + 
                      ", errors: " + result.errors().size());
@@ -30,12 +31,12 @@ public class Jtd {
       return result;
     } catch (Exception e) {
       LOG.warning(() -> "JTD validation failed: " + e.getMessage());
-      return ValidationResult.failure(new ValidationError("Schema parsing failed: " + e.getMessage()));
+      return Result.failure("Schema parsing failed: " + e.getMessage());
     }
   }
   
   /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
-  private JtdSchema compileSchema(JsonValue schema) {
+  JtdSchema compileSchema(JsonValue schema) {
     if (schema == null) {
       throw new IllegalArgumentException("Schema cannot be null");
     }
@@ -48,7 +49,7 @@ public class Jtd {
   }
   
   /// Compiles an object schema according to RFC 8927
-  private JtdSchema compileObjectSchema(JsonObject obj) {
+  JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
     Map<String, JsonValue> members = obj.members();
@@ -111,7 +112,7 @@ public class Jtd {
     return schema;
   }
   
-  private JtdSchema compileRefSchema(JsonObject obj) {
+  JtdSchema compileRefSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue refValue = members.get("ref");
     if (!(refValue instanceof JsonString str)) {
@@ -120,7 +121,7 @@ public class Jtd {
     return new JtdSchema.RefSchema(str.value());
   }
   
-  private JtdSchema compileTypeSchema(JsonObject obj) {
+  JtdSchema compileTypeSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue typeValue = members.get("type");
     if (!(typeValue instanceof JsonString str)) {
@@ -129,7 +130,7 @@ public class Jtd {
     return new JtdSchema.TypeSchema(str.value());
   }
   
-  private JtdSchema compileEnumSchema(JsonObject obj) {
+  JtdSchema compileEnumSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue enumValue = members.get("enum");
     if (!(enumValue instanceof JsonArray arr)) {
@@ -151,14 +152,14 @@ public class Jtd {
     return new JtdSchema.EnumSchema(values);
   }
   
-  private JtdSchema compileElementsSchema(JsonObject obj) {
+  JtdSchema compileElementsSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue elementsValue = members.get("elements");
     JtdSchema elementsSchema = compileSchema(elementsValue);
     return new JtdSchema.ElementsSchema(elementsSchema);
   }
   
-  private JtdSchema compilePropertiesSchema(JsonObject obj) {
+  JtdSchema compilePropertiesSchema(JsonObject obj) {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
     boolean additionalProperties = true;
@@ -195,14 +196,14 @@ public class Jtd {
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
   }
   
-  private JtdSchema compileValuesSchema(JsonObject obj) {
+  JtdSchema compileValuesSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue valuesValue = members.get("values");
     JtdSchema valuesSchema = compileSchema(valuesValue);
     return new JtdSchema.ValuesSchema(valuesSchema);
   }
   
-  private JtdSchema compileDiscriminatorSchema(JsonObject obj) {
+  JtdSchema compileDiscriminatorSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
     JsonValue discriminatorValue = members.get("discriminator");
     if (!(discriminatorValue instanceof JsonString discStr)) {
@@ -231,5 +232,28 @@ public class Jtd {
       schemas.put(key, compileSchema(schemaValue));
     }
     return schemas;
+  }
+
+  /// Result of JTD schema validation
+  /// Immutable result containing validation status and any error messages
+  public record Result(boolean isValid, List<String> errors) {
+    
+    /// Singleton success result - no errors
+    private static final Result SUCCESS = new Result(true, Collections.emptyList());
+    
+    /// Creates a successful validation result
+    public static Result success() {
+      return SUCCESS;
+    }
+    
+    /// Creates a failed validation result with the given error messages
+    public static Result failure(List<String> errors) {
+      return new Result(false, Collections.unmodifiableList(errors));
+    }
+    
+    /// Creates a failed validation result with a single error message
+    public static Result failure(String error) {
+      return failure(List.of(error));
+    }
   }
 }
