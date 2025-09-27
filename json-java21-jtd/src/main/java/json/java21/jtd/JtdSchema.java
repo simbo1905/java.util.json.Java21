@@ -12,6 +12,21 @@ public sealed interface JtdSchema {
   /// @param instance The JSON value to validate
   /// @return Result containing errors if validation fails
   Jtd.Result validate(JsonValue instance);
+
+  /// Validates a JSON instance against this schema using stack-based validation
+  /// @param frame The current validation frame containing schema, instance, path, and context
+  /// @param errors List to accumulate error messages
+  /// @param verboseErrors Whether to include full JSON values in error messages
+  /// @return true if validation passes, false if validation fails
+  default boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    // Default implementation delegates to existing validate method for backward compatibility
+    Jtd.Result result = validate(frame.instance(), verboseErrors);
+    if (!result.isValid()) {
+      errors.addAll(result.errors());
+      return false;
+    }
+    return true;
+  }
   
   /// Validates a JSON instance against this schema with optional verbose errors
   /// @param instance The JSON value to validate
@@ -32,6 +47,14 @@ public sealed interface JtdSchema {
       }
       return wrapped.validate(instance);
     }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      if (frame.instance() instanceof JsonNull) {
+        return true;
+      }
+      return wrapped.validateWithFrame(frame, errors, verboseErrors);
+    }
   }
   
   /// Empty schema - accepts any value (null, boolean, number, string, array, object)
@@ -41,12 +64,23 @@ public sealed interface JtdSchema {
       // Empty schema accepts any JSON value
       return Jtd.Result.success();
     }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      // Empty schema accepts any JSON value
+      return true;
+    }
   }
   
   /// Ref schema - references a definition in the schema's definitions
   record RefSchema(String ref) implements JtdSchema {
     @Override
     public Jtd.Result validate(JsonValue instance) {
+      throw new AssertionError("not implemented");
+    }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       throw new AssertionError("not implemented");
     }
   }
@@ -68,6 +102,20 @@ public sealed interface JtdSchema {
         case "float32", "float64" -> validateFloat(instance, type, verboseErrors);
         default -> Jtd.Result.failure(Jtd.Error.UNKNOWN_TYPE.message(type));
       };
+    }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      Jtd.Result result = validate(frame.instance(), verboseErrors);
+      if (!result.isValid()) {
+        // Enrich errors with offset and path information
+        for (String error : result.errors()) {
+          String enrichedError = Jtd.enrichedError(error, frame, frame.instance());
+          errors.add(enrichedError);
+        }
+        return false;
+      }
+      return true;
     }
     
     Jtd.Result validateBoolean(JsonValue instance, boolean verboseErrors) {
@@ -148,6 +196,20 @@ public sealed interface JtdSchema {
           : Jtd.Error.EXPECTED_STRING_FOR_ENUM.message(instance.getClass().getSimpleName());
       return Jtd.Result.failure(error);
     }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      Jtd.Result result = validate(frame.instance(), verboseErrors);
+      if (!result.isValid()) {
+        // Enrich errors with offset and path information
+        for (String error : result.errors()) {
+          String enrichedError = Jtd.enrichedError(error, frame, frame.instance());
+          errors.add(enrichedError);
+        }
+        return false;
+      }
+      return true;
+    }
   }
   
   /// Elements schema - validates array elements against a schema
@@ -172,6 +234,24 @@ public sealed interface JtdSchema {
           ? Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName())
           : Jtd.Error.EXPECTED_ARRAY.message(instance.getClass().getSimpleName());
       return Jtd.Result.failure(error);
+    }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      
+      if (!(instance instanceof JsonArray arr)) {
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_ARRAY.message(instance.getClass().getSimpleName());
+        String enrichedError = Jtd.enrichedError(error, frame, instance);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      // For ElementsSchema, child frames are pushed by the main validation loop
+      // This method just confirms the instance is an array
+      return true;
     }
   }
   
@@ -236,6 +316,24 @@ public sealed interface JtdSchema {
       
       return Jtd.Result.success();
     }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      
+      if (!(instance instanceof JsonObject obj)) {
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_OBJECT.message(instance, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_OBJECT.message(instance.getClass().getSimpleName());
+        String enrichedError = Jtd.enrichedError(error, frame, instance);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      // For PropertiesSchema, child frames are pushed by the main validation loop
+      // This method just confirms the instance is an object
+      return true;
+    }
   }
   
   /// Values schema - validates object values against a schema
@@ -262,6 +360,24 @@ public sealed interface JtdSchema {
       }
       
       return Jtd.Result.success();
+    }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      
+      if (!(instance instanceof JsonObject obj)) {
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_OBJECT.message(instance, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_OBJECT.message(instance.getClass().getSimpleName());
+        String enrichedError = Jtd.enrichedError(error, frame, instance);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      // For ValuesSchema, child frames are pushed by the main validation loop
+      // This method just confirms the instance is an object
+      return true;
     }
   }
   
@@ -302,6 +418,44 @@ public sealed interface JtdSchema {
       }
       
       return variantSchema.validate(instance, verboseErrors);
+    }
+
+    @Override
+    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      
+      if (!(instance instanceof JsonObject obj)) {
+        String error = verboseErrors
+            ? Jtd.Error.EXPECTED_OBJECT.message(instance, instance.getClass().getSimpleName())
+            : Jtd.Error.EXPECTED_OBJECT.message(instance.getClass().getSimpleName());
+        String enrichedError = Jtd.enrichedError(error, frame, instance);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      JsonValue discriminatorValue = obj.members().get(discriminator);
+      if (!(discriminatorValue instanceof JsonString discStr)) {
+        String error = verboseErrors
+            ? Jtd.Error.DISCRIMINATOR_MUST_BE_STRING.message(discriminatorValue, discriminator)
+            : Jtd.Error.DISCRIMINATOR_MUST_BE_STRING.message(discriminator);
+        String enrichedError = Jtd.enrichedError(error, frame, discriminatorValue != null ? discriminatorValue : instance);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      String discriminatorValueStr = discStr.value();
+      JtdSchema variantSchema = mapping.get(discriminatorValueStr);
+      if (variantSchema == null) {
+        String error = verboseErrors
+            ? Jtd.Error.DISCRIMINATOR_VALUE_NOT_IN_MAPPING.message(discriminatorValue, discriminatorValueStr)
+            : Jtd.Error.DISCRIMINATOR_VALUE_NOT_IN_MAPPING.message(discriminatorValueStr);
+        String enrichedError = Jtd.enrichedError(error, frame, discriminatorValue);
+        errors.add(enrichedError);
+        return false;
+      }
+      
+      // For DiscriminatorSchema, push the variant schema for validation
+      return true;
     }
   }
 }

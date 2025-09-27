@@ -1,6 +1,7 @@
 package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.*;
+import jdk.sandbox.internal.util.json.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -14,6 +15,45 @@ public class Jtd {
   
   private static final Logger LOG = Logger.getLogger(Jtd.class.getName());
   
+  /// Stack frame for iterative validation with path and offset tracking
+  record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {}
+  
+  /// Lightweight breadcrumb trail for human-readable error paths
+  record Crumbs(String value) {
+    static Crumbs root() {
+      return new Crumbs("#");
+    }
+    
+    Crumbs withObjectField(String name) {
+      return new Crumbs(value + "→field:" + name);
+    }
+    
+    Crumbs withArrayIndex(int idx) {
+      return new Crumbs(value + "→item:" + idx);
+    }
+  }
+  
+  /// Extracts offset from JsonValue implementation classes
+  static int offsetOf(JsonValue v) {
+    return switch (v) {
+      case JsonObjectImpl j -> j.offset();
+      case JsonArrayImpl j -> j.offset();
+      case JsonStringImpl j -> j.offset();
+      case JsonNumberImpl j -> j.offset();
+      case JsonBooleanImpl j -> j.offset();
+      case JsonNullImpl j -> j.offset();
+      default -> -1; // unknown/foreign implementation
+    };
+  }
+  
+  /// Creates an enriched error message with offset and path information
+  static String enrichedError(String baseMessage, Frame frame, JsonValue contextValue) {
+    int off = offsetOf(contextValue);
+    String ptr = frame.ptr;
+    String via = frame.crumbs.value();
+    return "[off=" + off + " ptr=" + ptr + " via=" + via + "] " + baseMessage;
+  }
+  
   /// Validates a JSON instance against a JTD schema
   /// @param schema The JTD schema as a JsonValue
   /// @param instance The JSON instance to validate
@@ -23,7 +63,7 @@ public class Jtd {
     
     try {
       JtdSchema jtdSchema = compileSchema(schema);
-      Result result = jtdSchema.validate(instance);
+      Result result = validateWithStack(jtdSchema, instance);
       
       LOG.fine(() -> "JTD validation result: " + (result.isValid() ? "VALID" : "INVALID") + 
                      ", errors: " + result.errors().size());
@@ -32,6 +72,163 @@ public class Jtd {
     } catch (Exception e) {
       LOG.warning(() -> "JTD validation failed: " + e.getMessage());
       return Result.failure("Schema parsing failed: " + e.getMessage());
+    }
+  }
+  
+  /// Validates using iterative stack-based approach with offset and path tracking
+  Result validateWithStack(JtdSchema schema, JsonValue instance) {
+    List<String> errors = new ArrayList<>();
+    java.util.Deque<Frame> stack = new java.util.ArrayDeque<>();
+    
+    // Push initial frame
+    Frame rootFrame = new Frame(schema, instance, "#", Crumbs.root());
+    stack.push(rootFrame);
+    
+    LOG.fine(() -> "Starting stack validation - initial frame: " + rootFrame);
+    
+    // Process frames iteratively
+    while (!stack.isEmpty()) {
+      Frame frame = stack.pop();
+      LOG.fine(() -> "Processing frame - schema: " + frame.schema.getClass().getSimpleName() + 
+                     ", ptr: " + frame.ptr + ", off: " + offsetOf(frame.instance));
+      
+      // Validate current frame
+      if (!frame.schema.validateWithFrame(frame, errors, false)) {
+        LOG.fine(() -> "Validation failed for frame at " + frame.ptr + " with " + errors.size() + " errors");
+        continue; // Continue processing other frames even if this one failed
+      }
+      
+      // Handle special validations for PropertiesSchema
+      if (frame.schema instanceof JtdSchema.PropertiesSchema propsSchema) {
+        validatePropertiesSchema(frame, propsSchema, errors);
+      }
+      
+      // Push child frames based on schema type
+      pushChildFrames(frame, stack);
+    }
+    
+    return errors.isEmpty() ? Result.success() : Result.failure(errors);
+  }
+  
+  /// Validates PropertiesSchema-specific rules (missing required, additional properties)
+  void validatePropertiesSchema(Frame frame, JtdSchema.PropertiesSchema propsSchema, List<String> errors) {
+    JsonValue instance = frame.instance();
+    if (!(instance instanceof JsonObject obj)) {
+      return; // Type validation should have already caught this
+    }
+    
+    // Check for missing required properties
+    for (var entry : propsSchema.properties().entrySet()) {
+      String key = entry.getKey();
+      JsonValue value = obj.members().get(key);
+      
+      if (value == null) {
+        // Missing required property - create error with containing object offset
+        String error = Jtd.Error.MISSING_REQUIRED_PROPERTY.message(key);
+        String enrichedError = Jtd.enrichedError(error, frame, instance);
+        errors.add(enrichedError);
+        LOG.fine(() -> "Missing required property: " + enrichedError);
+      }
+    }
+    
+    // Check for additional properties if not allowed
+    if (!propsSchema.additionalProperties()) {
+      for (String key : obj.members().keySet()) {
+        if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
+          JsonValue value = obj.members().get(key);
+          // Additional property not allowed - create error with the value's offset
+          String error = Jtd.Error.ADDITIONAL_PROPERTY_NOT_ALLOWED.message(key);
+          String enrichedError = Jtd.enrichedError(error, frame, value);
+          errors.add(enrichedError);
+          LOG.fine(() -> "Additional property not allowed: " + enrichedError);
+        }
+      }
+    }
+  }
+  
+  /// Pushes child frames for complex schema types
+  void pushChildFrames(Frame frame, java.util.Deque<Frame> stack) {
+    JtdSchema schema = frame.schema;
+    JsonValue instance = frame.instance;
+    
+    LOG.finer(() -> "Pushing child frames for schema type: " + schema.getClass().getSimpleName());
+    
+    switch (schema) {
+      case JtdSchema.ElementsSchema elementsSchema -> {
+        if (instance instanceof JsonArray arr) {
+          int index = 0;
+          for (JsonValue element : arr.values()) {
+            String childPtr = frame.ptr + "/" + index;
+            Crumbs childCrumbs = frame.crumbs.withArrayIndex(index);
+            Frame childFrame = new Frame(elementsSchema.elements(), element, childPtr, childCrumbs);
+            stack.push(childFrame);
+            LOG.finer(() -> "Pushed array element frame at " + childPtr);
+            index++;
+          }
+        }
+      }
+      case JtdSchema.PropertiesSchema propsSchema -> {
+        if (instance instanceof JsonObject obj) {
+          // Push required properties that are present
+          for (var entry : propsSchema.properties().entrySet()) {
+            String key = entry.getKey();
+            JsonValue value = obj.members().get(key);
+            
+            if (value != null) {
+              String childPtr = frame.ptr + "/" + key;
+              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              Frame childFrame = new Frame(entry.getValue(), value, childPtr, childCrumbs);
+              stack.push(childFrame);
+              LOG.finer(() -> "Pushed required property frame at " + childPtr);
+            }
+          }
+          
+          // Push optional properties that are present
+          for (var entry : propsSchema.optionalProperties().entrySet()) {
+            String key = entry.getKey();
+            JtdSchema childSchema = entry.getValue();
+            JsonValue value = obj.members().get(key);
+            
+            if (value != null) {
+              String childPtr = frame.ptr + "/" + key;
+              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              Frame childFrame = new Frame(childSchema, value, childPtr, childCrumbs);
+              stack.push(childFrame);
+              LOG.finer(() -> "Pushed optional property frame at " + childPtr);
+            }
+          }
+        }
+      }
+      case JtdSchema.ValuesSchema valuesSchema -> {
+        if (instance instanceof JsonObject obj) {
+          for (var entry : obj.members().entrySet()) {
+            String key = entry.getKey();
+            JsonValue value = entry.getValue();
+            String childPtr = frame.ptr + "/" + key;
+            Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+            Frame childFrame = new Frame(valuesSchema.values(), value, childPtr, childCrumbs);
+            stack.push(childFrame);
+            LOG.finer(() -> "Pushed values schema frame at " + childPtr);
+          }
+        }
+      }
+      case JtdSchema.DiscriminatorSchema discSchema -> {
+        if (instance instanceof JsonObject obj) {
+          JsonValue discriminatorValue = obj.members().get(discSchema.discriminator());
+          if (discriminatorValue instanceof JsonString discStr) {
+            String discriminatorValueStr = discStr.value();
+            JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
+            if (variantSchema != null) {
+              // Push variant schema for validation
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs);
+              stack.push(variantFrame);
+              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr);
+            }
+          }
+        }
+      }
+      default -> // Simple schemas (Empty, Type, Enum, Nullable, Ref) don't push child frames
+          LOG.finer(() -> "No child frames for schema type: " + schema.getClass().getSimpleName());
     }
   }
   
