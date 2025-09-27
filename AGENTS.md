@@ -455,6 +455,7 @@ IMPORTANT: Never disable tests written for logic that we are yet to write we do 
     * Pattern matching for structural decomposition
     * Sealed classes for exhaustive switches
     * Virtual threads for concurrent processing
+    * **Use try-with-resources for all AutoCloseable resources** (HttpClient, streams, etc.)
 
 ## Package Structure
 
