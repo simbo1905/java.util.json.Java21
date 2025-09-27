@@ -63,38 +63,30 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 /// ```
 ///
 /// The test suite is extracted from the embedded ZIP file and run as dynamic tests.
-/// In strict mode (-Djtd.strict=true), all tests must pass. In lenient mode, failures are logged but don't fail the build.
+/// All tests must pass for RFC 8927 compliance.
 public class JtdSpecIT extends JtdTestBase {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
-  private static final boolean STRICT = Boolean.getBoolean("jtd.strict");
   private static final Path VALIDATION_TEST_FILE = Paths.get("target/test-data/json-typedef-spec-2025-09-27/tests/validation.json");
   private static final Path INVALID_SCHEMAS_FILE = Paths.get("target/test-data/json-typedef-spec-2025-09-27/tests/invalid_schemas.json");
-  
-  /// Tests that are known to fail and should be skipped in non-strict mode
-  private static final Set<String> SKIPPED_TESTS = Set.of(
-    // Add known failing tests here as they are discovered
-  );
 
   /// Metrics tracking for test results
   private static int totalTests = 0;
   private static int passedTests = 0;
   private static int failedTests = 0;
-  private static int skippedTests = 0;
 
   @AfterAll
   static void printMetrics() {
-    LOG.info(() -> String.format("JTD-SPEC-COMPAT: total=%d passed=%d failed=%d skipped=%d strict=%b", 
-                                 totalTests, passedTests, failedTests, skippedTests, STRICT));
+    LOG.info(() -> String.format("JTD-SPEC-COMPAT: total=%d passed=%d failed=%d", 
+                                 totalTests, passedTests, failedTests));
     
-    if (STRICT) {
-      assertEquals(totalTests, passedTests + failedTests, "Strict mode accounting mismatch");
-    }
+    // RFC compliance: all tests must pass
+    assertEquals(totalTests, passedTests + failedTests, "Test accounting mismatch");
   }
 
   @TestFactory
   Stream<DynamicTest> runJtdSpecSuite() throws Exception {
-    LOG.info(() -> "Running JTD Test Suite in " + (STRICT ? "STRICT" : "LENIENT") + " mode");
+    LOG.info(() -> "Running JTD Test Suite");
     
     // Ensure test data is extracted
     extractTestData();
@@ -181,14 +173,6 @@ public class JtdSpecIT extends JtdTestBase {
     return DynamicTest.dynamicTest(testName, () -> {
       totalTests++;
       
-      // Check if this test should be skipped
-      String baseName = testName.replace("validation: ", "");
-      if (!STRICT && SKIPPED_TESTS.contains(baseName)) {
-        skippedTests++;
-        LOG.fine(() -> "Skipping validation test: " + testName);
-        return;
-      }
-
       LOG.fine(() -> "Running validation test: " + testName);
       
       try {
@@ -214,11 +198,7 @@ public class JtdSpecIT extends JtdTestBase {
         
       } catch (Exception e) {
         failedTests++;
-        if (STRICT) {
-          throw new RuntimeException("Validation test failed in strict mode: " + testName, e);
-        } else {
-          LOG.warning(() -> "Validation test failed (lenient mode): " + testName + " - " + e.getMessage());
-        }
+        throw new RuntimeException("Validation test failed: " + testName, e);
       }
     });
   }

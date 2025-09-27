@@ -264,6 +264,15 @@ if (!result.valid()) {
 }
 ```
 
+## Testing
+
+Run the official JTD Test Suite:
+
+```bash
+# Run all JTD spec compliance tests
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
+```
+
 ## Performance Considerations
 
 1. **Immutable Records**: Zero mutation during validation
