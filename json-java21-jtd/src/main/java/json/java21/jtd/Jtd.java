@@ -157,10 +157,15 @@ public class Jtd {
     }
     
     // Check for additional properties if not allowed
-    // RFC 8927 §2.2.8: In discriminator context, variant schemas ignore additionalProperties enforcement
-    if (!propsSchema.additionalProperties() && frame.discriminatorKey() == null) {
+    // RFC 8927 §2.2.8: Only the discriminator field is exempt from additionalProperties enforcement
+    if (!propsSchema.additionalProperties()) {
+      String discriminatorKey = frame.discriminatorKey();
       for (String key : obj.members().keySet()) {
         if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
+          // Only exempt the discriminator field itself, not all additional properties
+          if (discriminatorKey != null && key.equals(discriminatorKey)) {
+            continue; // Skip the discriminator field - it's exempt
+          }
           JsonValue value = obj.members().get(key);
           // Additional property not allowed - create error with the value's offset
           String error = Jtd.Error.ADDITIONAL_PROPERTY_NOT_ALLOWED.message(key);

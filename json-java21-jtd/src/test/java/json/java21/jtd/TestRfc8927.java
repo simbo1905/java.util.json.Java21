@@ -206,7 +206,7 @@ public class TestRfc8927 extends JtdTestBase {
   }
 
   /// Test discriminator tag exemption
-  /// RFC 8927 Section 3.3.8: Discriminator property is exempt from additional properties validation
+  /// RFC 8927 §2.2.8: Only the discriminator field itself is exempt from additionalProperties enforcement
   @Test
   public void testDiscriminatorTagExemption() throws Exception {
     JsonValue schema = Json.parse("{\"discriminator\": \"type\", \"mapping\": {\"person\": {\"properties\": {\"name\": {\"type\": \"string\"}}}}}");
@@ -214,18 +214,21 @@ public class TestRfc8927 extends JtdTestBase {
     // Valid data with discriminator and no additional properties
     JsonValue validData1 = Json.parse("{\"type\": \"person\", \"name\": \"John\"}");
     
-    // Data with discriminator and additional properties (discriminator should be exempt)
-    JsonValue validData2 = Json.parse("{\"type\": \"person\", \"name\": \"John\", \"extra\": \"allowed\"}");
+    // Data with discriminator and additional properties (only discriminator field should be exempt)
+    JsonValue invalidData2 = Json.parse("{\"type\": \"person\", \"name\": \"John\", \"extra\": \"not_allowed\"}");
     
     Jtd validator = new Jtd();
     
-    // Both should be valid - discriminator is exempt from additional properties check
+    // First should be valid - no additional properties
     Jtd.Result result1 = validator.validate(schema, validData1);
-    Jtd.Result result2 = validator.validate(schema, validData2);
-    
     assertThat(result1.isValid()).isTrue();
-    assertThat(result2.isValid()).isTrue();
-    LOG.fine(() -> "Discriminator tag exemption test - data1: " + validData1 + ", data2: " + validData2);
+    
+    // Second should be invalid - extra field is not exempt, only discriminator field is
+    Jtd.Result result2 = validator.validate(schema, invalidData2);
+    assertThat(result2.isValid()).isFalse();
+    assertThat(result2.errors()).anySatisfy(error -> assertThat(error).contains("extra"));
+    
+    LOG.fine(() -> "Discriminator tag exemption test - valid: " + validData1 + ", invalid: " + invalidData2);
   }
   
   /// Counter-test: Discriminator with invalid mapping
