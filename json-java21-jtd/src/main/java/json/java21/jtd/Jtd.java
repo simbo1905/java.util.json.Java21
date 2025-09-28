@@ -18,8 +18,6 @@ public class Jtd {
   /// Top-level definitions map for ref resolution
   private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
   
-  // Removed: RFC 8927 strict mode - no context-aware compilation needed
-  
   /// Stack frame for iterative validation with path and offset tracking
   record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
     /// Constructor for normal validation without discriminator context
@@ -165,7 +163,7 @@ public class Jtd {
       for (String key : obj.members().keySet()) {
         if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
           // Only exempt the discriminator field itself, not all additional properties
-          if (discriminatorKey != null && key.equals(discriminatorKey)) {
+          if (key.equals(discriminatorKey)) {
             continue; // Skip the discriminator field - it's exempt
           }
           JsonValue value = obj.members().get(key);
@@ -204,14 +202,11 @@ public class Jtd {
         if (instance instanceof JsonObject obj) {
           String discriminatorKey = frame.discriminatorKey();
 
-          // ================================= CHANGE 1: SKIP DISCRIMINATOR FIELD =================================
-          // ADDED: Skip the discriminator field when pushing required property validation frames
-          // Push required properties that are present (except discriminator field)
           for (var entry : propsSchema.properties().entrySet()) {
             String key = entry.getKey();
 
             // Skip the discriminator field - it was already validated by discriminator logic
-            if (discriminatorKey != null && key.equals(discriminatorKey)) {
+            if (key.equals(discriminatorKey)) {
               LOG.finer(() -> "Skipping discriminator field validation for: " + key);
               continue;
             }
@@ -227,13 +222,11 @@ public class Jtd {
             }
           }
 
-          // ADDED: Skip the discriminator field when pushing optional property validation frames
-          // Push optional properties that are present (except discriminator field)
           for (var entry : propsSchema.optionalProperties().entrySet()) {
             String key = entry.getKey();
 
             // Skip the discriminator field - it was already validated by discriminator logic
-            if (discriminatorKey != null && key.equals(discriminatorKey)) {
+            if (key.equals(discriminatorKey)) {
               LOG.finer(() -> "Skipping discriminator field validation for optional: " + key);
               continue;
             }
@@ -250,7 +243,6 @@ public class Jtd {
             }
           }
 
-          // ============================= END CHANGE 1: SKIP DISCRIMINATOR FIELD =============================
         }
       }
       case JtdSchema.ValuesSchema valuesSchema -> {
@@ -274,23 +266,9 @@ public class Jtd {
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
 
-              // ========================== CHANGE 2: REMOVE FAULTY OPTIMIZATION ==========================
-              // REMOVED: Special-case optimization that skipped validation for discriminator-only objects
-              // OLD CODE:
-              // if (obj.members().size() == 1 && obj.members().containsKey(discSchema.discriminator())) {
-              //   LOG.finer(() -> "Skipping variant schema push for discriminator-only object");
-              // } else {
-              //   Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
-              //   stack.push(variantFrame);
-              //   LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
-              // }
-
-              // NEW CODE: Always push variant schema for validation with discriminator key context
               Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
               stack.push(variantFrame);
               LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
-              // ======================== END CHANGE 2: REMOVE FAULTY OPTIMIZATION ========================
-
             }
           }
         }
@@ -500,11 +478,8 @@ public class Jtd {
         throw new IllegalArgumentException("additionalProperties must be a boolean");
       }
       additionalProperties = bool.value();
-    } else if (properties.isEmpty() && optionalProperties.isEmpty()) {
-      // Empty schema with no properties defined rejects additional properties by default
-      additionalProperties = false;
-    }
-    
+    }  // Empty schema with no properties defined rejects additional properties by default
+
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
   }
   

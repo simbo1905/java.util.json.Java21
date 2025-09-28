@@ -8,7 +8,7 @@ import java.util.List;
 
 /// JTD Schema interface - validates JSON instances against JTD schemas
 /// Following RFC 8927 specification with eight mutually-exclusive schema forms
-public sealed interface JtdSchema {
+sealed interface JtdSchema {
   
   /// Validates a JSON instance against this schema
   /// @param instance The JSON value to validate
@@ -210,12 +210,9 @@ public sealed interface JtdSchema {
         
         // Handle leap seconds: seconds = 60 is valid only if minutes = 59
         if (second == 60) {
-          if (minute != 59) {
-            return false;
-          }
+          return minute == 59;
           // For leap seconds, we accept the format but don't validate the specific date
           // This matches RFC 8927 behavior - format validation only
-          return true;
         }
         
         if (second < 0 || second > 59) {
@@ -364,7 +361,7 @@ public sealed interface JtdSchema {
     public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       
-      if (!(instance instanceof JsonArray arr)) {
+      if (!(instance instanceof JsonArray)) {
         String error = verboseErrors
             ? Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName())
             : Jtd.Error.EXPECTED_ARRAY.message(instance.getClass().getSimpleName());

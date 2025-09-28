@@ -2,12 +2,10 @@ package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.*;
 import net.jqwik.api.*;
-import net.jqwik.api.providers.ArbitraryProvider;
-import net.jqwik.api.providers.TypeUsage;
+import org.junit.jupiter.api.Assertions;
 
 import java.math.BigDecimal;
 import java.util.*;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,14 +102,14 @@ class JtdExhaustiveTest extends JtdTestBase {
     private static JsonValue buildCompliantJtdDocument(JtdTestSchema schema) {
         return switch (schema) {
             case EmptySchema() -> generateAnyJsonValue(); // RFC 8927: {} accepts anything
-            case RefSchema(var ref) -> JsonString.of("ref-compliant-value");
+            case RefSchema(var ignored) -> JsonString.of("ref-compliant-value");
             case TypeSchema(var type) -> buildCompliantTypeValue(type);
             case EnumSchema(var values) -> JsonString.of(values.getFirst());
             case ElementsSchema(var elementSchema) -> JsonArray.of(List.of(
                 buildCompliantJtdDocument(elementSchema),
                 buildCompliantJtdDocument(elementSchema)
             ));
-            case PropertiesSchema(var required, var optional, var additional) -> {
+            case PropertiesSchema(var required, var optional, var ignored1) -> {
                 final var members = new LinkedHashMap<String, JsonValue>();
                 required.forEach((key, valueSchema) -> 
                     members.put(key, buildCompliantJtdDocument(valueSchema))
@@ -132,15 +130,10 @@ class JtdExhaustiveTest extends JtdTestBase {
 
               // Discriminator schemas always generate objects with the discriminator field
               final var members = new LinkedHashMap<String, JsonValue>();
-              // ======================== CHANGE: FIX DISCRIMINATOR VALUE GENERATION ========================
-              // WRONG: members.put(discriminator, buildCompliantJtdDocument(valueSchema)); // generates random values
-              // CORRECT: Use the discriminator mapping key as the value
               members.put(discriminator, JsonString.of(discriminatorValue));
-              // ==================== END CHANGE: FIX DISCRIMINATOR VALUE GENERATION ====================
 
               // Add properties based on the variant schema type
               if (variantSchema instanceof PropertiesSchema props) {
-                // ======================== CHANGE: SKIP DISCRIMINATOR FIELD IN PROPERTIES ========================
                 // Don't re-add the discriminator field when processing properties
                 props.properties().forEach((key, valueSchema) -> {
                   if (!key.equals(discriminator)) {  // Skip discriminator field to avoid overwriting
@@ -152,14 +145,12 @@ class JtdExhaustiveTest extends JtdTestBase {
                     members.put(key, buildCompliantJtdDocument(valueSchema));
                   }
                 });
-                // ==================== END CHANGE: SKIP DISCRIMINATOR FIELD IN PROPERTIES ====================
               }
               // For TypeSchema variants, the object with just the discriminator field should be valid
               // For EnumSchema variants, same logic applies
-
               yield JsonObject.of(members);
             }
-            case NullableSchema(var inner) -> JsonNull.of();
+            case NullableSchema(var ignored) -> JsonNull.of();
         };
     }
 
@@ -198,18 +189,17 @@ class JtdExhaustiveTest extends JtdTestBase {
             case "uint16" -> JsonNumber.of(50000);
             case "int32" -> JsonNumber.of(1000000);
             case "uint32" -> JsonNumber.of(3000000000L);
-            case "float32" -> JsonNumber.of(new BigDecimal("3.14159"));
-            case "float64" -> JsonNumber.of(new BigDecimal("3.14159"));
-            default -> JsonString.of("unknown-type-value");
+            case "float32", "float64" -> JsonNumber.of(new BigDecimal("3.14159"));
+          default -> JsonString.of("unknown-type-value");
         };
     }
 
     private static List<JsonValue> createFailingJtdDocuments(JtdTestSchema schema, JsonValue compliant) {
         return switch (schema) {
-            case EmptySchema unused -> List.of(); // RFC 8927: {} accepts everything - no failing documents
-            case RefSchema unused -> List.of(JsonNull.of()); // Ref should fail on null
+            case EmptySchema ignored -> List.of(); // RFC 8927: {} accepts everything - no failing documents
+            case RefSchema ignored -> List.of(JsonNull.of()); // Ref should fail on null
             case TypeSchema(var type) -> createFailingTypeValues(type);
-            case EnumSchema(var values) -> List.of(JsonString.of("invalid-enum-value"));
+            case EnumSchema(var ignored) -> List.of(JsonString.of("invalid-enum-value"));
             case ElementsSchema(var elementSchema) -> {
                 if (compliant instanceof JsonArray arr && !arr.values().isEmpty()) {
                     final var invalidElement = createFailingJtdDocuments(elementSchema, arr.values().getFirst());
@@ -241,14 +231,14 @@ class JtdExhaustiveTest extends JtdTestBase {
                 failures.add(JsonNull.of());
                 yield failures;
             }
-            case ValuesSchema unused -> List.of(JsonNull.of(), JsonString.of("not-an-object"));
-            case DiscriminatorSchema(var discriminator, var mapping) -> {
+            case ValuesSchema ignored -> List.of(JsonNull.of(), JsonString.of("not-an-object"));
+            case DiscriminatorSchema(var ignored, var ignored1) -> {
                 final var failures = new ArrayList<JsonValue>();
                 failures.add(replaceDiscriminatorValue((JsonObject) compliant, "invalid-discriminator"));
                 failures.add(JsonNull.of());
                 yield failures;
             }
-            case NullableSchema unused -> List.of(); // Nullable accepts null
+            case NullableSchema ignored -> List.of(); // Nullable accepts null
         };
     }
 
@@ -256,15 +246,9 @@ class JtdExhaustiveTest extends JtdTestBase {
         return switch (type) {
             case "boolean" -> List.of(JsonString.of("not-boolean"), JsonNumber.of(1));
             case "string", "timestamp" -> List.of(JsonNumber.of(123), JsonBoolean.of(false));
-            case "int8" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "uint8" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "int16" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "uint16" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "int32" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "uint32" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
-            case "float32" -> List.of(JsonString.of("not-float"), JsonBoolean.of(true));
-            case "float64" -> List.of(JsonString.of("not-float"), JsonBoolean.of(true));
-            default -> List.of(JsonNull.of());
+            case "int8", "uint8", "int16", "int32", "uint32", "uint16" -> List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
+          case "float32", "float64" -> List.of(JsonString.of("not-float"), JsonBoolean.of(true));
+          default -> List.of(JsonNull.of());
         };
     }
 
@@ -280,12 +264,14 @@ class JtdExhaustiveTest extends JtdTestBase {
         return JsonObject.of(filtered);
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static JsonObject addExtraProperty(JsonObject original, String extraProperty) {
         final var extended = new LinkedHashMap<>(original.members());
         extended.put(extraProperty, JsonString.of("extra-value"));
         return JsonObject.of(extended);
     }
 
+    @SuppressWarnings("SameParameterValue")
     private static JsonValue replaceDiscriminatorValue(JsonObject original, String newValue) {
         final var modified = new LinkedHashMap<>(original.members());
         // Find and replace discriminator field
@@ -385,20 +371,7 @@ class JtdExhaustiveTest extends JtdTestBase {
         };
     }
 
-    /// Custom arbitrary provider for JTD test schemas
-    static final class JtdSchemaArbitraryProvider implements ArbitraryProvider {
-        @Override
-        public boolean canProvideFor(TypeUsage targetType) {
-            return targetType.isOfType(JtdExhaustiveTest.JtdTestSchema.class);
-        }
-
-        @Override
-        public Set<Arbitrary<?>> provideFor(TypeUsage targetType, SubtypeProvider subtypeProvider) {
-            return Set.of(jtdSchemaArbitrary(MAX_DEPTH));
-        }
-    }
-
-    @SuppressWarnings("unchecked")
+  @SuppressWarnings("unchecked")
     private static Arbitrary<JtdTestSchema> jtdSchemaArbitrary(int depth) {
         final var primitives = Arbitraries.of(
             new EmptySchema(),
@@ -412,14 +385,15 @@ class JtdExhaustiveTest extends JtdTestBase {
         if (depth == 0) {
             return (Arbitrary<JtdTestSchema>) (Arbitrary<?>) primitives;
         }
-        
-        return (Arbitrary<JtdTestSchema>) (Arbitrary<?>) Arbitraries.oneOf(
+
+    //noinspection RedundantCast
+    return (Arbitrary<JtdTestSchema>) (Arbitrary<?>) Arbitraries.oneOf(
             primitives,
             enumSchemaArbitrary(),
             elementsSchemaArbitrary(depth),
             propertiesSchemaArbitrary(depth),
             valuesSchemaArbitrary(depth),
-            discriminatorSchemaArbitrary(depth),
+            discriminatorSchemaArbitrary(),
             nullableSchemaArbitrary(depth)
         );
     }
@@ -454,24 +428,36 @@ class JtdExhaustiveTest extends JtdTestBase {
         final var singleRequired = Combinators.combine(
             Arbitraries.of(PROPERTY_NAMES),
             jtdSchemaArbitrary(childDepth)
-        ).as((name, schema) -> new PropertiesSchema(
-            Map.of(name, schema),
-            Map.of(),
-            false
-        ));
+        ).as((name, schema) -> {
+          Assertions.assertNotNull(name);
+          Assertions.assertNotNull(schema);
+          return new PropertiesSchema(
+              Map.of(name, schema),
+              Map.of(),
+              false
+          );
+        });
         
         final var mixed = Combinators.combine(
             Arbitraries.of(PROPERTY_PAIRS),
             jtdSchemaArbitrary(childDepth),
             jtdSchemaArbitrary(childDepth)
-        ).as((names, requiredSchema, optionalSchema) -> new PropertiesSchema(
-            Map.of(names.getFirst(), requiredSchema),
-            Map.of(names.getLast(), optionalSchema),
-            false
-        ));
+        ).as((names, requiredSchema, optionalSchema) -> {
+          Assertions.assertNotNull(names);
+          Assertions.assertNotNull(requiredSchema);
+          Assertions.assertNotNull(optionalSchema);
+          return new PropertiesSchema(
+              Map.of(names.getFirst(), requiredSchema),
+              Map.of(names.getLast(), optionalSchema),
+              false
+          );
+        });
         
-        final var withAdditional = mixed.map(props -> 
-            new PropertiesSchema(props.properties(), props.optionalProperties(), true)
+        final var withAdditional = mixed.map(props ->
+            {
+              Assertions.assertNotNull(props);
+              return new PropertiesSchema(props.properties(), props.optionalProperties(), true);
+            }
         );
         
         return Arbitraries.oneOf(empty, singleRequired, mixed, withAdditional);
@@ -481,7 +467,6 @@ class JtdExhaustiveTest extends JtdTestBase {
         return jtdSchemaArbitrary(depth - 1)
             .map(ValuesSchema::new);
     }
-// ======================== NEW METHOD: SIMPLE PROPERTIES GENERATOR ========================
   /// Creates simple PropertiesSchema instances for discriminator mappings without recursion
   /// This prevents stack overflow while ensuring RFC 8927 compliance
   private static Arbitrary<JtdTestSchema> simplePropertiesSchemaArbitrary() {
@@ -502,52 +487,60 @@ class JtdExhaustiveTest extends JtdTestBase {
         Combinators.combine(
             Arbitraries.of(PROPERTY_NAMES),
             primitiveSchemas
-        ).as((name, schema) -> new PropertiesSchema(
-            Map.of(name, schema),
-            Map.of(),
-            false
-        )),
+        ).as((name, schema) -> {
+          Assertions.assertNotNull(name);
+          Assertions.assertNotNull(schema);
+          return new PropertiesSchema(
+              Map.of(name, schema),
+              Map.of(),
+              false
+          );
+        }),
 
         // Single optional property with primitive schema
         Combinators.combine(
             Arbitraries.of(PROPERTY_NAMES),
             primitiveSchemas
-        ).as((name, schema) -> new PropertiesSchema(
-            Map.of(),
-            Map.of(name, schema),
-            false
-        )),
+        ).as((name, schema) -> {
+          Assertions.assertNotNull(name);
+          Assertions.assertNotNull(schema);
+          return new PropertiesSchema(
+              Map.of(),
+              Map.of(name, schema),
+              false
+          );
+        }),
 
         // Required + optional property with primitive schemas
         Combinators.combine(
             Arbitraries.of(PROPERTY_PAIRS),
             primitiveSchemas,
             primitiveSchemas
-        ).as((names, requiredSchema, optionalSchema) -> new PropertiesSchema(
-            Map.of(names.get(0), requiredSchema),
-            Map.of(names.get(1), optionalSchema),
-            false
-        ))
+        ).as((names, requiredSchema, optionalSchema) -> {
+          Assertions.assertNotNull(names);
+          Assertions.assertNotNull(requiredSchema);
+          Assertions.assertNotNull(optionalSchema);
+          return new PropertiesSchema(
+              Map.of(names.getFirst(), requiredSchema),
+              Map.of(names.get(1), optionalSchema),
+              false
+          );
+        })
     );
   }
-  // ====================== END NEW METHOD: SIMPLE PROPERTIES GENERATOR ======================
-    private static Arbitrary<JtdTestSchema> discriminatorSchemaArbitrary(int depth) {
-        final var childDepth = depth - 1;
-        
-        return Combinators.combine(
+    private static Arbitrary<JtdTestSchema> discriminatorSchemaArbitrary() {
+
+      return Combinators.combine(
             Arbitraries.of(PROPERTY_NAMES),
             Arbitraries.of(DISCRIMINATOR_VALUES),
             Arbitraries.of(DISCRIMINATOR_VALUES),
-            // ======================== CHANGE: ONLY GENERATE PROPERTIES SCHEMAS ========================
-            // RFC 8927 §2.4: discriminator mapping values must be properties form schemas
-            // Generate only PropertiesSchema instead of arbitrary schemas
             simplePropertiesSchemaArbitrary(),
             simplePropertiesSchemaArbitrary()
-            // ==================== END CHANGE: ONLY GENERATE PROPERTIES SCHEMAS ====================
         ).as((discriminatorKey, value1, value2, schema1, schema2) -> {
             final var mapping = new LinkedHashMap<String, JtdTestSchema>();
             mapping.put(value1, schema1);
-            if (!value1.equals(value2)) {
+        Assertions.assertNotNull(value1);
+        if (!value1.equals(value2)) {
                 mapping.put(value2, schema2);
             }
             return new DiscriminatorSchema(discriminatorKey, mapping);

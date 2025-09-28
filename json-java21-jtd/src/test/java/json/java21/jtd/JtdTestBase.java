@@ -8,7 +8,7 @@ import java.util.logging.Logger;
 /// Base class for all JTD tests.
 /// - Emits an INFO banner per test.
 /// - Provides common helpers for loading resources and assertions.
-class JtdTestBase extends JtdLoggingConfig {
+public class JtdTestBase extends JtdLoggingConfig {
 
     static final Logger LOG = Logger.getLogger("json.java21.jtd");
 
