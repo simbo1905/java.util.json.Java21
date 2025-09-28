@@ -17,6 +17,13 @@ public class Jtd {
   
   private static final Logger LOG = Logger.getLogger(Jtd.class.getName());
   
+  /// RFC 8927 §2.2.3: Valid primitive types for type schema validation
+  private static final Set<String> VALID_TYPES = Set.of(
+    "boolean", "string", "timestamp",
+    "int8", "uint8", "int16", "uint16", "int32", "uint32",
+    "float32", "float64"
+  );
+  
   /// Top-level definitions map for ref resolution
   private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
 
@@ -497,13 +504,7 @@ public class Jtd {
     String typeStr = str.value();
     
     // RFC 8927 §2.2.3: Validate that type is one of the supported primitive types
-    Set<String> validTypes = Set.of(
-      "boolean", "string", "timestamp",
-      "int8", "uint8", "int16", "uint16", "int32", "uint32",
-      "float32", "float64"
-    );
-    
-    if (!validTypes.contains(typeStr)) {
+    if (!VALID_TYPES.contains(typeStr)) {
       throw new IllegalArgumentException("unknown type: '" + typeStr + 
           "', expected one of: boolean, string, timestamp, int8, uint8, int16, uint16, int32, uint32, float32, float64");
     }
@@ -662,16 +663,16 @@ public class Jtd {
   void validateDiscriminatorMapping(String mappingKey, JtdSchema variantSchema, String discriminatorKey) {
     // Check if this is a nullable schema and unwrap it
     JtdSchema unwrappedSchema = variantSchema;
-    boolean isNullable = false;
+    boolean wasNullableWrapper = false;
     
     if (variantSchema instanceof JtdSchema.NullableSchema nullableSchema) {
-      isNullable = true;
+      wasNullableWrapper = true;
       unwrappedSchema = nullableSchema.wrapped();
     }
     
     // RFC 8927 §2.2.8: Mapping values must be PropertiesSchema
     if (!(unwrappedSchema instanceof JtdSchema.PropertiesSchema)) {
-      String schemaType = isNullable ? "nullable " + unwrappedSchema.getClass().getSimpleName() : 
+      String schemaType = wasNullableWrapper ? "nullable " + unwrappedSchema.getClass().getSimpleName() : 
                           unwrappedSchema.getClass().getSimpleName();
       throw new IllegalArgumentException(
         "Discriminator mapping '" + mappingKey + "' must be a properties schema, found: " + schemaType);
@@ -680,7 +681,7 @@ public class Jtd {
     JtdSchema.PropertiesSchema propsSchema = (JtdSchema.PropertiesSchema) unwrappedSchema;
     
     // RFC 8927 §2.2.8: Mapped schemas cannot have nullable: true
-    if (isNullable) {
+    if (wasNullableWrapper) {
       throw new IllegalArgumentException(
         "Discriminator mapping '" + mappingKey + "' cannot be nullable");
     }

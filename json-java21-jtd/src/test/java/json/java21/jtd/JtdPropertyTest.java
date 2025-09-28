@@ -264,11 +264,7 @@ class JtdPropertyTest extends JtdTestBase {
     // Ensure no duplicates by using distinct values
     return Arbitraries.of(ENUM_VALUES).list().ofMinSize(1).ofMaxSize(4).map(values -> {
       // Remove duplicates to ensure valid enum schema per RFC 8927
-      List<String> distinctValues = values.stream().distinct().collect(Collectors.toList());
-      // Ensure we still have at least one value after deduplication
-      if (distinctValues.isEmpty()) {
-        distinctValues = List.of(ENUM_VALUES.get(0)); // Use first value as fallback
-      }
+      List<String> distinctValues = values.stream().distinct().toList();
       return new EnumSchema(new ArrayList<>(distinctValues));
     });
   }
@@ -463,12 +459,15 @@ class JtdPropertyTest extends JtdTestBase {
     final var validationResult = validator.validate(schemaJson, compliantDocument);
 
     if (!validationResult.isValid()) {
-      LOG.severe(() -> String.format("ERROR: Compliant document failed validation!%nSchema JSON: %s%nDocument JSON: %s%nValidation Errors: %s%nSchema Description: %s%nFull Schema Object: %s", 
-                                     Json.toDisplayString(schemaJson, 2), 
-                                     Json.toDisplayString(compliantDocument, 2), 
-                                     validationResult.errors(), 
-                                     schemaDescription, 
-                                     schema));
+      String errorMessage = String.format(
+        "ERROR: Compliant document failed validation!%nSchema JSON: %s%nDocument JSON: %s%nValidation Errors: %s%nSchema Description: %s%nFull Schema Object: %s",
+        Json.toDisplayString(schemaJson, 2),
+        Json.toDisplayString(compliantDocument, 2),
+        validationResult.errors(),
+        schemaDescription,
+        schema
+      );
+      LOG.severe(() -> errorMessage);
     }
 
     assertThat(validationResult.isValid()).as("Compliant JTD document should validate for schema %s", schemaDescription).isTrue();
