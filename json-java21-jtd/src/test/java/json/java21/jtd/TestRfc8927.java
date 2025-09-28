@@ -626,7 +626,7 @@ public class TestRfc8927 extends JtdTestBase {
         .as("Should reject document with missing required properties")
         .isFalse();
   }
-  /// Test case from JtdExhaustiveTest property test failure
+  /// Test case from JtdPropertyTest property test failure
   /// Nested elements containing properties schemas should reject additional properties
   /// Schema: {"elements":{"elements":{"properties":{}}}}
   /// Document: [[{},{},[{},{extraProperty":"extra-value"}]]
