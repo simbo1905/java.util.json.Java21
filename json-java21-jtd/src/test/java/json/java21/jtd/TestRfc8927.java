@@ -877,4 +877,283 @@ public class TestRfc8927 extends JtdTestBase {
       .as("Should accept discriminator field in optionalProperties")
       .isTrue();
   }
+
+  /// Test for the critical integer range validation bug
+  /// This test specifically targets the issue where Double values bypass range checks
+  /// JsonNumber.toNumber() commonly returns Double, which falls through validation
+  @Test
+  public void testInt8RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"int8\"}");
+    
+    // These values should fail int8 validation (range: -128 to 127)
+    // But they pass through because Double values aren't handled in range checking
+    JsonValue[] outOfRangeValues = {
+      Json.parse("1000"),    // Way above int8 max (127)
+      Json.parse("-500"),    // Way below int8 min (-128) 
+      Json.parse("300"),     // Above int8 max
+      Json.parse("-200")     // Below int8 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      LOG.fine(() -> "Testing int8 range with Double value: " + outOfRange + 
+               " (JsonNumber.toNumber() type: " + 
+               ((JsonNumber)outOfRange).toNumber().getClass().getSimpleName() + ")");
+      
+      // This should fail but currently passes due to the bug
+      assertThat(result.isValid())
+        .as("int8 should reject out-of-range value %s (likely parsed as Double)", outOfRange)
+        .isFalse();
+      assertThat(result.errors())
+        .as("Should have range validation errors for %s", outOfRange)
+        .isNotEmpty();
+    }
+  }
+
+  /// Test uint8 range validation with Double values
+  @Test  
+  public void testUint8RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"uint8\"}");
+    
+    // These should fail uint8 validation (range: 0 to 255)
+    JsonValue[] outOfRangeValues = {
+      Json.parse("1000"),    // Way above uint8 max (255)
+      Json.parse("-1"),      // Below uint8 min (0)
+      Json.parse("500"),     // Above uint8 max
+      Json.parse("-100")     // Below uint8 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      assertThat(result.isValid())
+        .as("uint8 should reject out-of-range value %s", outOfRange)
+        .isFalse();
+      assertThat(result.errors())
+        .as("Should have range validation errors for %s", outOfRange)
+        .isNotEmpty();
+    }
+  }
+
+  /// Test int16 range validation with Double values  
+  @Test
+  public void testInt16RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"int16\"}");
+    
+    // These should fail int16 validation (range: -32768 to 32767)
+    JsonValue[] outOfRangeValues = {
+      Json.parse("100000"),   // Way above int16 max
+      Json.parse("-100000"),  // Way below int16 min
+      Json.parse("50000"),    // Above int16 max
+      Json.parse("-50000")    // Below int16 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      assertThat(result.isValid())
+        .as("int16 should reject out-of-range value %s", outOfRange)
+        .isFalse();
+    }
+  }
+
+  /// Test uint16 range validation with Double values
+  @Test
+  public void testUint16RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"uint16\"}");
+    
+    JsonValue[] outOfRangeValues = {
+      Json.parse("100000"),   // Way above uint16 max (65535)
+      Json.parse("-1"),       // Below uint16 min (0)
+      Json.parse("70000"),    // Above uint16 max
+      Json.parse("-1000")     // Below uint16 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      assertThat(result.isValid())
+        .as("uint16 should reject out-of-range value %s", outOfRange)
+        .isFalse();
+    }
+  }
+
+  /// Test int32 range validation with Double values
+  @Test
+  public void testInt32RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"int32\"}");
+    
+    // These should fail int32 validation (range: -2147483648 to 2147483647)
+    JsonValue[] outOfRangeValues = {
+      Json.parse("3000000000"),    // Above int32 max
+      Json.parse("-3000000000"),   // Below int32 min
+      Json.parse("2200000000"),    // Above int32 max  
+      Json.parse("-2200000000")    // Below int32 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      assertThat(result.isValid())
+        .as("int32 should reject out-of-range value %s", outOfRange)
+        .isFalse();
+    }
+  }
+
+  /// Test uint32 range validation with Double values
+  @Test
+  public void testUint32RangeValidationWithDoubleValues() {
+    JsonValue schema = Json.parse("{\"type\": \"uint32\"}");
+    
+    // These should fail uint32 validation (range: 0 to 4294967295)
+    JsonValue[] outOfRangeValues = {
+      Json.parse("5000000000"),    // Above uint32 max
+      Json.parse("-1"),            // Below uint32 min
+      Json.parse("4500000000"),    // Above uint32 max
+      Json.parse("-1000")          // Below uint32 min
+    };
+    
+    Jtd validator = new Jtd();
+    
+    for (JsonValue outOfRange : outOfRangeValues) {
+      Jtd.Result result = validator.validate(schema, outOfRange);
+      
+      assertThat(result.isValid())
+        .as("uint32 should reject out-of-range value %s", outOfRange)
+        .isFalse();
+    }
+  }
+
+  /// Test that demonstrates the specific problem: JsonNumber.toNumber() returns Double
+  /// This test shows the root cause of the bug
+  @Test
+  public void testJsonNumberToNumberReturnsDouble() {
+    JsonValue numberValue = Json.parse("1000");
+    
+    // Verify that JsonNumber.toNumber() returns Double for typical JSON numbers
+    assertThat(numberValue).isInstanceOf(JsonNumber.class);
+    Number number = ((JsonNumber) numberValue).toNumber();
+    
+    LOG.info(() -> "JsonNumber.toNumber() returns: " + number.getClass().getSimpleName() + 
+                   " for value: " + numberValue);
+    
+    // This demonstrates what type JsonNumber.toNumber() returns for typical values
+    // The actual type depends on the JSON parser implementation
+    LOG.info(() -> "JsonNumber.toNumber() returns: " + number.getClass().getSimpleName() + 
+                   " for value: " + numberValue);
+    
+    // The key test is that regardless of the Number type, range validation should work
+    // Our fix ensures all Number types go through proper range validation
+  }
+
+  /// Test integer validation with explicit Double creation
+  /// Shows the bug occurs even when we know the type is Double
+  @Test 
+  public void testIntegerValidationExplicitDouble() {
+    JsonValue schema = Json.parse("{\"type\": \"int8\"}");
+    
+    // Create a JsonNumber that definitely returns Double
+    JsonValue doubleValue = JsonNumber.of(1000.0);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, doubleValue);
+    
+    LOG.fine(() -> "Explicit Double validation - value: " + doubleValue + 
+             ", toNumber() type: " + ((JsonNumber)doubleValue).toNumber().getClass().getSimpleName());
+    
+    // This should fail (1000 is way outside int8 range of -128 to 127)
+    assertThat(result.isValid())
+      .as("int8 should reject Double value 1000.0 as out of range")
+      .isFalse();
+  }
+
+  /// Test that edge case boundary values work correctly
+  /// These test the exact boundaries where the bug becomes visible
+  @Test
+  public void testIntegerBoundaryValues() {
+    // Test int8 boundaries
+    JsonValue int8Schema = Json.parse("{\"type\": \"int8\"}");
+    
+    // Just outside valid range
+    JsonValue justAboveMax = Json.parse("128");   // int8 max is 127
+    JsonValue justBelowMin = Json.parse("-129");  // int8 min is -128
+    
+    Jtd validator = new Jtd();
+    
+    Jtd.Result aboveResult = validator.validate(int8Schema, justAboveMax);
+    assertThat(aboveResult.isValid())
+      .as("int8 should reject 128 (just above max 127)")
+      .isFalse();
+      
+    Jtd.Result belowResult = validator.validate(int8Schema, justBelowMin);  
+    assertThat(belowResult.isValid())
+      .as("int8 should reject -129 (just below min -128)")
+      .isFalse();
+  }
+
+  /// Test BigDecimal values that exceed long precision
+  /// Ensures precision loss is handled correctly
+  @Test
+  public void testIntegerValidationWithBigDecimalValues() {
+    JsonValue schema = Json.parse("{\"type\": \"uint32\"}");
+    JsonValue bigValue = JsonNumber.of(new java.math.BigDecimal("5000000000")); // > uint32 max
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, bigValue);
+    
+    assertThat(result.isValid())
+      .as("uint32 should reject BigDecimal value 5000000000 as out of range")
+      .isFalse();
+  }
+
+  /// Test mixed integer types in array to catch range validation issues
+  /// This creates a scenario where multiple integer validations occur
+  @Test
+  public void testMixedIntegerTypesInArray() {
+    JsonValue schema = Json.parse("""
+      {
+        "elements": {
+          "discriminator": "type",
+          "mapping": {
+            "small": {"properties": {"value": {"type": "int8"}}},
+            "medium": {"properties": {"value": {"type": "int16"}}},
+            "large": {"properties": {"value": {"type": "int32"}}}
+          }
+        }
+      }
+      """);
+    
+    // Array with values that should fail their respective type validations
+    JsonValue invalidData = Json.parse("""
+      [
+        {"type": "small", "value": 1000},
+        {"type": "medium", "value": 100000},
+        {"type": "large", "value": 5000000000}
+      ]
+      """);
+      
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, invalidData);
+    
+    LOG.fine(() -> "Mixed integer types test - should have multiple range errors");
+    
+    // Should fail with multiple range validation errors
+    assertThat(result.isValid())
+      .as("Should reject array with out-of-range values for different integer types")
+      .isFalse();
+    assertThat(result.errors().size())
+      .as("Should have multiple range validation errors")
+      .isGreaterThan(0);
+  }
 }

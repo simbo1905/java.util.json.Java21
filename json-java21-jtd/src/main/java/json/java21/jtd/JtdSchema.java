@@ -234,16 +234,19 @@ sealed interface JtdSchema {
       if (instance instanceof JsonNumber num) {
         Number value = num.toNumber();
         
-        // Check if the number is not integral (has fractional part)
-        if (value instanceof Double d && d != Math.floor(d)) {
+        // Check for fractional component first (applies to all Number types)
+        if (hasFractionalComponent(value)) {
           return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
         }
         
-        // Handle BigDecimal - check if it has fractional component (not just scale > 0)
-        // RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
-        // Values like 3.0 or 3.000 are valid integers despite positive scale, but 3.1 is not
-        if (value instanceof java.math.BigDecimal bd && bd.remainder(java.math.BigDecimal.ONE).signum() != 0) {
-          return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
+        // Handle precision loss for large Double values
+        if (value instanceof Double d) {
+          if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) {
+            String error = verboseErrors
+                ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+            return Jtd.Result.failure(error);
+          }
         }
         
         // Convert to long for range checking
@@ -277,156 +280,64 @@ sealed interface JtdSchema {
       return Jtd.Result.failure(error);
     }
     
+    private boolean hasFractionalComponent(Number value) {
+      if (value == null) return false;
+      if (value instanceof Double d) {
+        return d != Math.floor(d);
+      }
+      if (value instanceof Float f) {
+        return f != Math.floor(f);
+      }
+      if (value instanceof java.math.BigDecimal bd) {
+        return bd.remainder(java.math.BigDecimal.ONE).signum() != 0;
+      }
+      // Long, Integer, Short, Byte are always integers
+      return false;
+    }
+    
     boolean validateIntegerWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonNumber num) {
         Number value = num.toNumber();
         
-        // Check if the number is not integral (has fractional part)
-        if (value instanceof Double d && d != Math.floor(d)) {
+        // Check for fractional component first (applies to all Number types)
+        if (hasFractionalComponent(value)) {
           String error = Jtd.Error.EXPECTED_INTEGER.message();
           errors.add(Jtd.enrichedError(error, frame, instance));
           return false;
         }
         
-        // Handle BigDecimal - check if it has fractional component (not just scale > 0)
-        // RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
-        // Values like 3.0 or 3.000 are valid integers despite positive scale, but 3.1 is not
-        if (value instanceof java.math.BigDecimal bd && bd.remainder(java.math.BigDecimal.ONE).signum() != 0) {
-          String error = Jtd.Error.EXPECTED_INTEGER.message();
-          errors.add(Jtd.enrichedError(error, frame, instance));
-          return false;
+        // Handle precision loss for large Double values
+        if (value instanceof Double d) {
+          if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) {
+            String error = verboseErrors
+                ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+            errors.add(Jtd.enrichedError(error, frame, instance));
+            return false;
+          }
         }
         
         // Now check if the value is within range for the specific integer type
-        if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
-          long longValue = value.longValue();
-          return switch (type) {
-            case "int8" -> {
-              if (longValue >= -128 && longValue <= 127) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint8" -> {
-              if (longValue >= 0 && longValue <= 255) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "int16" -> {
-              if (longValue >= -32768 && longValue <= 32767) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint16" -> {
-              if (longValue >= 0 && longValue <= 65535) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "int32" -> {
-              if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint32" -> {
-              if (longValue >= 0 && longValue <= 4294967295L) yield true;
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            default -> true;
-          };
-        }
+        // Convert to long for range checking (works for all Number types)
+        long longValue = value.longValue();
+        boolean inRange = switch (type) {
+          case "int8" -> longValue >= -128 && longValue <= 127;
+          case "uint8" -> longValue >= 0 && longValue <= 255;
+          case "int16" -> longValue >= -32768 && longValue <= 32767;
+          case "uint16" -> longValue >= 0 && longValue <= 65535;
+          case "int32" -> longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE;
+          case "uint32" -> longValue >= 0 && longValue <= 4294967295L;
+          default -> true;
+        };
         
-        // For BigDecimal and other number types, check range
-        if (value instanceof java.math.BigDecimal bd) {
-          return switch (type) {
-            case "int8" -> {
-              try {
-                int intValue = bd.intValueExact();
-                if (intValue >= -128 && intValue <= 127) yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint8" -> {
-              try {
-                int intValue = bd.intValueExact();
-                if (intValue >= 0 && intValue <= 255) yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "int16" -> {
-              try {
-                int intValue = bd.intValueExact();
-                if (intValue >= -32768 && intValue <= 32767) yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint16" -> {
-              try {
-                int intValue = bd.intValueExact();
-                if (intValue >= 0 && intValue <= 65535) yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "int32" -> {
-              try {
-                int intValue = bd.intValueExact();
-                yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            case "uint32" -> {
-              try {
-                long longValue = bd.longValueExact();
-                if (longValue >= 0 && longValue <= 4294967295L) yield true;
-              } catch (ArithmeticException ignore) {}
-              String error = verboseErrors
-                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-              errors.add(Jtd.enrichedError(error, frame, instance));
-              yield false;
-            }
-            default -> true;
-          };
+        if (!inRange) {
+          String error = verboseErrors
+              ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+              : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+          errors.add(Jtd.enrichedError(error, frame, instance));
+          return false;
         }
-        
         return true;
       }
       String error = verboseErrors
