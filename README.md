@@ -295,6 +295,19 @@ This repo contains an incubating JTD validator that has the core JSON API as its
 
 A complete JSON Type Definition validator is included (module: json-java21-jtd).
 
+### Empty Schema `{}` Semantics (RFC 8927)
+
+Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
+**accepts all JSON instances** (null, boolean, numbers, strings, arrays, objects).
+
+> RFC 8927 §2.2 "Forms":  
+> `schema = empty / ref / type / enum / elements / properties / values / discriminator / definitions`  
+> `empty = {}`  
+> **Empty form:** A schema in the empty form accepts all JSON values and produces no errors.
+
+⚠️ Note: Some tools or in-house validators mistakenly interpret `{}` as "object with no
+properties allowed." **That is not JTD.** This implementation follows RFC 8927 strictly.
+
 ```java
 import json.java21.jtd.Jtd;
 import jdk.sandbox.java.util.json.*;

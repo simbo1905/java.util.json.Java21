@@ -17,38 +17,7 @@ public class Jtd {
   
   /// Top-level definitions map for ref resolution
   private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
-  
-  /// Stack frame for iterative validation with path and offset tracking
-  record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
-    /// Constructor for normal validation without discriminator context
-    Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {
-      this(schema, instance, ptr, crumbs, null);
-    }
-    
-    @Override
-    public String toString() {
-      final var kind = schema.getClass().getSimpleName();
-      final var tag  = (schema instanceof JtdSchema.RefSchema r) ? "(ref=" + r.ref() + ")" : "";
-      return "Frame[schema=" + kind + tag + ", instance=" + instance + ", ptr=" + ptr +
-             ", crumbs=" + crumbs + ", discriminatorKey=" + discriminatorKey + "]";
-    }
-  }
-  
-  /// Lightweight breadcrumb trail for human-readable error paths
-  record Crumbs(String value) {
-    static Crumbs root() {
-      return new Crumbs("#");
-    }
-    
-    Crumbs withObjectField(String name) {
-      return new Crumbs(value + "→field:" + name);
-    }
-    
-    Crumbs withArrayIndex(int idx) {
-      return new Crumbs(value + "→item:" + idx);
-    }
-  }
-  
+
   /// Extracts offset from JsonValue implementation classes
   static int offsetOf(JsonValue v) {
     return switch (v) {
@@ -65,8 +34,8 @@ public class Jtd {
   /// Creates an enriched error message with offset and path information
   static String enrichedError(String baseMessage, Frame frame, JsonValue contextValue) {
     int off = offsetOf(contextValue);
-    String ptr = frame.ptr;
-    String via = frame.crumbs.value();
+    String ptr = frame.ptr();
+    String via = frame.crumbs().value();
     return "[off=" + off + " ptr=" + ptr + " via=" + via + "] " + baseMessage;
   }
   
@@ -106,25 +75,25 @@ public class Jtd {
     stack.push(rootFrame);
     
     LOG.fine(() -> "Starting stack validation - schema=" +
-        rootFrame.schema.getClass().getSimpleName() +
-        (rootFrame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
+        rootFrame.schema().getClass().getSimpleName() +
+        (rootFrame.schema() instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
         ", ptr=#");
     
     // Process frames iteratively
     while (!stack.isEmpty()) {
       Frame frame = stack.pop();
-      LOG.fine(() -> "Processing frame - schema: " + frame.schema.getClass().getSimpleName() + 
-                     (frame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
-                     ", ptr: " + frame.ptr + ", off: " + offsetOf(frame.instance));
+      LOG.fine(() -> "Processing frame - schema: " + frame.schema().getClass().getSimpleName() +
+                     (frame.schema() instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
+                     ", ptr: " + frame.ptr() + ", off: " + offsetOf(frame.instance()));
       
       // Validate current frame
-      if (!frame.schema.validateWithFrame(frame, errors, false)) {
-        LOG.fine(() -> "Validation failed for frame at " + frame.ptr + " with " + errors.size() + " errors");
+      if (!frame.schema().validateWithFrame(frame, errors, false)) {
+        LOG.fine(() -> "Validation failed for frame at " + frame.ptr() + " with " + errors.size() + " errors");
         continue; // Continue processing other frames even if this one failed
       }
       
       // Handle special validations for PropertiesSchema
-      if (frame.schema instanceof JtdSchema.PropertiesSchema propsSchema) {
+      if (frame.schema() instanceof JtdSchema.PropertiesSchema propsSchema) {
         validatePropertiesSchema(frame, propsSchema, errors);
       }
       
@@ -163,7 +132,7 @@ public class Jtd {
       for (String key : obj.members().keySet()) {
         if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
           // Only exempt the discriminator field itself, not all additional properties
-          if (discriminatorKey != null && key.equals(discriminatorKey)) {
+          if (key.equals(discriminatorKey)) {
             continue; // Skip the discriminator field - it's exempt
           }
           JsonValue value = obj.members().get(key);
@@ -179,8 +148,8 @@ public class Jtd {
   
   /// Pushes child frames for complex schema types
   void pushChildFrames(Frame frame, java.util.Deque<Frame> stack) {
-    JtdSchema schema = frame.schema;
-    JsonValue instance = frame.instance;
+    JtdSchema schema = frame.schema();
+    JsonValue instance = frame.instance();
     
     LOG.finer(() -> "Pushing child frames for schema type: " + schema.getClass().getSimpleName());
     
@@ -189,8 +158,8 @@ public class Jtd {
         if (instance instanceof JsonArray arr) {
           int index = 0;
           for (JsonValue element : arr.values()) {
-            String childPtr = frame.ptr + "/" + index;
-            Crumbs childCrumbs = frame.crumbs.withArrayIndex(index);
+            String childPtr = frame.ptr() + "/" + index;
+            Crumbs childCrumbs = frame.crumbs().withArrayIndex(index);
             Frame childFrame = new Frame(elementsSchema.elements(), element, childPtr, childCrumbs);
             stack.push(childFrame);
             LOG.finer(() -> "Pushed array element frame at " + childPtr);
@@ -200,34 +169,49 @@ public class Jtd {
       }
       case JtdSchema.PropertiesSchema propsSchema -> {
         if (instance instanceof JsonObject obj) {
-          // Push required properties that are present
+          String discriminatorKey = frame.discriminatorKey();
+
           for (var entry : propsSchema.properties().entrySet()) {
             String key = entry.getKey();
+
+            // Skip the discriminator field - it was already validated by discriminator logic
+            if (key.equals(discriminatorKey)) {
+              LOG.finer(() -> "Skipping discriminator field validation for: " + key);
+              continue;
+            }
+
             JsonValue value = obj.members().get(key);
-            
+
             if (value != null) {
-              String childPtr = frame.ptr + "/" + key;
-              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              String childPtr = frame.ptr() + "/" + key;
+              Crumbs childCrumbs = frame.crumbs().withObjectField(key);
               Frame childFrame = new Frame(entry.getValue(), value, childPtr, childCrumbs);
               stack.push(childFrame);
               LOG.finer(() -> "Pushed required property frame at " + childPtr);
             }
           }
-          
-          // Push optional properties that are present
+
           for (var entry : propsSchema.optionalProperties().entrySet()) {
             String key = entry.getKey();
+
+            // Skip the discriminator field - it was already validated by discriminator logic
+            if (key.equals(discriminatorKey)) {
+              LOG.finer(() -> "Skipping discriminator field validation for optional: " + key);
+              continue;
+            }
+
             JtdSchema childSchema = entry.getValue();
             JsonValue value = obj.members().get(key);
-            
+
             if (value != null) {
-              String childPtr = frame.ptr + "/" + key;
-              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              String childPtr = frame.ptr() + "/" + key;
+              Crumbs childCrumbs = frame.crumbs().withObjectField(key);
               Frame childFrame = new Frame(childSchema, value, childPtr, childCrumbs);
               stack.push(childFrame);
               LOG.finer(() -> "Pushed optional property frame at " + childPtr);
             }
           }
+
         }
       }
       case JtdSchema.ValuesSchema valuesSchema -> {
@@ -235,8 +219,8 @@ public class Jtd {
           for (var entry : obj.members().entrySet()) {
             String key = entry.getKey();
             JsonValue value = entry.getValue();
-            String childPtr = frame.ptr + "/" + key;
-            Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+            String childPtr = frame.ptr() + "/" + key;
+            Crumbs childCrumbs = frame.crumbs().withObjectField(key);
             Frame childFrame = new Frame(valuesSchema.values(), value, childPtr, childCrumbs);
             stack.push(childFrame);
             LOG.finer(() -> "Pushed values schema frame at " + childPtr);
@@ -250,15 +234,10 @@ public class Jtd {
             String discriminatorValueStr = discStr.value();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
-              // Special-case: skip pushing variant schema if object contains only discriminator key
-              if (obj.members().size() == 1 && obj.members().containsKey(discSchema.discriminator())) {
-                LOG.finer(() -> "Skipping variant schema push for discriminator-only object");
-              } else {
-                // Push variant schema for validation with discriminator key context
-                Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
-                stack.push(variantFrame);
-                LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
-              }
+
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr(), frame.crumbs(), discSchema.discriminator());
+              stack.push(variantFrame);
+              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
             }
           }
         }
@@ -266,8 +245,8 @@ public class Jtd {
       case JtdSchema.RefSchema refSchema -> {
         try {
           JtdSchema resolved = refSchema.target();
-          Frame resolvedFrame = new Frame(resolved, instance, frame.ptr,
-              frame.crumbs, frame.discriminatorKey());
+          Frame resolvedFrame = new Frame(resolved, instance, frame.ptr(),
+              frame.crumbs(), frame.discriminatorKey());
           pushChildFrames(resolvedFrame, stack);
           LOG.finer(() -> "Pushed ref schema resolved to " +
               resolved.getClass().getSimpleName() + " for ref: " + refSchema.ref());
@@ -299,7 +278,9 @@ public class Jtd {
       JsonObject defsObj = (JsonObject) obj.members().get("definitions");
       for (String key : defsObj.members().keySet()) {
         if (definitions.get(key) == null) {
-          JtdSchema compiled = compileSchema(defsObj.members().get(key));
+          JsonValue rawDef = defsObj.members().get(key);
+          // Compile definitions normally (RFC 8927 strict)
+          JtdSchema compiled = compileSchema(rawDef);
           definitions.put(key, compiled);
         }
       }
@@ -308,7 +289,7 @@ public class Jtd {
     return compileObjectSchema(obj);
   }
   
-  /// Compiles an object schema according to RFC 8927
+  /// Compiles an object schema according to RFC 8927 with strict semantics
   JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
@@ -336,9 +317,29 @@ public class Jtd {
     // Parse the specific schema form
     JtdSchema schema;
     
-    if (forms.isEmpty()) {
-      // Empty schema - accepts any value
-      schema = new JtdSchema.EmptySchema();
+    // RFC 8927: {} is the empty form and accepts all instances
+    if (forms.isEmpty() && obj.members().isEmpty()) {
+      LOG.finer(() -> "Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. "
+        + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
+      return new JtdSchema.EmptySchema();
+    } else if (forms.isEmpty()) {
+      // Check if this is effectively an empty schema (ignoring metadata keys)
+      boolean hasNonMetadataKeys = members.keySet().stream()
+          .anyMatch(key -> !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions"));
+      
+      if (!hasNonMetadataKeys) {
+        // This is an empty schema (possibly with metadata)
+        LOG.finer(() -> "Empty schema encountered (with metadata: " + members.keySet() + "). "
+          + "Per RFC 8927 this means 'accept anything'. "
+          + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
+        return new JtdSchema.EmptySchema();
+      } else {
+        // This should not happen in RFC 8927 - unknown keys present
+        throw new IllegalArgumentException("Schema contains unknown keys: " + 
+            members.keySet().stream()
+                .filter(key -> !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions"))
+                .toList());
+      }
     } else {
       String form = forms.getFirst();
       schema = switch (form) {
@@ -446,11 +447,8 @@ public class Jtd {
         throw new IllegalArgumentException("additionalProperties must be a boolean");
       }
       additionalProperties = bool.value();
-    } else if (properties.isEmpty() && optionalProperties.isEmpty()) {
-      // Empty schema with no properties defined rejects additional properties by default
-      additionalProperties = false;
-    }
-    
+    }  // Empty schema with no properties defined rejects additional properties by default
+
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
   }
   
@@ -482,6 +480,8 @@ public class Jtd {
     
     return new JtdSchema.DiscriminatorSchema(discStr.value(), mapping);
   }
+  
+  // Removed: RFC 8927 strict mode - no context-aware ref resolution needed
   
   /// Extracts and stores top-level definitions for ref resolution
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {

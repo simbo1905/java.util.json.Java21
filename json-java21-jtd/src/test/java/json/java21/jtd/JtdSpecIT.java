@@ -19,7 +19,6 @@ import java.util.stream.StreamSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /// Runs the official JTD Test Suite as JUnit dynamic tests.
-/// Based on the pattern from JsonSchemaCheckDraft4IT but simplified for JTD.
 ///
 /// This test class loads and runs two types of tests from the JTD specification:
 ///
@@ -100,7 +99,7 @@ public class JtdSpecIT extends JtdTestBase {
     LOG.info(() -> "Running validation tests from: " + VALIDATION_TEST_FILE);
     JsonNode validationSuite = loadTestFile(VALIDATION_TEST_FILE);
     
-    return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) () -> validationSuite.fields()).spliterator(), false)
+    return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) validationSuite::fields).spliterator(), false)
         .map(entry -> {
           String testName = "validation: " + entry.getKey();
           JsonNode testCase = entry.getValue();
@@ -112,7 +111,7 @@ public class JtdSpecIT extends JtdTestBase {
     LOG.info(() -> "Running invalid schema tests from: " + INVALID_SCHEMAS_FILE);
     JsonNode invalidSchemas = loadTestFile(INVALID_SCHEMAS_FILE);
     
-    return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) () -> invalidSchemas.fields()).spliterator(), false)
+    return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) invalidSchemas::fields).spliterator(), false)
         .map(entry -> {
           String testName = "invalid schema: " + entry.getKey();
           JsonNode schema = entry.getValue();
@@ -193,7 +192,7 @@ public class JtdSpecIT extends JtdTestBase {
         Jtd.Result result = validator.validate(schema, instance);
         
         // Check if validation result matches expected
-        boolean expectedValid = expectedErrorsNode.isArray() && expectedErrorsNode.size() == 0;
+        boolean expectedValid = expectedErrorsNode.isArray() && expectedErrorsNode.isEmpty();
         boolean actualValid = result.isValid();
         
         if (expectedValid != actualValid) {

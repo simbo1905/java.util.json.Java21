@@ -8,7 +8,7 @@ import java.util.List;
 
 /// JTD Schema interface - validates JSON instances against JTD schemas
 /// Following RFC 8927 specification with eight mutually-exclusive schema forms
-public sealed interface JtdSchema {
+sealed interface JtdSchema {
   
   /// Validates a JSON instance against this schema
   /// @param instance The JSON value to validate
@@ -20,7 +20,7 @@ public sealed interface JtdSchema {
   /// @param errors List to accumulate error messages
   /// @param verboseErrors Whether to include full JSON values in error messages
   /// @return true if validation passes, false if validation fails
-  default boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+  default boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
     // Default implementation delegates to existing validate method for backward compatibility
     Jtd.Result result = validate(frame.instance(), verboseErrors);
     if (!result.isValid()) {
@@ -50,8 +50,9 @@ public sealed interface JtdSchema {
       return wrapped.validate(instance);
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       if (frame.instance() instanceof JsonNull) {
         return true;
       }
@@ -67,8 +68,9 @@ public sealed interface JtdSchema {
       return Jtd.Result.success();
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       // Empty schema accepts any JSON value
       return true;
     }
@@ -89,10 +91,11 @@ public sealed interface JtdSchema {
       return target().validate(instance);
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JtdSchema resolved = target();
-      Jtd.Frame resolvedFrame = new Jtd.Frame(resolved, frame.instance(), frame.ptr(),
+      Frame resolvedFrame = new Frame(resolved, frame.instance(), frame.ptr(),
           frame.crumbs(), frame.discriminatorKey());
       return resolved.validateWithFrame(resolvedFrame, errors, verboseErrors);
     }
@@ -127,8 +130,9 @@ public sealed interface JtdSchema {
       };
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       Jtd.Result result = validate(frame.instance(), verboseErrors);
       if (!result.isValid()) {
         // Enrich errors with offset and path information
@@ -178,63 +182,7 @@ public sealed interface JtdSchema {
           : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
       return Jtd.Result.failure(error);
     }
-    
-    /// Package-protected static validation for RFC 3339 timestamp format with leap second support
-    /// RFC 3339 grammar: date-time = full-date "T" full-time
-    /// Supports leap seconds (seconds = 60 when minutes = 59)
-    static boolean isValidRfc3339Timestamp(String timestamp) {
-      // RFC 3339 regex pattern with leap second support
-      String rfc3339Pattern = "^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2}):(\\d{2})(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$";
-      java.util.regex.Pattern pattern = java.util.regex.Pattern.compile(rfc3339Pattern);
-      java.util.regex.Matcher matcher = pattern.matcher(timestamp);
-      
-      if (!matcher.matches()) {
-        return false;
-      }
-      
-      try {
-        int year = Integer.parseInt(matcher.group(1));
-        int month = Integer.parseInt(matcher.group(2));
-        int day = Integer.parseInt(matcher.group(3));
-        int hour = Integer.parseInt(matcher.group(4));
-        int minute = Integer.parseInt(matcher.group(5));
-        int second = Integer.parseInt(matcher.group(6));
-        
-        // Validate basic date/time components
-        if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
-          return false;
-        }
-        if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
-          return false;
-        }
-        
-        // Handle leap seconds: seconds = 60 is valid only if minutes = 59
-        if (second == 60) {
-          if (minute != 59) {
-            return false;
-          }
-          // For leap seconds, we accept the format but don't validate the specific date
-          // This matches RFC 8927 behavior - format validation only
-          return true;
-        }
-        
-        if (second < 0 || second > 59) {
-          return false;
-        }
-        
-        // For normal timestamps, delegate to OffsetDateTime.parse for full validation
-        try {
-          OffsetDateTime.parse(timestamp, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-          return true;
-        } catch (Exception e) {
-          return false;
-        }
-        
-      } catch (NumberFormatException e) {
-        return false;
-      }
-    }
-    
+
     Jtd.Result validateInteger(JsonValue instance, String type, boolean verboseErrors) {
       if (instance instanceof JsonNumber num) {
         Number value = num.toNumber();
@@ -317,8 +265,9 @@ public sealed interface JtdSchema {
       return Jtd.Result.failure(error);
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       Jtd.Result result = validate(frame.instance(), verboseErrors);
       if (!result.isValid()) {
         // Enrich errors with offset and path information
@@ -360,11 +309,12 @@ public sealed interface JtdSchema {
       return Jtd.Result.failure(error);
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       
-      if (!(instance instanceof JsonArray arr)) {
+      if (!(instance instanceof JsonArray)) {
         String error = verboseErrors
             ? Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName())
             : Jtd.Error.EXPECTED_ARRAY.message(instance.getClass().getSimpleName());
@@ -447,11 +397,12 @@ public sealed interface JtdSchema {
       return Jtd.Result.success();
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       
-      if (!(instance instanceof JsonObject obj)) {
+      if (!(instance instanceof JsonObject)) {
         String error = verboseErrors
             ? Jtd.Error.EXPECTED_OBJECT.message(instance, instance.getClass().getSimpleName())
             : Jtd.Error.EXPECTED_OBJECT.message(instance.getClass().getSimpleName());
@@ -497,11 +448,12 @@ public sealed interface JtdSchema {
       return Jtd.Result.success();
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       
-      if (!(instance instanceof JsonObject obj)) {
+      if (!(instance instanceof JsonObject)) {
         String error = verboseErrors
             ? Jtd.Error.EXPECTED_OBJECT.message(instance, instance.getClass().getSimpleName())
             : Jtd.Error.EXPECTED_OBJECT.message(instance.getClass().getSimpleName());
@@ -567,8 +519,9 @@ public sealed interface JtdSchema {
       return variantSchema.validate(instance, verboseErrors);
     }
 
+    @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
-    public boolean validateWithFrame(Jtd.Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+    public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       
       if (!(instance instanceof JsonObject obj)) {

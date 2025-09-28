@@ -14,6 +14,26 @@
 - Never commit unverified mass changes—compile or test first.
 - Do not use Perl or sed for multi-line structural edits; rely on Python 3.2-friendly heredocs.
 
+## Markdown-Driven-Development (MDD)
+We practice **Markdown-Driven-Development** where documentation precedes implementation:
+
+1. **Create GitHub issue** with clear problem statement and goals
+2. **Update user documentation** (README.md) with new behavior/semantics
+3. **Update agentic documentation** (AGENTS.md) with implementation guidance
+4. **Update specialist documentation** (**/*.md, e.g., ARCHITECTURE.md) as needed
+5. **Create implementation plan** (PLAN_${issue_id}.md) documenting exact changes
+6. **Implement code changes** to match documented behavior
+7. **Update tests** to validate the documented behavior
+8. **Verify all documentation** remains accurate after implementation
+
+This ensures:
+- Users understand behavior changes before code is written
+- Developers have clear implementation guidance
+- Documentation stays synchronized with code
+- Breaking changes are clearly communicated
+
+When making changes, always update documentation files before modifying code.
+
 
 ## Testing & Logging Discipline
 
@@ -222,10 +242,20 @@ The property test logs at FINEST level:
 ### Issue Management
 - Use the native tooling for the remote (for example `gh` for GitHub).
 - Create issues in the repository tied to the `origin` remote unless instructed otherwise; if another remote is required, ask for its name.
-- Tickets and issues must state only “what” and “why,” leaving “how” for later discussion.
+- Tickets and issues must state only "what" and "why," leaving "how" for later discussion.
 - Comments may discuss implementation details.
 - Label tickets as `Ready` once actionable; if a ticket lacks that label, request confirmation before proceeding.
 - Limit tidy-up issues to an absolute minimum (no more than two per PR).
+
+### Creating GitHub Issues
+- **Title requirements**: No issue numbers, no special characters, no quotes, no shell metacharacters
+- **Body requirements**: Write issue body to a file first, then use --body-file flag
+- **Example workflow**:
+  ```bash
+  echo "Issue description here" > /tmp/issue_body.md
+  gh issue create --title "Brief description of bug" --body-file /tmp/issue_body.md
+  ```
+- **Never use --body flag** with complex content - always use --body-file to avoid shell escaping issues
 
 ### Commit Requirements
 - Commit messages start with `Issue #<issue number> <short description>`.
@@ -487,6 +517,16 @@ IMPORTANT: Never disable tests written for logic that we are yet to write we do 
     * Sealed classes for exhaustive switches
     * Virtual threads for concurrent processing
     * **Use try-with-resources for all AutoCloseable resources** (HttpClient, streams, etc.)
+
+## RFC 8927 Compliance Guidelines
+
+* **{} must compile to the Empty form and accept any JSON value** (RFC 8927 §2.2)
+* **Do not introduce compatibility modes that reinterpret {} with object semantics**
+* **Specs from json-typedef-spec are authoritative for behavior and tests**
+* **If a test, doc, or code disagrees with RFC 8927 about {}, the test/doc/code is wrong**
+* **We log at INFO when {} is compiled to help users who come from non-JTD validators**
+
+Per RFC 8927 §3.3.1: "If a schema is of the 'empty' form, then it accepts all instances. A schema of the 'empty' form will never produce any error indicators."
 
 ## Package Structure
 
