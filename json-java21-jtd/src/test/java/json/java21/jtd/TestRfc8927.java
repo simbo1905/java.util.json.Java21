@@ -595,4 +595,49 @@ public class TestRfc8927 extends JtdTestBase {
       .as("Discriminator in elements schema should validate the property test case")
       .isTrue();
   }
+
+  /// Test case from JtdExhaustiveTest property test failure
+  /// Nested elements containing properties schemas should reject additional properties
+  /// Schema: {"elements":{"elements":{"properties":{}}}}
+  /// Document: [[{},{},[{},{extraProperty":"extra-value"}]]
+  /// This should fail validation but currently passes incorrectly
+  @Test
+  public void testNestedElementsPropertiesRejectsAdditionalProperties() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "elements": {
+          "elements": {
+            "properties": {}
+          }
+        }
+      }
+      """);
+    JsonValue document = Json.parse("""
+      [
+        [{}, {}],
+        [{}, {"extraProperty": "extra-value"}]
+      ]
+      """);
+    
+    LOG.info(() -> "Testing nested elements properties - property test failure case");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Document: " + document);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, document);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "Errors: " + result.errors());
+    }
+    
+    // This should fail because the inner object has an extra property
+    // and the properties schema should reject additional properties by default
+    assertThat(result.isValid())
+      .as("Nested elements properties should reject additional properties")
+      .isFalse();
+    assertThat(result.errors())
+      .as("Should have validation errors for additional property")
+      .isNotEmpty();
+  }
 }
