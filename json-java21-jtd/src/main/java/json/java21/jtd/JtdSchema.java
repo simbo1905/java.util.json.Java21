@@ -4,6 +4,7 @@ import jdk.sandbox.java.util.json.*;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /// JTD Schema interface - validates JSON instances against JTD schemas
@@ -115,34 +116,80 @@ sealed interface JtdSchema {
     
     @Override
     public Jtd.Result validate(JsonValue instance) {
-      return validate(instance, false);
+      // Delegate to stack-based validation for consistency
+      List<String> errors = new ArrayList<>();
+      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, false);
+      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
     }
     
     @Override
     public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
-      return switch (type) {
-        case "boolean" -> validateBoolean(instance, verboseErrors);
-        case "string" -> validateString(instance, verboseErrors);
-        case "timestamp" -> validateTimestamp(instance, verboseErrors);
-        case "int8", "uint8", "int16", "uint16", "int32", "uint32" -> validateInteger(instance, type, verboseErrors);
-        case "float32", "float64" -> validateFloat(instance, type, verboseErrors);
-        default -> Jtd.Result.failure(Jtd.Error.UNKNOWN_TYPE.message(type));
-      };
+      // Delegate to stack-based validation for consistency
+      List<String> errors = new ArrayList<>();
+      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, verboseErrors);
+      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-      Jtd.Result result = validate(frame.instance(), verboseErrors);
-      if (!result.isValid()) {
-        // Enrich errors with offset and path information
-        for (String error : result.errors()) {
-          String enrichedError = Jtd.enrichedError(error, frame, frame.instance());
-          errors.add(enrichedError);
+      JsonValue instance = frame.instance();
+      return switch (type) {
+        case "boolean" -> validateBooleanWithFrame(frame, errors, verboseErrors);
+        case "string" -> validateStringWithFrame(frame, errors, verboseErrors);
+        case "timestamp" -> validateTimestampWithFrame(frame, errors, verboseErrors);
+        case "int8", "uint8", "int16", "uint16", "int32", "uint32" -> validateIntegerWithFrame(frame, type, errors, verboseErrors);
+        case "float32", "float64" -> validateFloatWithFrame(frame, type, errors, verboseErrors);
+        default -> {
+          String error = Jtd.Error.UNKNOWN_TYPE.message(type);
+          errors.add(Jtd.enrichedError(error, frame, instance));
+          yield false;
         }
-        return false;
+      };
+    }
+    
+    boolean validateBooleanWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonBoolean) {
+        return true;
       }
-      return true;
+      String error = verboseErrors 
+          ? Jtd.Error.EXPECTED_BOOLEAN.message(instance, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_BOOLEAN.message(instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
+    }
+    
+    boolean validateStringWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonString) {
+        return true;
+      }
+      String error = verboseErrors
+          ? Jtd.Error.EXPECTED_STRING.message(instance, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_STRING.message(instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
+    }
+    
+    boolean validateTimestampWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonString str) {
+        String value = str.value();
+        if (RFC3339.matcher(value).matches()) {
+          try {
+            // Replace :60 with :59 to allow leap seconds through parsing
+            String normalized = value.replace(":60", ":59");
+            OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
+            return true;
+          } catch (Exception ignore) {}
+        }
+      }
+      String error = verboseErrors
+          ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
     }
     
     Jtd.Result validateBoolean(JsonValue instance, boolean verboseErrors) {
@@ -230,6 +277,177 @@ sealed interface JtdSchema {
       return Jtd.Result.failure(error);
     }
     
+    boolean validateIntegerWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonNumber num) {
+        Number value = num.toNumber();
+        
+        // Check if the number is not integral (has fractional part)
+        if (value instanceof Double d && d != Math.floor(d)) {
+          String error = Jtd.Error.EXPECTED_INTEGER.message();
+          errors.add(Jtd.enrichedError(error, frame, instance));
+          return false;
+        }
+        
+        // Handle BigDecimal - check if it has fractional component (not just scale > 0)
+        // RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
+        // Values like 3.0 or 3.000 are valid integers despite positive scale, but 3.1 is not
+        if (value instanceof java.math.BigDecimal bd && bd.remainder(java.math.BigDecimal.ONE).signum() != 0) {
+          String error = Jtd.Error.EXPECTED_INTEGER.message();
+          errors.add(Jtd.enrichedError(error, frame, instance));
+          return false;
+        }
+        
+        // Now check if the value is within range for the specific integer type
+        if (value instanceof Long || value instanceof Integer || value instanceof Short || value instanceof Byte) {
+          long longValue = value.longValue();
+          return switch (type) {
+            case "int8" -> {
+              if (longValue >= -128 && longValue <= 127) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint8" -> {
+              if (longValue >= 0 && longValue <= 255) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "int16" -> {
+              if (longValue >= -32768 && longValue <= 32767) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint16" -> {
+              if (longValue >= 0 && longValue <= 65535) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "int32" -> {
+              if (longValue >= Integer.MIN_VALUE && longValue <= Integer.MAX_VALUE) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint32" -> {
+              if (longValue >= 0 && longValue <= 4294967295L) yield true;
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            default -> true;
+          };
+        }
+        
+        // For BigDecimal and other number types, check range
+        if (value instanceof java.math.BigDecimal bd) {
+          return switch (type) {
+            case "int8" -> {
+              try {
+                int intValue = bd.intValueExact();
+                if (intValue >= -128 && intValue <= 127) yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint8" -> {
+              try {
+                int intValue = bd.intValueExact();
+                if (intValue >= 0 && intValue <= 255) yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "int16" -> {
+              try {
+                int intValue = bd.intValueExact();
+                if (intValue >= -32768 && intValue <= 32767) yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint16" -> {
+              try {
+                int intValue = bd.intValueExact();
+                if (intValue >= 0 && intValue <= 65535) yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "int32" -> {
+              try {
+                int intValue = bd.intValueExact();
+                yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            case "uint32" -> {
+              try {
+                long longValue = bd.longValueExact();
+                if (longValue >= 0 && longValue <= 4294967295L) yield true;
+              } catch (ArithmeticException ignore) {}
+              String error = verboseErrors
+                  ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
+                  : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
+              errors.add(Jtd.enrichedError(error, frame, instance));
+              yield false;
+            }
+            default -> true;
+          };
+        }
+        
+        return true;
+      }
+      String error = verboseErrors
+          ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
+    }
+    
+    boolean validateFloatWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonNumber) {
+        return true;
+      }
+      String error = verboseErrors
+          ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
+    }
+    
     Jtd.Result validateFloat(JsonValue instance, String type, boolean verboseErrors) {
       if (instance instanceof JsonNumber) {
         return Jtd.Result.success();
@@ -245,39 +463,39 @@ sealed interface JtdSchema {
   record EnumSchema(List<String> values) implements JtdSchema {
     @Override
     public Jtd.Result validate(JsonValue instance) {
-      return validate(instance, false);
+      // Delegate to stack-based validation for consistency
+      List<String> errors = new ArrayList<>();
+      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, false);
+      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
     }
     
     @Override
     public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
-      if (instance instanceof JsonString str) {
-        if (values.contains(str.value())) {
-          return Jtd.Result.success();
-        }
-        String error = verboseErrors
-            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.value(), values)
-            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.value(), values);
-        return Jtd.Result.failure(error);
-      }
-      String error = verboseErrors
-          ? Jtd.Error.EXPECTED_STRING_FOR_ENUM.message(instance, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_STRING_FOR_ENUM.message(instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
+      // Delegate to stack-based validation for consistency
+      List<String> errors = new ArrayList<>();
+      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, verboseErrors);
+      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
     }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-      Jtd.Result result = validate(frame.instance(), verboseErrors);
-      if (!result.isValid()) {
-        // Enrich errors with offset and path information
-        for (String error : result.errors()) {
-          String enrichedError = Jtd.enrichedError(error, frame, frame.instance());
-          errors.add(enrichedError);
+      JsonValue instance = frame.instance();
+      if (instance instanceof JsonString str) {
+        if (values.contains(str.value())) {
+          return true;
         }
+        String error = verboseErrors
+            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.value(), values)
+            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.value(), values);
+        errors.add(Jtd.enrichedError(error, frame, instance));
         return false;
       }
-      return true;
+      String error = verboseErrors
+          ? Jtd.Error.EXPECTED_STRING_FOR_ENUM.message(instance, instance.getClass().getSimpleName())
+          : Jtd.Error.EXPECTED_STRING_FOR_ENUM.message(instance.getClass().getSimpleName());
+      errors.add(Jtd.enrichedError(error, frame, instance));
+      return false;
     }
   }
   

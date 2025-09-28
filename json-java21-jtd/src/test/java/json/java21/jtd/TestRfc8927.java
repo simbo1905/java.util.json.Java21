@@ -563,14 +563,12 @@ public class TestRfc8927 extends JtdTestBase {
             "mapping": {
               "config": {
                 "properties": {
-                  "type": {},
                   "value": {"type": "string"}
                 },
                 "additionalProperties": false
               },
               "flag": {
                 "properties": {
-                  "type": {},
                   "enabled": {"type": "boolean"}
                 },
                 "additionalProperties": false
@@ -740,9 +738,7 @@ public class TestRfc8927 extends JtdTestBase {
         "discriminator": "alpha",
         "mapping": {
           "type1": {
-            "properties": {
-              "alpha": {}
-            }
+            "properties": {}
           }
         }
       }
@@ -787,7 +783,6 @@ public class TestRfc8927 extends JtdTestBase {
         "mapping": {
           "user": {
             "properties": {
-              "type": {},
               "name": {"type": "string"}
             },
             "additionalProperties": false
@@ -827,9 +822,6 @@ public class TestRfc8927 extends JtdTestBase {
         "discriminator": "kind",
         "mapping": {
           "circle": {
-            "properties": {
-              "kind": {}
-            },
             "optionalProperties": {
               "radius": {"type": "float32"}
             },
@@ -868,7 +860,6 @@ public class TestRfc8927 extends JtdTestBase {
         "mapping": {
           "default": {
             "optionalProperties": {
-              "mode": {},
               "config": {"type": "string"}
             },
             "additionalProperties": false

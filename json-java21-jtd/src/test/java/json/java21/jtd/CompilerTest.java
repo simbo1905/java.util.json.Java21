@@ -485,6 +485,33 @@ public class CompilerTest extends JtdTestBase {
   }
 
   @Test
+  void enumWithDuplicatesShouldFailAtCompileTime() {
+    LOG.info(() -> "EXECUTING: enumWithDuplicatesShouldFailAtCompileTime");
+    
+    // Invalid: enum contains duplicate values - should fail at compile time
+    String invalidSchema = """
+      {
+        "enum": ["red", "red"]
+      }
+      """;
+    
+    JsonValue schema = Json.parse(invalidSchema);
+    Jtd validator = new Jtd();
+    
+    LOG.fine(() -> "Testing enum with duplicates: " + schema);
+    
+    IllegalArgumentException exception = assertThrows(
+      IllegalArgumentException.class,
+      () -> validator.compile(schema),
+      "Expected compilation to fail for enum with duplicates"
+    );
+    
+    LOG.fine(() -> "Compilation failed as expected: " + exception.getMessage());
+    assertTrue(exception.getMessage().contains("duplicate"), 
+               "Error message should mention enum duplicates");
+  }
+
+  @Test
   void propertiesAndOptionalPropertiesKeyOverlapShouldFail() {
     LOG.info(() -> "EXECUTING: propertiesAndOptionalPropertiesKeyOverlapShouldFail");
     
