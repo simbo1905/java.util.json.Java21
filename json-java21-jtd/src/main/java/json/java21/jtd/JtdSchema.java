@@ -11,36 +11,25 @@ import java.util.List;
 /// Following RFC 8927 specification with eight mutually-exclusive schema forms
 sealed interface JtdSchema {
   
-  /// Validates a JSON instance against this schema
-  /// @param instance The JSON value to validate
-  /// @return Result containing errors if validation fails
-  Jtd.Result validate(JsonValue instance);
+  /// Core frame-based validation that all schema variants must implement.
+  /// @param frame Current validation frame
+  /// @param errors Accumulates error messages
+  /// @param verboseErrors Whether to include verbose error details
+  /// @return true if valid, false otherwise
+  boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors);
 
-  /// Validates a JSON instance against this schema using stack-based validation
-  /// @param frame The current validation frame containing schema, instance, path, and context
-  /// @param errors List to accumulate error messages
-  /// @param verboseErrors Whether to include full JSON values in error messages
-  /// @return true if validation passes, false if validation fails
-  default boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
-    // Default implementation delegates to existing validate method for backward compatibility
-    Jtd.Result result = validate(frame.instance(), verboseErrors);
-    if (!result.isValid()) {
-      errors.addAll(result.errors());
-      return false;
-    }
-    return true;
-  }
-  
-  /// Validates a JSON instance against this schema with optional verbose errors
-  /// @param instance The JSON value to validate
-  /// @param verboseErrors Whether to include full JSON values in error messages
-  /// @return Result containing errors if validation fails
+  /// Default verbose-capable validation entrypoint constructing a root frame.
   default Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
-    // Default implementation delegates to existing validate method
-    // Individual schema implementations can override for verbose error support
-    return validate(instance);
+    final var errors = new ArrayList<String>();
+    final var valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, verboseErrors);
+    return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
   }
-  
+
+  /// Non-verbose validation delegates to verbose variant.
+  default Jtd.Result validate(JsonValue instance) {
+    return validate(instance, false);
+  }
+
   /// Nullable schema wrapper - allows null values
   record NullableSchema(JtdSchema wrapped) implements JtdSchema {
     @Override
@@ -113,22 +102,6 @@ sealed interface JtdSchema {
     private static final java.util.regex.Pattern RFC3339 = java.util.regex.Pattern.compile(
       "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:(\\d{2}|60)(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2}))$"
     );
-    
-    @Override
-    public Jtd.Result validate(JsonValue instance) {
-      // Delegate to stack-based validation for consistency
-      List<String> errors = new ArrayList<>();
-      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, false);
-      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
-    }
-    
-    @Override
-    public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
-      // Delegate to stack-based validation for consistency
-      List<String> errors = new ArrayList<>();
-      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, verboseErrors);
-      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
-    }
 
     @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
@@ -143,11 +116,11 @@ sealed interface JtdSchema {
         default -> {
           String error = Jtd.Error.UNKNOWN_TYPE.message(type);
           errors.add(Jtd.enrichedError(error, frame, instance));
-          yield false;
+            yield false;
         }
       };
     }
-    
+
     boolean validateBooleanWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonBoolean) {
@@ -191,108 +164,17 @@ sealed interface JtdSchema {
       errors.add(Jtd.enrichedError(error, frame, instance));
       return false;
     }
-    
-    Jtd.Result validateBoolean(JsonValue instance, boolean verboseErrors) {
-      if (instance instanceof JsonBoolean) {
-        return Jtd.Result.success();
-      }
-      String error = verboseErrors 
-          ? Jtd.Error.EXPECTED_BOOLEAN.message(instance, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_BOOLEAN.message(instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
-    }
-    
-    Jtd.Result validateString(JsonValue instance, boolean verboseErrors) {
-      if (instance instanceof JsonString) {
-        return Jtd.Result.success();
-      }
-      String error = verboseErrors
-          ? Jtd.Error.EXPECTED_STRING.message(instance, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_STRING.message(instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
-    }
-    
-    Jtd.Result validateTimestamp(JsonValue instance, boolean verboseErrors) {
-      if (instance instanceof JsonString str) {
-        String value = str.value();
-        if (RFC3339.matcher(value).matches()) {
-          try {
-            // Replace :60 with :59 to allow leap seconds through parsing
-            String normalized = value.replace(":60", ":59");
-            OffsetDateTime.parse(normalized, DateTimeFormatter.ISO_OFFSET_DATE_TIME);
-            return Jtd.Result.success();
-          } catch (Exception ignore) {}
-        }
-      }
-      String error = verboseErrors
-          ? Jtd.Error.EXPECTED_TIMESTAMP.message(instance, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_TIMESTAMP.message(instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
-    }
 
-    Jtd.Result validateInteger(JsonValue instance, String type, boolean verboseErrors) {
-      if (instance instanceof JsonNumber num) {
-        Number value = num.toNumber();
-        
-        // Check for fractional component first (applies to all Number types)
-        if (hasFractionalComponent(value)) {
-          return Jtd.Result.failure(Jtd.Error.EXPECTED_INTEGER.message());
-        }
-        
-        // Handle precision loss for large Double values
-        if (value instanceof Double d) {
-          if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) {
-            String error = verboseErrors
-                ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-            return Jtd.Result.failure(error);
-          }
-        }
-        
-        // Convert to long for range checking
-        long longValue = value.longValue();
-        
-        // Check ranges according to RFC 8927 §2.2.3.1
-        boolean valid = switch (type) {
-          case "int8" -> longValue >= -128 && longValue <= 127;
-          case "uint8" -> longValue >= 0 && longValue <= 255;
-          case "int16" -> longValue >= -32768 && longValue <= 32767;
-          case "uint16" -> longValue >= 0 && longValue <= 65535;
-          case "int32" -> longValue >= -2147483648L && longValue <= 2147483647L;
-          case "uint32" -> longValue >= 0 && longValue <= 4294967295L;
-          default -> false;
-        };
-        
-        if (valid) {
-          return Jtd.Result.success();
-        }
-        
-        // Range violation
-        String error = verboseErrors
-            ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
-            : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
-        return Jtd.Result.failure(error);
-      }
-      
-      String error = verboseErrors
-          ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
-    }
-    
     private boolean hasFractionalComponent(Number value) {
-      if (value == null) return false;
-      if (value instanceof Double d) {
-        return d != Math.floor(d);
-      }
-      if (value instanceof Float f) {
-        return f != Math.floor(f);
-      }
-      if (value instanceof java.math.BigDecimal bd) {
-        return bd.remainder(java.math.BigDecimal.ONE).signum() != 0;
-      }
-      // Long, Integer, Short, Byte are always integers
-      return false;
+      return switch (value) {
+        case null -> false;
+        case Double d -> d != Math.floor(d);
+        case Float f -> f != Math.floor(f);
+        case java.math.BigDecimal bd -> bd.remainder(java.math.BigDecimal.ONE).signum() != 0;
+        default ->
+          // Long, Integer, Short, Byte are always integers
+            false;
+      };
     }
     
     boolean validateIntegerWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
@@ -358,36 +240,11 @@ sealed interface JtdSchema {
       errors.add(Jtd.enrichedError(error, frame, instance));
       return false;
     }
-    
-    Jtd.Result validateFloat(JsonValue instance, String type, boolean verboseErrors) {
-      if (instance instanceof JsonNumber) {
-        return Jtd.Result.success();
-      }
-      String error = verboseErrors
-          ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, instance.getClass().getSimpleName())
-          : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, instance.getClass().getSimpleName());
-      return Jtd.Result.failure(error);
-    }
+
   }
   
   /// Enum schema - validates against a set of string values
   record EnumSchema(List<String> values) implements JtdSchema {
-    @Override
-    public Jtd.Result validate(JsonValue instance) {
-      // Delegate to stack-based validation for consistency
-      List<String> errors = new ArrayList<>();
-      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, false);
-      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
-    }
-    
-    @Override
-    public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
-      // Delegate to stack-based validation for consistency
-      List<String> errors = new ArrayList<>();
-      boolean valid = validateWithFrame(new Frame(this, instance, "#", Crumbs.root()), errors, verboseErrors);
-      return valid ? Jtd.Result.success() : Jtd.Result.failure(errors);
-    }
-
     @SuppressWarnings("ClassEscapesDefinedScope")
     @Override
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
@@ -444,9 +301,7 @@ sealed interface JtdSchema {
       JsonValue instance = frame.instance();
       
       if (!(instance instanceof JsonArray)) {
-        String error = verboseErrors
-            ? Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName())
-            : Jtd.Error.EXPECTED_ARRAY.message(instance.getClass().getSimpleName());
+        String error = Jtd.Error.EXPECTED_ARRAY.message(instance, instance.getClass().getSimpleName());
         String enrichedError = Jtd.enrichedError(error, frame, instance);
         errors.add(enrichedError);
         return false;
@@ -644,7 +499,6 @@ sealed interface JtdSchema {
         return Jtd.Result.success();
       }
       
-      // Otherwise, validate against the chosen variant schema
       return variantSchema.validate(instance, verboseErrors);
     }
 
@@ -683,7 +537,7 @@ sealed interface JtdSchema {
         return false;
       }
       
-      // For DiscriminatorSchema, push the variant schema for validation
+      // Variant schema will be pushed by caller
       return true;
     }
   }
