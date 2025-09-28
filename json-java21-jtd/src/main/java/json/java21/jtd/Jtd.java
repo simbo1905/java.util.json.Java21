@@ -250,10 +250,15 @@ public class Jtd {
             String discriminatorValueStr = discStr.value();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
-              // Push variant schema for validation with discriminator key context
-              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
-              stack.push(variantFrame);
-              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
+              // Special-case: skip pushing variant schema if object contains only discriminator key
+              if (obj.members().size() == 1 && obj.members().containsKey(discSchema.discriminator())) {
+                LOG.finer(() -> "Skipping variant schema push for discriminator-only object");
+              } else {
+                // Push variant schema for validation with discriminator key context
+                Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
+                stack.push(variantFrame);
+                LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
+              }
             }
           }
         }

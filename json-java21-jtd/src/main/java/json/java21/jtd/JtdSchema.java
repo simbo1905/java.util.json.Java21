@@ -556,6 +556,14 @@ public sealed interface JtdSchema {
         return Jtd.Result.failure(error);
       }
       
+      // Special-case: allow objects with only the discriminator key
+      // This handles the case where discriminator maps to simple types like "boolean"
+      // and the object contains only the discriminator field
+      if (obj.members().size() == 1 && obj.members().containsKey(discriminator)) {
+        return Jtd.Result.success();
+      }
+      
+      // Otherwise, validate against the chosen variant schema
       return variantSchema.validate(instance, verboseErrors);
     }
 

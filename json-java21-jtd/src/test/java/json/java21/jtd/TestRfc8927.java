@@ -549,4 +549,50 @@ public class TestRfc8927 extends JtdTestBase {
       .as("Should have validation error for additional property")
       .isNotEmpty();
   }
+
+  /// Test case from JtdExhaustiveTest property test failure
+  /// Schema: {"elements":{"properties":{"alpha":{"discriminator":"alpha","mapping":{"type1":{"type":"boolean"}}}}}}
+  /// Document: [{"alpha":{"alpha":"type1"}},{"alpha":{"alpha":"type1"}}]
+  /// This should pass validation but currently fails with "expected boolean, got JsonObjectImpl"
+  @Test
+  public void testDiscriminatorInElementsSchema() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "elements": {
+          "properties": {
+            "alpha": {
+              "discriminator": "alpha",
+              "mapping": {
+                "type1": {"type": "boolean"}
+              }
+            }
+          }
+        }
+      }
+      """);
+    JsonValue document = Json.parse("""
+      [
+        {"alpha": {"alpha": "type1"}},
+        {"alpha": {"alpha": "type1"}}
+      ]
+      """);
+    
+    LOG.info(() -> "Testing discriminator in elements schema - property test failure case");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Document: " + document);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, document);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "Errors: " + result.errors());
+    }
+    
+    // This should be valid according to the property test expectation
+    // but currently fails with "expected boolean, got JsonObjectImpl"
+    assertThat(result.isValid())
+      .as("Discriminator in elements schema should validate the property test case")
+      .isTrue();
+  }
 }
