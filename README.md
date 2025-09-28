@@ -308,10 +308,6 @@ Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
 ⚠️ Note: Some tools or in-house validators mistakenly interpret `{}` as "object with no
 properties allowed." **That is not JTD.** This implementation follows RFC 8927 strictly.
 
-### Logging
-When a `{}` schema is compiled, the validator logs at **INFO** level:
-> `Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.`
-
 ```java
 import json.java21.jtd.Jtd;
 import jdk.sandbox.java.util.json.*;

@@ -202,11 +202,22 @@ public class Jtd {
       }
       case JtdSchema.PropertiesSchema propsSchema -> {
         if (instance instanceof JsonObject obj) {
-          // Push required properties that are present
+          String discriminatorKey = frame.discriminatorKey();
+
+          // ================================= CHANGE 1: SKIP DISCRIMINATOR FIELD =================================
+          // ADDED: Skip the discriminator field when pushing required property validation frames
+          // Push required properties that are present (except discriminator field)
           for (var entry : propsSchema.properties().entrySet()) {
             String key = entry.getKey();
+
+            // Skip the discriminator field - it was already validated by discriminator logic
+            if (discriminatorKey != null && key.equals(discriminatorKey)) {
+              LOG.finer(() -> "Skipping discriminator field validation for: " + key);
+              continue;
+            }
+
             JsonValue value = obj.members().get(key);
-            
+
             if (value != null) {
               String childPtr = frame.ptr + "/" + key;
               Crumbs childCrumbs = frame.crumbs.withObjectField(key);
@@ -215,13 +226,21 @@ public class Jtd {
               LOG.finer(() -> "Pushed required property frame at " + childPtr);
             }
           }
-          
-          // Push optional properties that are present
+
+          // ADDED: Skip the discriminator field when pushing optional property validation frames
+          // Push optional properties that are present (except discriminator field)
           for (var entry : propsSchema.optionalProperties().entrySet()) {
             String key = entry.getKey();
+
+            // Skip the discriminator field - it was already validated by discriminator logic
+            if (discriminatorKey != null && key.equals(discriminatorKey)) {
+              LOG.finer(() -> "Skipping discriminator field validation for optional: " + key);
+              continue;
+            }
+
             JtdSchema childSchema = entry.getValue();
             JsonValue value = obj.members().get(key);
-            
+
             if (value != null) {
               String childPtr = frame.ptr + "/" + key;
               Crumbs childCrumbs = frame.crumbs.withObjectField(key);
@@ -230,6 +249,8 @@ public class Jtd {
               LOG.finer(() -> "Pushed optional property frame at " + childPtr);
             }
           }
+
+          // ============================= END CHANGE 1: SKIP DISCRIMINATOR FIELD =============================
         }
       }
       case JtdSchema.ValuesSchema valuesSchema -> {
@@ -252,15 +273,24 @@ public class Jtd {
             String discriminatorValueStr = discStr.value();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
-              // Special-case: skip pushing variant schema if object contains only discriminator key
-              if (obj.members().size() == 1 && obj.members().containsKey(discSchema.discriminator())) {
-                LOG.finer(() -> "Skipping variant schema push for discriminator-only object");
-              } else {
-                // Push variant schema for validation with discriminator key context
-                Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
-                stack.push(variantFrame);
-                LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
-              }
+
+              // ========================== CHANGE 2: REMOVE FAULTY OPTIMIZATION ==========================
+              // REMOVED: Special-case optimization that skipped validation for discriminator-only objects
+              // OLD CODE:
+              // if (obj.members().size() == 1 && obj.members().containsKey(discSchema.discriminator())) {
+              //   LOG.finer(() -> "Skipping variant schema push for discriminator-only object");
+              // } else {
+              //   Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
+              //   stack.push(variantFrame);
+              //   LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
+              // }
+
+              // NEW CODE: Always push variant schema for validation with discriminator key context
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
+              stack.push(variantFrame);
+              LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
+              // ======================== END CHANGE 2: REMOVE FAULTY OPTIMIZATION ========================
+
             }
           }
         }
@@ -342,7 +372,7 @@ public class Jtd {
     
     // RFC 8927: {} is the empty form and accepts all instances
     if (forms.isEmpty() && obj.members().isEmpty()) {
-      LOG.info(() -> "Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. "
+      LOG.finer(() -> "Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. "
         + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
       return new JtdSchema.EmptySchema();
     } else if (forms.isEmpty()) {
@@ -352,7 +382,7 @@ public class Jtd {
       
       if (!hasNonMetadataKeys) {
         // This is an empty schema (possibly with metadata)
-        LOG.info(() -> "Empty schema encountered (with metadata: " + members.keySet() + "). "
+        LOG.finer(() -> "Empty schema encountered (with metadata: " + members.keySet() + "). "
           + "Per RFC 8927 this means 'accept anything'. "
           + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
         return new JtdSchema.EmptySchema();

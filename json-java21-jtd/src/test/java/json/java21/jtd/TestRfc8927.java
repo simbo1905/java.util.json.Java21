@@ -550,52 +550,82 @@ public class TestRfc8927 extends JtdTestBase {
       .isNotEmpty();
   }
 
-  /// Test case from JtdExhaustiveTest property test failure
-  /// Schema: {"elements":{"properties":{"alpha":{"discriminator":"alpha","mapping":{"type1":{"type":"boolean"}}}}}}
-  /// Document: [{"alpha":{"alpha":"type1"}},{"alpha":{"alpha":"type1"}}]
-  /// This should pass validation but currently fails with "expected boolean, got JsonObjectImpl"
+  /// Test discriminator schema nested within elements schema (RFC 8927 compliant)
+  /// Schema has array elements with discriminator properties that map to valid properties forms
   @Test
   public void testDiscriminatorInElementsSchema() throws Exception {
     JsonValue schema = Json.parse("""
-      {
-        "elements": {
-          "properties": {
-            "alpha": {
-              "discriminator": "alpha",
-              "mapping": {
-                "type1": {"type": "boolean"}
+    {
+      "elements": {
+        "properties": {
+          "alpha": {
+            "discriminator": "type",
+            "mapping": {
+              "config": {
+                "properties": {
+                  "type": {},
+                  "value": {"type": "string"}
+                },
+                "additionalProperties": false
+              },
+              "flag": {
+                "properties": {
+                  "type": {},
+                  "enabled": {"type": "boolean"}
+                },
+                "additionalProperties": false
               }
             }
           }
-        }
+        },
+        "additionalProperties": false
       }
-      """);
-    JsonValue document = Json.parse("""
-      [
-        {"alpha": {"alpha": "type1"}},
-        {"alpha": {"alpha": "type1"}}
-      ]
-      """);
-    
-    LOG.info(() -> "Testing discriminator in elements schema - property test failure case");
-    LOG.fine(() -> "Schema: " + schema);
-    LOG.fine(() -> "Document: " + document);
-    
-    Jtd validator = new Jtd();
-    Jtd.Result result = validator.validate(schema, document);
-    
-    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
-    if (!result.isValid()) {
-      LOG.fine(() -> "Errors: " + result.errors());
     }
-    
-    // This should be valid according to the property test expectation
-    // but currently fails with "expected boolean, got JsonObjectImpl"
-    assertThat(result.isValid())
-      .as("Discriminator in elements schema should validate the property test case")
-      .isTrue();
-  }
+    """);
 
+    JsonValue validDocument = Json.parse("""
+    [
+      {"alpha": {"type": "config", "value": "test"}},
+      {"alpha": {"type": "flag", "enabled": true}}
+    ]
+    """);
+
+    JsonValue invalidDocument = Json.parse("""
+    [
+      {"alpha": {"type": "config"}},
+      {"alpha": {"type": "flag", "enabled": true}}
+    ]
+    """);
+
+    LOG.info(() -> "Testing RFC 8927 compliant discriminator in elements schema");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Valid document: " + validDocument);
+    LOG.fine(() -> "Invalid document: " + invalidDocument);
+
+    Jtd validator = new Jtd();
+
+    // Valid case: all required properties present
+    Jtd.Result validResult = validator.validate(schema, validDocument);
+    LOG.fine(() -> "Valid validation result: " + (validResult.isValid() ? "VALID" : "INVALID"));
+    if (!validResult.isValid()) {
+      LOG.fine(() -> "Valid errors: " + validResult.errors());
+    }
+
+    assertThat(validResult.isValid())
+        .as("RFC 8927 compliant discriminator in elements should validate correctly")
+        .isTrue();
+
+    // Invalid case: missing required property in first element
+    Jtd.Result invalidResult = validator.validate(schema, invalidDocument);
+    LOG.fine(() -> "Invalid validation result: " + (invalidResult.isValid() ? "VALID" : "INVALID"));
+    if (!invalidResult.isValid()) {
+      LOG.fine(() -> "Invalid errors: " + invalidResult.errors());
+    }
+
+    assertThat(invalidResult.isValid())
+        .as("Should reject document with missing required properties")
+        .isFalse();
+  }
   /// Test case from JtdExhaustiveTest property test failure
   /// Nested elements containing properties schemas should reject additional properties
   /// Schema: {"elements":{"elements":{"properties":{}}}}

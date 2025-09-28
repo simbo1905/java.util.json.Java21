@@ -467,7 +467,56 @@ class JtdExhaustiveTest extends JtdTestBase {
         return jtdSchemaArbitrary(depth - 1)
             .map(ValuesSchema::new);
     }
+// ======================== NEW METHOD: SIMPLE PROPERTIES GENERATOR ========================
+  /// Creates simple PropertiesSchema instances for discriminator mappings without recursion
+  /// This prevents stack overflow while ensuring RFC 8927 compliance
+  private static Arbitrary<JtdTestSchema> simplePropertiesSchemaArbitrary() {
+    // Create primitive schemas that don't recurse
+    final var primitiveSchemas = Arbitraries.of(
+        new EmptySchema(),
+        new TypeSchema("boolean"),
+        new TypeSchema("string"),
+        new TypeSchema("int32"),
+        new EnumSchema(List.of("red", "green", "blue"))
+    );
 
+    return Arbitraries.oneOf(
+        // Empty properties schema
+        Arbitraries.of(new PropertiesSchema(Map.of(), Map.of(), false)),
+
+        // Single required property with primitive schema
+        Combinators.combine(
+            Arbitraries.of(PROPERTY_NAMES),
+            primitiveSchemas
+        ).as((name, schema) -> new PropertiesSchema(
+            Map.of(name, schema),
+            Map.of(),
+            false
+        )),
+
+        // Single optional property with primitive schema
+        Combinators.combine(
+            Arbitraries.of(PROPERTY_NAMES),
+            primitiveSchemas
+        ).as((name, schema) -> new PropertiesSchema(
+            Map.of(),
+            Map.of(name, schema),
+            false
+        )),
+
+        // Required + optional property with primitive schemas
+        Combinators.combine(
+            Arbitraries.of(PROPERTY_PAIRS),
+            primitiveSchemas,
+            primitiveSchemas
+        ).as((names, requiredSchema, optionalSchema) -> new PropertiesSchema(
+            Map.of(names.get(0), requiredSchema),
+            Map.of(names.get(1), optionalSchema),
+            false
+        ))
+    );
+  }
+  // ====================== END NEW METHOD: SIMPLE PROPERTIES GENERATOR ======================
     private static Arbitrary<JtdTestSchema> discriminatorSchemaArbitrary(int depth) {
         final var childDepth = depth - 1;
         
@@ -475,8 +524,12 @@ class JtdExhaustiveTest extends JtdTestBase {
             Arbitraries.of(PROPERTY_NAMES),
             Arbitraries.of(DISCRIMINATOR_VALUES),
             Arbitraries.of(DISCRIMINATOR_VALUES),
-            jtdSchemaArbitrary(childDepth),
-            jtdSchemaArbitrary(childDepth)
+            // ======================== CHANGE: ONLY GENERATE PROPERTIES SCHEMAS ========================
+            // RFC 8927 §2.4: discriminator mapping values must be properties form schemas
+            // Generate only PropertiesSchema instead of arbitrary schemas
+            simplePropertiesSchemaArbitrary(),
+            simplePropertiesSchemaArbitrary()
+            // ==================== END CHANGE: ONLY GENERATE PROPERTIES SCHEMAS ====================
         ).as((discriminatorKey, value1, value2, schema1, schema2) -> {
             final var mapping = new LinkedHashMap<String, JtdTestSchema>();
             mapping.put(value1, schema1);
