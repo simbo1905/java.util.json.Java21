@@ -46,53 +46,54 @@ flowchart TD
 
 ## Core API Design
 
-Following modern Java patterns, we use a single public sealed interface with package-private record implementations:
+Following modern Java patterns, we use a package-private sealed interface with record implementations and a public facade class:
 
 ```java
-package io.github.simbo1905.json.jtd;
+package json.java21.jtd;
 
 import jdk.sandbox.java.util.json.*;
 
-public sealed interface JTDSchema 
-    permits JTDSchema.EmptySchema,
-            JTDSchema.RefSchema,
-            JTDSchema.TypeSchema,
-            JTDSchema.EnumSchema,
-            JTDSchema.ElementsSchema,
-            JTDSchema.PropertiesSchema,
-            JTDSchema.ValuesSchema,
-            JTDSchema.DiscriminatorSchema {
+/// Package-private sealed interface for schema types
+sealed interface JtdSchema 
+    permits JtdSchema.EmptySchema,
+            JtdSchema.RefSchema,
+            JtdSchema.TypeSchema,
+            JtdSchema.EnumSchema,
+            JtdSchema.ElementsSchema,
+            JtdSchema.PropertiesSchema,
+            JtdSchema.ValuesSchema,
+            JtdSchema.DiscriminatorSchema,
+            JtdSchema.NullableSchema {
 
-    /// Compile JTD schema from JSON
-    static JTDSchema compile(JsonValue schemaJson) {
-        // Parse and build immutable schema hierarchy
-    }
-    
-    /// Validate JSON document against schema
-    default ValidationResult validate(JsonValue json) {
-        // Stack-based validation
-    }
-    
     /// Schema type records (package-private)
-    record EmptySchema() implements JTDSchema {}
-    record RefSchema(String ref) implements JTDSchema {}
-    record TypeSchema(PrimitiveType type) implements JTDSchema {}
-    record EnumSchema(Set<String> values) implements JTDSchema {}
-    record ElementsSchema(JTDSchema elements) implements JTDSchema {}
+    record EmptySchema() implements JtdSchema {}
+    record RefSchema(String ref, Map<String, JtdSchema> definitions) implements JtdSchema {}
+    record TypeSchema(PrimitiveType type) implements JtdSchema {}
+    record EnumSchema(Set<String> values) implements JtdSchema {}
+    record ElementsSchema(JtdSchema elements) implements JtdSchema {}
     record PropertiesSchema(
-        Map<String, JTDSchema> properties,
-        Map<String, JTDSchema> optionalProperties,
+        Map<String, JtdSchema> properties,
+        Map<String, JtdSchema> optionalProperties,
         boolean additionalProperties
-    ) implements JTDSchema {}
-    record ValuesSchema(JTDSchema values) implements JTDSchema {}
+    ) implements JtdSchema {}
+    record ValuesSchema(JtdSchema values) implements JtdSchema {}
     record DiscriminatorSchema(
         String discriminator,
-        Map<String, JTDSchema> mapping
-    ) implements JTDSchema {}
+        Map<String, JtdSchema> mapping
+    ) implements JtdSchema {}
+    record NullableSchema(JtdSchema nullable) implements JtdSchema {}
+}
+
+/// Public facade class for JTD operations
+public class Jtd {
+    /// Compile and validate JSON against JTD schema
+    public Result validate(JsonValue schema, JsonValue instance) {
+        JtdSchema jtdSchema = compileSchema(schema);
+        return validateWithStack(jtdSchema, instance);
+    }
     
     /// Validation result
-    record ValidationResult(boolean valid, List<ValidationError> errors) {}
-    record ValidationError(String instancePath, String schemaPath, String message) {}
+    public record Result(boolean isValid, List<String> errors) {}
 }
 ```
 
@@ -232,7 +233,10 @@ record CompiledSchema(
 
 ```java
 import jdk.sandbox.java.util.json.*;
-import io.github.simbo1905.json.jtd.JTDSchema;
+import json.java21.jtd.Jtd;
+
+// Create JTD validator
+Jtd jtd = new Jtd();
 
 // Compile JTD schema
 String schemaJson = """
@@ -248,18 +252,16 @@ String schemaJson = """
 }
 """;
 
-JTDSchema schema = JTDSchema.compile(Json.parse(schemaJson));
-
 // Validate JSON
 String json = """
 {"id": "123", "name": "Alice", "age": 30, "email": "alice@example.com"}
 """;
 
-JTDSchema.ValidationResult result = schema.validate(Json.parse(json));
+Jtd.Result result = jtd.validate(Json.parse(schemaJson), Json.parse(json));
 
-if (!result.valid()) {
+if (!result.isValid()) {
     for (var error : result.errors()) {
-        System.out.println(error.instancePath() + ": " + error.message());
+        System.out.println(error);
     }
 }
 ```
