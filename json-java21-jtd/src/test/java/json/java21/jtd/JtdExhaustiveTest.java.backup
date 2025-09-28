@@ -16,7 +16,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 /// Generates comprehensive schema/document permutations to validate RFC 8927 compliance
 class JtdExhaustiveTest extends JtdTestBase {
 
-    private static final Logger LOGGER = Logger.getLogger(JtdExhaustiveTest.class.getName());
     private static final int MAX_DEPTH = 3;
     private static final List<String> PROPERTY_NAMES = List.of("alpha", "beta", "gamma", "delta", "epsilon");
     private static final List<List<String>> PROPERTY_PAIRS = List.of(
