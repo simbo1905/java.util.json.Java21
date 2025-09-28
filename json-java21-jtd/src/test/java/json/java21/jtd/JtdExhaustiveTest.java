@@ -126,24 +126,38 @@ class JtdExhaustiveTest extends JtdTestBase {
                 "key2", buildCompliantJtdDocument(valueSchema)
             ));
             case DiscriminatorSchema(var discriminator, var mapping) -> {
-                final var firstEntry = mapping.entrySet().iterator().next();
-                final var discriminatorValue = firstEntry.getKey();
-                final var variantSchema = firstEntry.getValue();
-                
-                // Discriminator schemas always generate objects with the discriminator field
-                final var members = new LinkedHashMap<String, JsonValue>();
-                members.put(discriminator, JsonString.of(discriminatorValue));
-                
-                // Add properties based on the variant schema type
-                if (variantSchema instanceof PropertiesSchema props) {
-                    props.properties().forEach((key, valueSchema) -> 
-                        members.put(key, buildCompliantJtdDocument(valueSchema))
-                    );
-                }
-                // For TypeSchema variants, the object with just the discriminator field should be valid
-                // For EnumSchema variants, same logic applies
-                
-                yield JsonObject.of(members);
+              final var firstEntry = mapping.entrySet().iterator().next();
+              final var discriminatorValue = firstEntry.getKey();
+              final var variantSchema = firstEntry.getValue();
+
+              // Discriminator schemas always generate objects with the discriminator field
+              final var members = new LinkedHashMap<String, JsonValue>();
+              // ======================== CHANGE: FIX DISCRIMINATOR VALUE GENERATION ========================
+              // WRONG: members.put(discriminator, buildCompliantJtdDocument(valueSchema)); // generates random values
+              // CORRECT: Use the discriminator mapping key as the value
+              members.put(discriminator, JsonString.of(discriminatorValue));
+              // ==================== END CHANGE: FIX DISCRIMINATOR VALUE GENERATION ====================
+
+              // Add properties based on the variant schema type
+              if (variantSchema instanceof PropertiesSchema props) {
+                // ======================== CHANGE: SKIP DISCRIMINATOR FIELD IN PROPERTIES ========================
+                // Don't re-add the discriminator field when processing properties
+                props.properties().forEach((key, valueSchema) -> {
+                  if (!key.equals(discriminator)) {  // Skip discriminator field to avoid overwriting
+                    members.put(key, buildCompliantJtdDocument(valueSchema));
+                  }
+                });
+                props.optionalProperties().forEach((key, valueSchema) -> {
+                  if (!key.equals(discriminator)) {  // Skip discriminator field to avoid overwriting
+                    members.put(key, buildCompliantJtdDocument(valueSchema));
+                  }
+                });
+                // ==================== END CHANGE: SKIP DISCRIMINATOR FIELD IN PROPERTIES ====================
+              }
+              // For TypeSchema variants, the object with just the discriminator field should be valid
+              // For EnumSchema variants, same logic applies
+
+              yield JsonObject.of(members);
             }
             case NullableSchema(var inner) -> JsonNull.of();
         };
