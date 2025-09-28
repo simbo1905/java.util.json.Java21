@@ -17,38 +17,7 @@ public class Jtd {
   
   /// Top-level definitions map for ref resolution
   private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
-  
-  /// Stack frame for iterative validation with path and offset tracking
-  record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
-    /// Constructor for normal validation without discriminator context
-    Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs) {
-      this(schema, instance, ptr, crumbs, null);
-    }
-    
-    @Override
-    public String toString() {
-      final var kind = schema.getClass().getSimpleName();
-      final var tag  = (schema instanceof JtdSchema.RefSchema r) ? "(ref=" + r.ref() + ")" : "";
-      return "Frame[schema=" + kind + tag + ", instance=" + instance + ", ptr=" + ptr +
-             ", crumbs=" + crumbs + ", discriminatorKey=" + discriminatorKey + "]";
-    }
-  }
-  
-  /// Lightweight breadcrumb trail for human-readable error paths
-  record Crumbs(String value) {
-    static Crumbs root() {
-      return new Crumbs("#");
-    }
-    
-    Crumbs withObjectField(String name) {
-      return new Crumbs(value + "→field:" + name);
-    }
-    
-    Crumbs withArrayIndex(int idx) {
-      return new Crumbs(value + "→item:" + idx);
-    }
-  }
-  
+
   /// Extracts offset from JsonValue implementation classes
   static int offsetOf(JsonValue v) {
     return switch (v) {
@@ -65,8 +34,8 @@ public class Jtd {
   /// Creates an enriched error message with offset and path information
   static String enrichedError(String baseMessage, Frame frame, JsonValue contextValue) {
     int off = offsetOf(contextValue);
-    String ptr = frame.ptr;
-    String via = frame.crumbs.value();
+    String ptr = frame.ptr();
+    String via = frame.crumbs().value();
     return "[off=" + off + " ptr=" + ptr + " via=" + via + "] " + baseMessage;
   }
   
@@ -106,25 +75,25 @@ public class Jtd {
     stack.push(rootFrame);
     
     LOG.fine(() -> "Starting stack validation - schema=" +
-        rootFrame.schema.getClass().getSimpleName() +
-        (rootFrame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
+        rootFrame.schema().getClass().getSimpleName() +
+        (rootFrame.schema() instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
         ", ptr=#");
     
     // Process frames iteratively
     while (!stack.isEmpty()) {
       Frame frame = stack.pop();
-      LOG.fine(() -> "Processing frame - schema: " + frame.schema.getClass().getSimpleName() + 
-                     (frame.schema instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
-                     ", ptr: " + frame.ptr + ", off: " + offsetOf(frame.instance));
+      LOG.fine(() -> "Processing frame - schema: " + frame.schema().getClass().getSimpleName() +
+                     (frame.schema() instanceof JtdSchema.RefSchema r ? "(ref=" + r.ref() + ")" : "") +
+                     ", ptr: " + frame.ptr() + ", off: " + offsetOf(frame.instance()));
       
       // Validate current frame
-      if (!frame.schema.validateWithFrame(frame, errors, false)) {
-        LOG.fine(() -> "Validation failed for frame at " + frame.ptr + " with " + errors.size() + " errors");
+      if (!frame.schema().validateWithFrame(frame, errors, false)) {
+        LOG.fine(() -> "Validation failed for frame at " + frame.ptr() + " with " + errors.size() + " errors");
         continue; // Continue processing other frames even if this one failed
       }
       
       // Handle special validations for PropertiesSchema
-      if (frame.schema instanceof JtdSchema.PropertiesSchema propsSchema) {
+      if (frame.schema() instanceof JtdSchema.PropertiesSchema propsSchema) {
         validatePropertiesSchema(frame, propsSchema, errors);
       }
       
@@ -179,8 +148,8 @@ public class Jtd {
   
   /// Pushes child frames for complex schema types
   void pushChildFrames(Frame frame, java.util.Deque<Frame> stack) {
-    JtdSchema schema = frame.schema;
-    JsonValue instance = frame.instance;
+    JtdSchema schema = frame.schema();
+    JsonValue instance = frame.instance();
     
     LOG.finer(() -> "Pushing child frames for schema type: " + schema.getClass().getSimpleName());
     
@@ -189,8 +158,8 @@ public class Jtd {
         if (instance instanceof JsonArray arr) {
           int index = 0;
           for (JsonValue element : arr.values()) {
-            String childPtr = frame.ptr + "/" + index;
-            Crumbs childCrumbs = frame.crumbs.withArrayIndex(index);
+            String childPtr = frame.ptr() + "/" + index;
+            Crumbs childCrumbs = frame.crumbs().withArrayIndex(index);
             Frame childFrame = new Frame(elementsSchema.elements(), element, childPtr, childCrumbs);
             stack.push(childFrame);
             LOG.finer(() -> "Pushed array element frame at " + childPtr);
@@ -214,8 +183,8 @@ public class Jtd {
             JsonValue value = obj.members().get(key);
 
             if (value != null) {
-              String childPtr = frame.ptr + "/" + key;
-              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              String childPtr = frame.ptr() + "/" + key;
+              Crumbs childCrumbs = frame.crumbs().withObjectField(key);
               Frame childFrame = new Frame(entry.getValue(), value, childPtr, childCrumbs);
               stack.push(childFrame);
               LOG.finer(() -> "Pushed required property frame at " + childPtr);
@@ -235,8 +204,8 @@ public class Jtd {
             JsonValue value = obj.members().get(key);
 
             if (value != null) {
-              String childPtr = frame.ptr + "/" + key;
-              Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+              String childPtr = frame.ptr() + "/" + key;
+              Crumbs childCrumbs = frame.crumbs().withObjectField(key);
               Frame childFrame = new Frame(childSchema, value, childPtr, childCrumbs);
               stack.push(childFrame);
               LOG.finer(() -> "Pushed optional property frame at " + childPtr);
@@ -250,8 +219,8 @@ public class Jtd {
           for (var entry : obj.members().entrySet()) {
             String key = entry.getKey();
             JsonValue value = entry.getValue();
-            String childPtr = frame.ptr + "/" + key;
-            Crumbs childCrumbs = frame.crumbs.withObjectField(key);
+            String childPtr = frame.ptr() + "/" + key;
+            Crumbs childCrumbs = frame.crumbs().withObjectField(key);
             Frame childFrame = new Frame(valuesSchema.values(), value, childPtr, childCrumbs);
             stack.push(childFrame);
             LOG.finer(() -> "Pushed values schema frame at " + childPtr);
@@ -266,7 +235,7 @@ public class Jtd {
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
 
-              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr, frame.crumbs, discSchema.discriminator());
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr(), frame.crumbs(), discSchema.discriminator());
               stack.push(variantFrame);
               LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
             }
@@ -276,8 +245,8 @@ public class Jtd {
       case JtdSchema.RefSchema refSchema -> {
         try {
           JtdSchema resolved = refSchema.target();
-          Frame resolvedFrame = new Frame(resolved, instance, frame.ptr,
-              frame.crumbs, frame.discriminatorKey());
+          Frame resolvedFrame = new Frame(resolved, instance, frame.ptr(),
+              frame.crumbs(), frame.discriminatorKey());
           pushChildFrames(resolvedFrame, stack);
           LOG.finer(() -> "Pushed ref schema resolved to " +
               resolved.getClass().getSimpleName() + " for ref: " + refSchema.ref());

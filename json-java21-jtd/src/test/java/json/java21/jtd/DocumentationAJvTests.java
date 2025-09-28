@@ -13,7 +13,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Type form: primitive values - string type
   /// Example from docs: { type: "string" }
   @Test
-  public void testTypeFormString() throws Exception {
+  public void testTypeFormString() {
     JsonValue schema = Json.parse("{ \"type\": \"string\" }");
 
     // Test valid string
@@ -26,7 +26,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Type form string validation should fail for non-strings
   /// Same schema as testTypeFormString but tests invalid data
   @Test
-  public void testTypeFormStringInvalid() throws Exception {
+  public void testTypeFormStringInvalid() {
     JsonValue schema = Json.parse("{ \"type\": \"string\" }");
 
     // Test validation failure - should fail for non-string
@@ -41,7 +41,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Enum form: string enumeration
   /// Example from docs: { enum: ["foo", "bar"] }
   @Test
-  public void testEnumForm() throws Exception {
+  public void testEnumForm() {
     JsonValue schema = Json.parse("{ \"enum\": [\"foo\", \"bar\"] }");
 
     // Test valid enum values
@@ -57,7 +57,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Enum form validation should fail for values not in enum
   /// Same schema as testEnumForm but tests invalid data
   @Test
-  public void testEnumFormInvalid() throws Exception {
+  public void testEnumFormInvalid() {
     JsonValue schema = Json.parse("{ \"enum\": [\"foo\", \"bar\"] }");
 
     // Test validation failure - should fail for value not in enum
@@ -72,7 +72,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Elements form validation should fail for heterogeneous arrays
   /// Same schema as testElementsForm but tests invalid data
   @Test
-  public void testElementsFormInvalid() throws Exception {
+  public void testElementsFormInvalid() {
     JsonValue schema = Json.parse("{ \"elements\": { \"type\": \"string\" } }");
 
     // Test validation failure - should fail for array with non-string elements
@@ -87,7 +87,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Elements form: homogeneous arrays
   /// Schema example: { elements: { type: "string" } }
   @Test
-  public void testElementsForm() throws Exception {
+  public void testElementsForm() {
     JsonValue schema = Json.parse("{ \"elements\": { \"type\": \"string\" } }");
 
     // Test valid arrays
@@ -103,7 +103,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Properties form: objects with required properties
   /// Example 1: { properties: { foo: { type: "string" } } }
   @Test
-  public void testPropertiesFormRequiredOnly() throws Exception {
+  public void testPropertiesFormRequiredOnly() {
     JsonValue schema = Json.parse("{ \"properties\": { \"foo\": { \"type\": \"string\" } } }");
 
     // Test valid object
@@ -117,7 +117,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Properties form validation should fail for missing required properties
   /// Same schema as testPropertiesFormRequiredOnly but tests invalid data
   @Test
-  public void testPropertiesFormRequiredOnlyInvalid() throws Exception {
+  public void testPropertiesFormRequiredOnlyInvalid() {
     JsonValue schema = Json.parse("{ \"properties\": { \"foo\": { \"type\": \"string\" } } }");
 
     // Test validation failure - should fail for missing required property
@@ -132,7 +132,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Properties form: objects with required and optional properties
   /// Example 2: { properties: { foo: {type: "string"} }, optionalProperties: { bar: {enum: ["1", "2"]} }, additionalProperties: true }
   @Test
-  public void testPropertiesFormWithOptional() throws Exception {
+  public void testPropertiesFormWithOptional() {
     JsonValue schema = Json.parse("{ \"properties\": { \"foo\": {\"type\": \"string\"} }, \"optionalProperties\": { \"bar\": {\"enum\": [\"1\", \"2\"]} }, \"additionalProperties\": true }");
 
     // Test valid objects
@@ -150,7 +150,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Discriminator form: tagged union
   /// Example 1: { discriminator: "version", mapping: { "1": { properties: { foo: {type: "string"} } }, "2": { properties: { foo: {type: "uint8"} } } } }
   @Test
-  public void testDiscriminatorForm() throws Exception {
+  public void testDiscriminatorForm() {
     JsonValue schema = Json.parse("{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }");
 
     // Test valid discriminated objects
@@ -166,7 +166,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Discriminator form validation should fail for invalid discriminator values
   /// Same schema as testDiscriminatorForm but tests invalid data
   @Test
-  public void testDiscriminatorFormInvalid() throws Exception {
+  public void testDiscriminatorFormInvalid() {
     JsonValue schema = Json.parse("{ \"discriminator\": \"version\", \"mapping\": { \"1\": { \"properties\": { \"foo\": {\"type\": \"string\"} } }, \"2\": { \"properties\": { \"foo\": {\"type\": \"uint8\"} } } } }");
 
     // Test validation failure - should fail for discriminator value not in mapping
@@ -181,7 +181,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Values form: dictionary with homogeneous values
   /// Example: { values: { type: "uint8" } }
   @Test
-  public void testValuesForm() throws Exception {
+  public void testValuesForm() {
     JsonValue schema = Json.parse("{ \"values\": { \"type\": \"uint8\" } }");
 
     // Test valid dictionaries
@@ -197,7 +197,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Values form validation should fail for heterogeneous value types
   /// Same schema as testValuesForm but tests invalid data
   @Test
-  public void testValuesFormInvalid() throws Exception {
+  public void testValuesFormInvalid() {
     JsonValue schema = Json.parse("{ \"values\": { \"type\": \"uint8\" } }");
 
     // Test validation failure - should fail for object with mixed value types
@@ -212,7 +212,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Ref form: reference to definitions
   /// Example 1: { properties: { propFoo: {ref: "foo", nullable: true} }, definitions: { foo: {type: "string"} } }
   @Test
-  public void testRefForm() throws Exception {
+  public void testRefForm() {
     JsonValue schema = Json.parse("{ \"properties\": { \"propFoo\": {\"ref\": \"foo\", \"nullable\": true} }, \"definitions\": { \"foo\": {\"type\": \"string\"} } }");
 
     assertThat(schema).isNotNull();
@@ -222,7 +222,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Self-referencing schema for binary tree
   /// Example 2: { ref: "tree", definitions: { tree: { properties: { value: {type: "int32"} }, optionalProperties: { left: {ref: "tree"}, right: {ref: "tree"} } } } }
   @Test
-  public void testSelfReferencingSchema() throws Exception {
+  public void testSelfReferencingSchema() {
     JsonValue schema = Json.parse("{ \"ref\": \"tree\", \"definitions\": { \"tree\": { \"properties\": { \"value\": {\"type\": \"int32\"} }, \"optionalProperties\": { \"left\": {\"ref\": \"tree\"}, \"right\": {\"ref\": \"tree\"} } } } }");
 
     // Test tree structure
@@ -235,7 +235,7 @@ public class DocumentationAJvTests extends JtdTestBase {
 
   /// Empty form: RFC 8927 - {} accepts all JSON instances
   @Test
-  public void testEmptyFormRfc8927() throws Exception {
+  public void testEmptyFormRfc8927() {
     JsonValue schema = Json.parse("{}");
     Jtd validator = new Jtd();
 
@@ -255,7 +255,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Demonstration: Empty form has no invalid data per RFC 8927
   /// Same schema as testEmptyFormRfc8927 but shows everything passes
   @Test
-  public void testEmptyFormNoInvalidData() throws Exception {
+  public void testEmptyFormNoInvalidData() {
     JsonValue schema = Json.parse("{}");
     Jtd validator = new Jtd();
 
@@ -269,7 +269,7 @@ public class DocumentationAJvTests extends JtdTestBase {
 
   /// Type form: numeric types
   @Test
-  public void testNumericTypes() throws Exception {
+  public void testNumericTypes() {
     // Test various numeric types
     String[] numericSchemas = {"{ \"type\": \"int8\" }", "{ \"type\": \"uint8\" }", "{ \"type\": \"int16\" }", "{ \"type\": \"uint16\" }", "{ \"type\": \"int32\" }", "{ \"type\": \"uint32\" }", "{ \"type\": \"float32\" }", "{ \"type\": \"float64\" }"};
 
@@ -283,7 +283,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Numeric type validation should fail for non-numeric data
   /// Tests that numeric types reject string data
   @Test
-  public void testNumericTypesInvalid() throws Exception {
+  public void testNumericTypesInvalid() {
     JsonValue schema = Json.parse("{ \"type\": \"int32\" }");
 
     // Test validation failure - should fail for string data
@@ -297,7 +297,7 @@ public class DocumentationAJvTests extends JtdTestBase {
 
   /// Nullable types
   @Test
-  public void testNullableTypes() throws Exception {
+  public void testNullableTypes() {
     String[] nullableSchemas = {"{ \"type\": \"string\", \"nullable\": true }", "{ \"enum\": [\"foo\", \"bar\"], \"nullable\": true }", "{ \"elements\": { \"type\": \"string\" }, \"nullable\": true }"};
 
     for (String schemaJson : nullableSchemas) {
@@ -310,7 +310,7 @@ public class DocumentationAJvTests extends JtdTestBase {
   /// Counter-test: Nullable types should still fail for non-matching non-null data
   /// Tests that nullable doesn't bypass type validation for non-null values
   @Test
-  public void testNullableTypesInvalid() throws Exception {
+  public void testNullableTypesInvalid() {
     JsonValue schema = Json.parse("{ \"type\": \"string\", \"nullable\": true }");
 
     // Test validation failure - should fail for non-string, non-null data

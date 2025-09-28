@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// Should resolve nested ref "bar" inside definition "foo"
   /// RFC 8927: {} accepts anything - ref to {} should also accept anything
   @Test
-  public void testRefSchemaNestedRef() throws Exception {
+  public void testRefSchemaNestedRef() {
     // Schema with nested ref: foo references bar, bar is empty schema
     JsonValue schema = Json.parse("""
       {
@@ -51,10 +51,10 @@ import static org.assertj.core.api.Assertions.assertThat;
   }
 
   /// Test ref schema with recursive definitions
-  /// "ref schema - recursive schema, ok" from JTD specification test suite
+  /// "ref schema - recursive schema, OK" from JTD specification test suite
   /// Should handle recursive ref to self in elements schema
   @Test
-  public void testRefSchemaRecursive() throws Exception {
+  public void testRefSchemaRecursive() {
     // Schema with recursive ref: root references itself in elements
     JsonValue schema = Json.parse("""
       {
@@ -93,7 +93,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// "timestamp type schema - 1990-12-31T23:59:60Z" from JTD specification test suite
   /// Should accept valid RFC 3339 timestamp with leap second
   @Test
-  public void testTimestampWithLeapSecond() throws Exception {
+  public void testTimestampWithLeapSecond() {
     JsonValue schema = Json.parse("""
       {
         "type": "timestamp"
@@ -124,7 +124,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// "timestamp type schema - 1990-12-31T15:59:60-08:00" from JTD specification test suite
   /// Should accept valid RFC 3339 timestamp with timezone offset
   @Test
-  public void testTimestampWithTimezone() throws Exception {
+  public void testTimestampWithTimezone() {
     JsonValue schema = Json.parse("""
       {
         "type": "timestamp"
@@ -155,7 +155,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// "strict properties - bad additional property" from JTD specification test suite
   /// Should reject object with additional property not in schema
   @Test
-  public void testStrictPropertiesBadAdditionalProperty() throws Exception {
+  public void testStrictPropertiesBadAdditionalProperty() {
     JsonValue schema = Json.parse("""
       {
         "properties": {
@@ -200,7 +200,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// "strict optionalProperties - bad additional property" from JTD specification test suite
   /// Should reject object with additional property not in optionalProperties
   @Test
-  public void testStrictOptionalPropertiesBadAdditionalProperty() throws Exception {
+  public void testStrictOptionalPropertiesBadAdditionalProperty() {
     JsonValue schema = Json.parse("""
       {
         "optionalProperties": {
@@ -245,7 +245,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// "strict mixed properties and optionalProperties - bad additional property" from JTD specification test suite
   /// Should reject object with additional property not in properties or optionalProperties
   @Test
-  public void testStrictMixedPropertiesBadAdditionalProperty() throws Exception {
+  public void testStrictMixedPropertiesBadAdditionalProperty() {
     JsonValue schema = Json.parse("""
       {
         "properties": {

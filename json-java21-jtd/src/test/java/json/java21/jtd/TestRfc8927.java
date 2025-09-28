@@ -19,7 +19,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test ref schema resolution with valid definitions
   /// RFC 8927 Section 3.3.2: Ref schemas must resolve against definitions
   @Test
-  public void testRefSchemaValid() throws Exception {
+  public void testRefSchemaValid() {
     JsonValue schema = Json.parse("{\"ref\": \"address\", \"definitions\": {\"address\": {\"type\": \"string\"}}}");
     JsonValue validData = Json.parse("\"123 Main St\"");
     
@@ -34,7 +34,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Ref schema with invalid definition reference
   /// Should fail when ref points to non-existent definition
   @Test
-  public void testRefSchemaInvalidDefinition() throws Exception {
+  public void testRefSchemaInvalidDefinition() {
     JsonValue schema = Json.parse("{\"ref\": \"nonexistent\", \"definitions\": {\"address\": {\"type\": \"string\"}}}");
     JsonValue data = Json.parse("\"anything\"");
     
@@ -50,7 +50,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test timestamp format validation (RFC 3339)
   /// RFC 8927 Section 3.3.3: timestamp must follow RFC 3339 format
   @Test
-  public void testTimestampValid() throws Exception {
+  public void testTimestampValid() {
     JsonValue schema = Json.parse("{\"type\": \"timestamp\"}");
     
     // Valid RFC 3339 timestamps
@@ -74,7 +74,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Invalid timestamp formats
   /// Should reject non-RFC 3339 timestamp strings
   @Test
-  public void testTimestampInvalid() throws Exception {
+  public void testTimestampInvalid() {
     JsonValue schema = Json.parse("{\"type\": \"timestamp\"}");
     
     // Invalid timestamp formats
@@ -104,7 +104,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test integer type range validation
   /// RFC 8927 Table 2: Specific ranges for each integer type
   @Test
-  public void testIntegerRangesValid() throws Exception {
+  public void testIntegerRangesValid() {
     // Test valid ranges for each integer type
     testIntegerTypeRange("int8", "-128", "127", "0");
     testIntegerTypeRange("uint8", "0", "255", "128");
@@ -117,7 +117,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Integer values outside valid ranges
   /// Should reject values that exceed type ranges
   @Test
-  public void testIntegerRangesInvalid() throws Exception {
+  public void testIntegerRangesInvalid() {
     // Test invalid ranges for each integer type
     testIntegerTypeInvalid("int8", "-129", "128");     // Below min, above max
     testIntegerTypeInvalid("uint8", "-1", "256");      // Below min, above max
@@ -128,7 +128,7 @@ public class TestRfc8927 extends JtdTestBase {
   }
   
   /// Helper method to test valid integer ranges
-  private void testIntegerTypeRange(String type, String min, String max, String middle) throws Exception {
+  private void testIntegerTypeRange(String type, String min, String max, String middle) {
     JsonValue schema = Json.parse("{\"type\": \"" + type + "\"}");
     Jtd validator = new Jtd();
     
@@ -144,7 +144,7 @@ public class TestRfc8927 extends JtdTestBase {
   }
   
   /// Helper method to test invalid integer ranges
-  private void testIntegerTypeInvalid(String type, String belowMin, String aboveMax) throws Exception {
+  private void testIntegerTypeInvalid(String type, String belowMin, String aboveMax) {
     JsonValue schema = Json.parse("{\"type\": \"" + type + "\"}");
     Jtd validator = new Jtd();
     
@@ -165,7 +165,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test error path information (instancePath and schemaPath)
   /// RFC 8927 Section 3.2: All errors must include instancePath and schemaPath
   @Test
-  public void testErrorPathInformation() throws Exception {
+  public void testErrorPathInformation() {
     JsonValue schema = Json.parse("{\"properties\": {\"name\": {\"type\": \"string\"}, \"age\": {\"type\": \"int32\"}}}");
     JsonValue invalidData = Json.parse("{\"name\": 123, \"age\": \"not-a-number\"}");
     
@@ -185,7 +185,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test multiple error collection
   /// Should collect all validation errors, not just the first one
   @Test
-  public void testMultipleErrorCollection() throws Exception {
+  public void testMultipleErrorCollection() {
     JsonValue schema = Json.parse("{\"elements\": {\"type\": \"string\"}}");
     JsonValue invalidData = Json.parse("[123, 456, \"valid\", 789]");
     
@@ -209,7 +209,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test discriminator tag exemption
   /// RFC 8927 §2.2.8: Only the discriminator field itself is exempt from additionalProperties enforcement
   @Test
-  public void testDiscriminatorTagExemption() throws Exception {
+  public void testDiscriminatorTagExemption() {
     JsonValue schema = Json.parse("{\"discriminator\": \"type\", \"mapping\": {\"person\": {\"properties\": {\"name\": {\"type\": \"string\"}}}}}");
     
     // Valid data with discriminator and no additional properties
@@ -235,7 +235,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Discriminator with invalid mapping
   /// Should fail when discriminator value is not in mapping
   @Test
-  public void testDiscriminatorInvalidMapping() throws Exception {
+  public void testDiscriminatorInvalidMapping() {
     JsonValue schema = Json.parse("{\"discriminator\": \"type\", \"mapping\": {\"person\": {\"properties\": {\"name\": {\"type\": \"string\"}}}}}");
     JsonValue invalidData = Json.parse("{\"type\": \"invalid\", \"name\": \"John\"}");
     
@@ -250,7 +250,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test float type validation
   /// RFC 8927 Section 3.3.3: float32 and float64 validation
   @Test
-  public void testFloatTypesValid() throws Exception {
+  public void testFloatTypesValid() {
     JsonValue schema32 = Json.parse("{\"type\": \"float32\"}");
     JsonValue schema64 = Json.parse("{\"type\": \"float64\"}");
     
@@ -273,7 +273,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Invalid float values
   /// Should reject non-numeric values for float types
   @Test
-  public void testFloatTypesInvalid() throws Exception {
+  public void testFloatTypesInvalid() {
     JsonValue schema = Json.parse("{\"type\": \"float32\"}");
     
     // Invalid values for float
@@ -294,7 +294,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test boolean type validation
   /// RFC 8927 Section 3.3.3: boolean type validation
   @Test
-  public void testBooleanTypeValid() throws Exception {
+  public void testBooleanTypeValid() {
     JsonValue schema = Json.parse("{\"type\": \"boolean\"}");
     
     Jtd validator = new Jtd();
@@ -314,7 +314,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Counter-test: Invalid boolean values
   /// Should reject non-boolean values
   @Test
-  public void testBooleanTypeInvalid() throws Exception {
+  public void testBooleanTypeInvalid() {
     JsonValue schema = Json.parse("{\"type\": \"boolean\"}");
     
     // Invalid values for boolean
@@ -334,7 +334,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test nullable default behavior - non-nullable schemas must reject null
   @Test
-  public void testNonNullableBooleanRejectsNull() throws Exception {
+  public void testNonNullableBooleanRejectsNull() {
     JsonValue schema = Json.parse("{\"type\":\"boolean\"}");
     JsonValue instance = Json.parse("null");
     Jtd.Result result = new Jtd().validate(schema, instance);
@@ -344,7 +344,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test nullable boolean accepts null when explicitly nullable
   @Test
-  public void testNullableBooleanAcceptsNull() throws Exception {
+  public void testNullableBooleanAcceptsNull() {
     JsonValue schema = Json.parse("{\"type\":\"boolean\",\"nullable\":true}");
     JsonValue instance = Json.parse("null");
     Jtd.Result result = new Jtd().validate(schema, instance);
@@ -353,7 +353,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test timestamp validation with leap second
   @Test
-  public void testTimestampLeapSecond() throws Exception {
+  public void testTimestampLeapSecond() {
     JsonValue schema = Json.parse("{\"type\":\"timestamp\"}");
     JsonValue instance = Json.parse("\"1990-12-31T23:59:60Z\"");
     Jtd.Result result = new Jtd().validate(schema, instance);
@@ -362,7 +362,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test timestamp validation with timezone offset
   @Test
-  public void testTimestampWithTimezoneOffset() throws Exception {
+  public void testTimestampWithTimezoneOffset() {
     JsonValue schema = Json.parse("{\"type\":\"timestamp\"}");
     JsonValue instance = Json.parse("\"1990-12-31T15:59:60-08:00\"");
     Jtd.Result result = new Jtd().validate(schema, instance);
@@ -371,7 +371,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test nested ref schema resolution
   @Test
-  public void testRefSchemaNested() throws Exception {
+  public void testRefSchemaNested() {
     JsonValue schema = Json.parse("""
       {
         "definitions": {
@@ -387,7 +387,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test recursive ref schema resolution
   @Test
-  public void testRefSchemaRecursive() throws Exception {
+  public void testRefSchemaRecursive() {
     JsonValue schema = Json.parse("""
       {
         "definitions": {
@@ -408,7 +408,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test recursive ref schema validation - should reject invalid nested data
   /// "ref schema - recursive schema, bad" from JTD specification test suite
   @Test
-  public void testRefSchemaRecursiveBad() throws Exception {
+  public void testRefSchemaRecursiveBad() {
     JsonValue schema = Json.parse("""
       {
         "definitions": {
@@ -445,7 +445,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Micro test to debug int32 validation with decimal values
   /// Should reject non-integer values like 3.14 for int32 type
   @Test
-  public void testInt32RejectsDecimal() throws Exception {
+  public void testInt32RejectsDecimal() {
     JsonValue schema = Json.parse("{\"type\": \"int32\"}");
     JsonValue decimalValue = JsonNumber.of(new java.math.BigDecimal("3.14"));
     
@@ -474,7 +474,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"
   /// Values like 3.0, 3.000 are valid integers despite positive scale
   @Test  
-  public void testIntegerTypesAcceptTrailingZeros() throws Exception {
+  public void testIntegerTypesAcceptTrailingZeros() {
     JsonValue schema = Json.parse("{\"type\": \"int32\"}");
     
     // Valid integer representations with trailing zeros
@@ -504,7 +504,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test that integer types reject values with actual fractional components
   /// RFC 8927 §2.2.3.1: "An integer value is a number without a fractional component"  
   @Test
-  public void testIntegerTypesRejectFractionalComponents() throws Exception {
+  public void testIntegerTypesRejectFractionalComponents() {
     JsonValue schema = Json.parse("{\"type\": \"int32\"}");
     
     // Invalid values with actual fractional components
@@ -534,7 +534,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test for Issue #91: additionalProperties should default to false when no properties defined
   /// Empty properties schema should reject additional properties
   @Test
-  public void testAdditionalPropertiesDefaultsToFalse() throws Exception {
+  public void testAdditionalPropertiesDefaultsToFalse() {
     JsonValue schema = Json.parse("{\"elements\": {\"properties\": {}}}");
     JsonValue invalidData = Json.parse("[{\"extraProperty\":\"extra-value\"}]");
     
@@ -553,7 +553,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test discriminator schema nested within elements schema (RFC 8927 compliant)
   /// Schema has array elements with discriminator properties that map to valid properties forms
   @Test
-  public void testDiscriminatorInElementsSchema() throws Exception {
+  public void testDiscriminatorInElementsSchema() {
     JsonValue schema = Json.parse("""
     {
       "elements": {
@@ -632,7 +632,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Document: [[{},{},[{},{extraProperty":"extra-value"}]]
   /// This should fail validation but currently passes incorrectly
   @Test
-  public void testNestedElementsPropertiesRejectsAdditionalProperties() throws Exception {
+  public void testNestedElementsPropertiesRejectsAdditionalProperties() {
     JsonValue schema = Json.parse("""
       {
         "elements": {
@@ -674,7 +674,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test for Issue #99: RFC 8927 empty form semantics
   /// Empty schema {} accepts everything, including objects with properties
   @Test
-  public void testEmptySchemaAcceptsObjectsWithProperties() throws Exception {
+  public void testEmptySchemaAcceptsObjectsWithProperties() {
     JsonValue schema = Json.parse("{}");
     JsonValue document = Json.parse("{\"extraProperty\":\"extra-value\"}");
     
@@ -699,7 +699,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test case for Issue #99: RFC 8927 {} empty form semantics
   /// Empty schema {} must accept all JSON instances per RFC 8927 §3.3.1
   @Test
-  public void testEmptySchemaAcceptsAnything_perRfc8927() throws Exception {
+  public void testEmptySchemaAcceptsAnything_perRfc8927() {
     JsonValue schema = Json.parse("{}");
     Jtd validator = new Jtd();
 
@@ -715,7 +715,7 @@ public class TestRfc8927 extends JtdTestBase {
 
   /// Test $ref to empty schema also accepts anything per RFC 8927
   @Test
-  public void testRefToEmptySchemaAcceptsAnything() throws Exception {
+  public void testRefToEmptySchemaAcceptsAnything() {
     JsonValue schema = Json.parse("""
       {
         "definitions": { "foo": {} },
@@ -734,7 +734,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// RFC 8927 §2.4: Discriminator mapping schemas must use empty schema {} for discriminator property
   /// The discriminator property itself should not be re-validated against the empty schema
   @Test
-  public void testDiscriminatorFormWithEmptySchemaProperty() throws Exception {
+  public void testDiscriminatorFormWithEmptySchemaProperty() {
     JsonValue schema = Json.parse("""
       {
         "discriminator": "alpha",
@@ -780,7 +780,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test discriminator form with additional required properties
   /// Ensures discriminator field exemption doesn't break other property validation
   @Test
-  public void testDiscriminatorWithAdditionalRequiredProperties() throws Exception {
+  public void testDiscriminatorWithAdditionalRequiredProperties() {
     JsonValue schema = Json.parse("""
       {
         "discriminator": "type",
@@ -821,7 +821,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test discriminator form with optional properties
   /// Ensures discriminator field exemption works with optional properties too
   @Test
-  public void testDiscriminatorWithOptionalProperties() throws Exception {
+  public void testDiscriminatorWithOptionalProperties() {
     JsonValue schema = Json.parse("""
       {
         "discriminator": "kind",
@@ -861,7 +861,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test discriminator form where discriminator appears in optionalProperties
   /// Edge case: discriminator field might be in optionalProperties instead of properties
   @Test
-  public void testDiscriminatorInOptionalProperties() throws Exception {
+  public void testDiscriminatorInOptionalProperties() {
     JsonValue schema = Json.parse("""
       {
         "discriminator": "mode",
