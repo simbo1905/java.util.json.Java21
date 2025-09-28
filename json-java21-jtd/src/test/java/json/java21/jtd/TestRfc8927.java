@@ -810,7 +810,7 @@ public class TestRfc8927 extends JtdTestBase {
       .isFalse();
     assertThat(invalidResult.errors())
       .as("Should report missing required property")
-      .anyMatch(error -> error.contains("missing required property: name"));
+      .anyMatch(error -> error.contains("missing required property: 'name'"));
   }
 
   /// Test discriminator form with optional properties

@@ -743,7 +743,7 @@ public class Jtd {
   /// Provides consistent error messages following RFC 8927 specification
   public enum Error {
     /// Unknown type specified in schema
-    UNKNOWN_TYPE("unknown type: %s"),
+    UNKNOWN_TYPE("unknown type: '%s'"),
 
     /// Expected boolean but got different type
     EXPECTED_BOOLEAN("expected boolean, got %s"),
@@ -773,10 +773,10 @@ public class Jtd {
     EXPECTED_STRING_FOR_ENUM("expected string for enum, got %s"),
 
     /// Missing required property
-    MISSING_REQUIRED_PROPERTY("missing required property: %s"),
+    MISSING_REQUIRED_PROPERTY("missing required property: '%s'"),
 
     /// Additional property not allowed
-    ADDITIONAL_PROPERTY_NOT_ALLOWED("additional property not allowed: %s"),
+    ADDITIONAL_PROPERTY_NOT_ALLOWED("additional property not allowed: '%s'"),
 
     /// Discriminator must be a string
     DISCRIMINATOR_MUST_BE_STRING("discriminator '%s' must be a string"),
