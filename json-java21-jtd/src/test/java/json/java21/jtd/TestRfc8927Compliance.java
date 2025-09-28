@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThat;
   /// Test ref schema with nested definitions
   /// "ref schema - nested ref" from JTD specification test suite
   /// Should resolve nested ref "bar" inside definition "foo"
-  /// RFC 8927: {} means "no properties allowed" - only empty object is valid
+  /// RFC 8927: {} accepts anything - ref to {} should also accept anything
   @Test
   public void testRefSchemaNestedRef() throws Exception {
     // Schema with nested ref: foo references bar, bar is empty schema
@@ -30,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
       }
       """);
     
-    JsonValue instance = Json.parse("{}"); // RFC 8927: {} only accepts empty object
+    JsonValue instance = Json.parse("\"anything\""); // RFC 8927: {} accepts anything via ref
     
     LOG.info(() -> "Testing ref schema - nested ref");
     LOG.fine(() -> "Schema: " + schema);

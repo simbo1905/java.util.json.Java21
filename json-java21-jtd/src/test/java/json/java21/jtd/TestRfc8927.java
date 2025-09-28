@@ -641,17 +641,14 @@ public class TestRfc8927 extends JtdTestBase {
       .isNotEmpty();
   }
 
-  /// Test case for Issue #98: Empty properties schema should reject additional properties
-  /// Schema: {} (empty object with no properties defined)
-  /// Document: {"extraProperty":"extra-value"} (object with extra property)
-  /// Expected: Invalid (additionalProperties defaults to false when no properties defined)
-  /// Actual: Currently valid (bug - incorrectly treated as EmptySchema)
+  /// Test for Issue #99: RFC 8927 empty form semantics
+  /// Empty schema {} accepts everything, including objects with properties
   @Test
-  public void testEmptyPropertiesSchemaRejectsAdditionalProperties() throws Exception {
+  public void testEmptySchemaAcceptsObjectsWithProperties() throws Exception {
     JsonValue schema = Json.parse("{}");
     JsonValue document = Json.parse("{\"extraProperty\":\"extra-value\"}");
     
-    LOG.info(() -> "Testing empty properties schema - should reject additional properties");
+    LOG.info(() -> "Testing empty schema {} - should accept objects with properties per RFC 8927");
     LOG.fine(() -> "Schema: " + schema);
     LOG.fine(() -> "Document: " + document);
     
@@ -659,42 +656,204 @@ public class TestRfc8927 extends JtdTestBase {
     Jtd.Result result = validator.validate(schema, document);
     
     LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
-    if (!result.isValid()) {
-      LOG.fine(() -> "Errors: " + result.errors());
-    }
     
-    // This should fail because {} means no properties are allowed
-    // and additionalProperties defaults to false per RFC 8927
+    // RFC 8927 §3.3.1: Empty form accepts all instances, including objects with properties
     assertThat(result.isValid())
-      .as("Empty properties schema should reject additional properties")
-      .isFalse();
+      .as("Empty schema {} should accept objects with properties per RFC 8927")
+      .isTrue();
     assertThat(result.errors())
-      .as("Should have validation errors for additional property")
-      .isNotEmpty();
+      .as("Empty schema should produce no validation errors")
+      .isEmpty();
   }
 
-  /// Test case for Issue #99: Strict RFC 8927 {} schema semantics
-  /// Empty schema {} must always mean "no properties allowed" per RFC 8927
+  /// Test case for Issue #99: RFC 8927 {} empty form semantics
+  /// Empty schema {} must accept all JSON instances per RFC 8927 §3.3.1
   @Test
-  public void testEmptySchemaStrictRfcBehavior() throws Exception {
+  public void testEmptySchemaAcceptsAnything_perRfc8927() throws Exception {
     JsonValue schema = Json.parse("{}");
-    JsonValue validDoc = Json.parse("{}");
-    JsonValue invalidDoc = Json.parse("{\"extra\":123}");
+    Jtd validator = new Jtd();
 
-    Jtd jtd = new Jtd();
+    // RFC 8927 §3.3.1: "If a schema is of the 'empty' form, then it accepts all instances"
+    assertThat(validator.validate(schema, Json.parse("null")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("true")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("123")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("3.14")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("\"foo\"")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("[]")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("{}")).isValid()).isTrue();
+  }
 
-    // Expect INFO log emitted here when {} is compiled
-    Jtd.Result result1 = jtd.validate(schema, validDoc);
-    assertThat(result1.isValid())
-      .as("Empty schema {} should accept empty object per RFC 8927")
+  /// Test $ref to empty schema also accepts anything per RFC 8927
+  @Test
+  public void testRefToEmptySchemaAcceptsAnything() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "definitions": { "foo": {} },
+        "ref": "foo"
+      }
+      """);
+
+    Jtd validator = new Jtd();
+    assertThat(validator.validate(schema, Json.parse("false")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("\"bar\"")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("[]")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("{}")).isValid()).isTrue();
+  }
+
+  /// Test discriminator form with empty schema for discriminator property
+  /// RFC 8927 §2.4: Discriminator mapping schemas must use empty schema {} for discriminator property
+  /// The discriminator property itself should not be re-validated against the empty schema
+  @Test
+  public void testDiscriminatorFormWithEmptySchemaProperty() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "discriminator": "alpha",
+        "mapping": {
+          "type1": {
+            "properties": {
+              "alpha": {}
+            }
+          }
+        }
+      }
+      """);
+    
+    // Valid: discriminator value matches mapping key
+    JsonValue validDocument = Json.parse("{\"alpha\": \"type1\"}");
+    
+    // Invalid: discriminator value doesn't match any mapping key
+    JsonValue invalidDocument = Json.parse("{\"alpha\": \"wrong\"}");
+    
+    Jtd validator = new Jtd();
+    
+    // Should pass - discriminator value "type1" is in mapping
+    Jtd.Result validResult = validator.validate(schema, validDocument);
+    assertThat(validResult.isValid())
+      .as("Discriminator with empty schema property should accept valid discriminator value")
       .isTrue();
-
-    Jtd.Result result2 = jtd.validate(schema, invalidDoc);
-    assertThat(result2.isValid())
-      .as("Empty schema {} should reject object with properties per RFC 8927")
+    assertThat(validResult.errors())
+      .as("Should have no validation errors for valid discriminator")
+      .isEmpty();
+    
+    // Should fail - discriminator value "wrong" is not in mapping
+    Jtd.Result invalidResult = validator.validate(schema, invalidDocument);
+    assertThat(invalidResult.isValid())
+      .as("Discriminator should reject invalid discriminator value")
       .isFalse();
-    assertThat(result2.errors())
-      .as("Should have validation error for additional property")
+    assertThat(invalidResult.errors())
+      .as("Should have validation errors for invalid discriminator")
       .isNotEmpty();
+    
+    LOG.fine(() -> "Discriminator empty schema test - valid: " + validDocument + ", invalid: " + invalidDocument);
+  }
+
+  /// Test discriminator form with additional required properties
+  /// Ensures discriminator field exemption doesn't break other property validation
+  @Test
+  public void testDiscriminatorWithAdditionalRequiredProperties() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "discriminator": "type",
+        "mapping": {
+          "user": {
+            "properties": {
+              "type": {},
+              "name": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+      """);
+    
+    // Valid: has discriminator and required property
+    JsonValue validDocument = Json.parse("{\"type\": \"user\", \"name\": \"John\"}");
+    
+    // Invalid: missing required property (not discriminator)
+    JsonValue invalidDocument = Json.parse("{\"type\": \"user\"}");
+    
+    Jtd validator = new Jtd();
+    
+    Jtd.Result validResult = validator.validate(schema, validDocument);
+    assertThat(validResult.isValid())
+      .as("Should accept document with discriminator and all required properties")
+      .isTrue();
+    
+    Jtd.Result invalidResult = validator.validate(schema, invalidDocument);
+    assertThat(invalidResult.isValid())
+      .as("Should reject document missing non-discriminator required properties")
+      .isFalse();
+    assertThat(invalidResult.errors())
+      .as("Should report missing required property")
+      .anyMatch(error -> error.contains("missing required property: name"));
+  }
+
+  /// Test discriminator form with optional properties
+  /// Ensures discriminator field exemption works with optional properties too
+  @Test
+  public void testDiscriminatorWithOptionalProperties() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "discriminator": "kind",
+        "mapping": {
+          "circle": {
+            "properties": {
+              "kind": {}
+            },
+            "optionalProperties": {
+              "radius": {"type": "float32"}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+      """);
+    
+    // Valid: discriminator only
+    JsonValue minimalDocument = Json.parse("{\"kind\": \"circle\"}");
+    
+    // Valid: discriminator with optional property
+    JsonValue withOptionalDocument = Json.parse("{\"kind\": \"circle\", \"radius\": 5.5}");
+    
+    Jtd validator = new Jtd();
+    
+    Jtd.Result minimalResult = validator.validate(schema, minimalDocument);
+    assertThat(minimalResult.isValid())
+      .as("Should accept document with only discriminator")
+      .isTrue();
+    
+    Jtd.Result optionalResult = validator.validate(schema, withOptionalDocument);
+    assertThat(optionalResult.isValid())
+      .as("Should accept document with discriminator and optional property")
+      .isTrue();
+  }
+
+  /// Test discriminator form where discriminator appears in optionalProperties
+  /// Edge case: discriminator field might be in optionalProperties instead of properties
+  @Test
+  public void testDiscriminatorInOptionalProperties() throws Exception {
+    JsonValue schema = Json.parse("""
+      {
+        "discriminator": "mode",
+        "mapping": {
+          "default": {
+            "optionalProperties": {
+              "mode": {},
+              "config": {"type": "string"}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+      """);
+    
+    JsonValue validDocument = Json.parse("{\"mode\": \"default\"}");
+    
+    Jtd validator = new Jtd();
+    
+    Jtd.Result result = validator.validate(schema, validDocument);
+    assertThat(result.isValid())
+      .as("Should accept discriminator field in optionalProperties")
+      .isTrue();
   }
 }

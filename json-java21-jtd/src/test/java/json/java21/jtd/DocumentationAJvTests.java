@@ -233,45 +233,38 @@ public class DocumentationAJvTests extends JtdTestBase {
     LOG.fine(() -> "Self-referencing schema test - schema: " + schema + ", tree: " + tree);
   }
 
-  /// Empty form: RFC 8927 strict - {} means "no properties allowed"
+  /// Empty form: RFC 8927 - {} accepts all JSON instances
   @Test
-  public void testEmptyFormRfcStrict() throws Exception {
+  public void testEmptyFormRfc8927() throws Exception {
     JsonValue schema = Json.parse("{}");
-
-    // Test valid empty object
-    JsonValue emptyObject = Json.parse("{}");
     Jtd validator = new Jtd();
-    Jtd.Result validResult = validator.validate(schema, emptyObject);
-    assertThat(validResult.isValid())
-      .as("Empty schema {} should accept empty object per RFC 8927")
-      .isTrue();
 
-    // Test invalid object with properties
-    JsonValue objectWithProps = Json.parse("{\"key\": \"value\"}");
-    Jtd.Result invalidResult = validator.validate(schema, objectWithProps);
-    assertThat(invalidResult.isValid())
-      .as("Empty schema {} should reject object with properties per RFC 8927")
-      .isFalse();
-    assertThat(invalidResult.errors())
-      .as("Should have validation error for additional property")
-      .isNotEmpty();
+    // RFC 8927 §3.3.1: "If a schema is of the 'empty' form, then it accepts all instances"
+    assertThat(validator.validate(schema, Json.parse("null")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("true")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("123")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("3.14")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("\"hello\"")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("[]")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("{}")).isValid()).isTrue();
+    assertThat(validator.validate(schema, Json.parse("{\"key\": \"value\"}")).isValid()).isTrue();
 
-    LOG.fine(() -> "Empty form RFC strict test - schema: " + schema + ", valid: empty object, invalid: object with properties");
+    LOG.fine(() -> "Empty form RFC 8927 test - schema: " + schema + ", accepts all JSON instances");
   }
   
-  /// Counter-test: Empty form validation should reject objects with properties per RFC 8927
-  /// Same schema as testEmptyFormRfcStrict but tests invalid data
+  /// Demonstration: Empty form has no invalid data per RFC 8927
+  /// Same schema as testEmptyFormRfc8927 but shows everything passes
   @Test
-  public void testEmptyFormRejectsProperties() throws Exception {
+  public void testEmptyFormNoInvalidData() throws Exception {
     JsonValue schema = Json.parse("{}");
-
-    // Test that empty schema rejects object with properties per RFC 8927
-    JsonValue dataWithProps = Json.parse("{\"anything\": \"goes\"}");
     Jtd validator = new Jtd();
-    Jtd.Result result = validator.validate(schema, dataWithProps);
-    assertThat(result.isValid()).isFalse();
-    assertThat(result.errors()).isNotEmpty();
-    LOG.fine(() -> "Empty form rejects properties test - schema: " + schema + ", data with properties should fail: " + dataWithProps);
+
+    // RFC 8927: {} accepts everything, so even "invalid-looking" data passes
+    JsonValue anyData = Json.parse("{\"anything\": \"goes\"}");
+    Jtd.Result result = validator.validate(schema, anyData);
+    assertThat(result.isValid()).isTrue();
+    assertThat(result.errors()).isEmpty();
+    LOG.fine(() -> "Empty form no invalid data test - schema: " + schema + ", any data passes: " + anyData);
   }
 
   /// Type form: numeric types

@@ -340,15 +340,29 @@ public class Jtd {
     // Parse the specific schema form
     JtdSchema schema;
     
-    // RFC 8927 strict: {} always means "no properties allowed"
+    // RFC 8927: {} is the empty form and accepts all instances
     if (forms.isEmpty() && obj.members().isEmpty()) {
-      LOG.info(() -> "Empty schema {} encountered. "
-        + "Note: In some JSON validation specs this means 'accept anything', "
-        + "but per RFC 8927 it means an object with no properties allowed.");
-      return new JtdSchema.PropertiesSchema(Map.of(), Map.of(), false);
-    } else if (forms.isEmpty()) {
-      // Empty schema with no explicit form - default to EmptySchema for backwards compatibility
+      LOG.info(() -> "Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. "
+        + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
       return new JtdSchema.EmptySchema();
+    } else if (forms.isEmpty()) {
+      // Check if this is effectively an empty schema (ignoring metadata keys)
+      boolean hasNonMetadataKeys = members.keySet().stream()
+          .anyMatch(key -> !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions"));
+      
+      if (!hasNonMetadataKeys) {
+        // This is an empty schema (possibly with metadata)
+        LOG.info(() -> "Empty schema encountered (with metadata: " + members.keySet() + "). "
+          + "Per RFC 8927 this means 'accept anything'. "
+          + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
+        return new JtdSchema.EmptySchema();
+      } else {
+        // This should not happen in RFC 8927 - unknown keys present
+        throw new IllegalArgumentException("Schema contains unknown keys: " + 
+            members.keySet().stream()
+                .filter(key -> !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions"))
+                .toList());
+      }
     } else {
       String form = forms.getFirst();
       schema = switch (form) {

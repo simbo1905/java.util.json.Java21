@@ -520,13 +520,13 @@ IMPORTANT: Never disable tests written for logic that we are yet to write we do 
 
 ## RFC 8927 Compliance Guidelines
 
-* **Do not introduce AJV/JSON Schema compatibility semantics**
-* **{} must always compile as an empty object schema** (no properties allowed per RFC 8927)
-* **If tests or legacy code expect {} to mean "accept anything", update them to expect failure**
-* **The validator emits an INFO-level log when {} is compiled** to help catch migration issues
-* **Empty schema {} is equivalent to**: `{ "properties": {}, "optionalProperties": {}, "additionalProperties": false }`
+* **{} must compile to the Empty form and accept any JSON value** (RFC 8927 §2.2)
+* **Do not introduce compatibility modes that reinterpret {} with object semantics**
+* **Specs from json-typedef-spec are authoritative for behavior and tests**
+* **If a test, doc, or code disagrees with RFC 8927 about {}, the test/doc/code is wrong**
+* **We log at INFO when {} is compiled to help users who come from non-JTD validators**
 
-When implementing JTD validation logic, ensure strict RFC 8927 compliance rather than maintaining compatibility with other JSON schema specifications.
+Per RFC 8927 §3.3.1: "If a schema is of the 'empty' form, then it accepts all instances. A schema of the 'empty' form will never produce any error indicators."
 
 ## Package Structure
 

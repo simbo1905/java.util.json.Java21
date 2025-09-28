@@ -70,9 +70,9 @@ class JtdExhaustiveTest extends JtdTestBase {
 
         final var failingDocuments = createFailingJtdDocuments(schema, compliantDocument);
         
-        // RFC 8927: Empty schema {} only accepts empty object, not everything
+        // RFC 8927: Empty schema {} and PropertiesSchema with no properties accept everything
         // Nullable schema accepts null, so may have limited failing cases
-        if (!(schema instanceof NullableSchema)) {
+        if (!(schema instanceof EmptySchema) && !(schema instanceof NullableSchema) && !isEmptyPropertiesSchema(schema)) {
             assertThat(failingDocuments)
                 .as("Negative cases should be generated for JTD schema %s", schemaDescription)
                 .isNotEmpty();
@@ -103,7 +103,7 @@ class JtdExhaustiveTest extends JtdTestBase {
 
     private static JsonValue buildCompliantJtdDocument(JtdTestSchema schema) {
         return switch (schema) {
-            case EmptySchema() -> JsonObject.of(Map.of()); // RFC 8927: {} only accepts empty object
+            case EmptySchema() -> generateAnyJsonValue(); // RFC 8927: {} accepts anything
             case RefSchema(var ref) -> JsonString.of("ref-compliant-value");
             case TypeSchema(var type) -> buildCompliantTypeValue(type);
             case EnumSchema(var values) -> JsonString.of(values.getFirst());
@@ -149,6 +149,30 @@ class JtdExhaustiveTest extends JtdTestBase {
         };
     }
 
+    private static boolean isEmptyPropertiesSchema(JtdTestSchema schema) {
+        return schema instanceof PropertiesSchema props && 
+               props.properties().isEmpty() && 
+               props.optionalProperties().isEmpty();
+    }
+
+    private static JsonValue generateAnyJsonValue() {
+        // Generate a random JSON value of any type for RFC 8927 empty schema
+        var random = new java.util.Random();
+        return switch (random.nextInt(7)) {
+            case 0 -> JsonNull.of();
+            case 1 -> JsonBoolean.of(random.nextBoolean());
+            case 2 -> JsonNumber.of(random.nextInt(100));
+            case 3 -> JsonNumber.of(random.nextDouble());
+            case 4 -> JsonString.of("random-string-" + random.nextInt(1000));
+            case 5 -> JsonArray.of(List.of(generateAnyJsonValue(), generateAnyJsonValue()));
+            case 6 -> JsonObject.of(Map.of(
+                "key" + random.nextInt(10), generateAnyJsonValue(),
+                "prop" + random.nextInt(10), generateAnyJsonValue()
+            ));
+            default -> JsonString.of("fallback");
+        };
+    }
+
     private static JsonValue buildCompliantTypeValue(String type) {
         return switch (type) {
             case "boolean" -> JsonBoolean.of(true);
@@ -168,14 +192,7 @@ class JtdExhaustiveTest extends JtdTestBase {
 
     private static List<JsonValue> createFailingJtdDocuments(JtdTestSchema schema, JsonValue compliant) {
         return switch (schema) {
-            case EmptySchema unused -> List.of(
-                JsonString.of("not-an-object"),
-                JsonNumber.of(123),
-                JsonBoolean.of(true),
-                JsonNull.of(),
-                JsonArray.of(List.of()),
-                JsonObject.of(Map.of("extra", JsonString.of("property")))
-            ); // RFC 8927: {} only accepts empty object
+            case EmptySchema unused -> List.of(); // RFC 8927: {} accepts everything - no failing documents
             case RefSchema unused -> List.of(JsonNull.of()); // Ref should fail on null
             case TypeSchema(var type) -> createFailingTypeValues(type);
             case EnumSchema(var values) -> List.of(JsonString.of("invalid-enum-value"));
@@ -193,6 +210,12 @@ class JtdExhaustiveTest extends JtdTestBase {
                 yield List.of(JsonNull.of());
             }
             case PropertiesSchema(var required, var optional, var additional) -> {
+                // RFC 8927: PropertiesSchema with no properties behaves like empty schema
+                if (required.isEmpty() && optional.isEmpty()) {
+                    // No properties defined - this is equivalent to empty schema, accepts everything
+                    yield List.of();
+                }
+                
                 final var failures = new ArrayList<JsonValue>();
                 if (!required.isEmpty()) {
                     final var firstKey = required.keySet().iterator().next();
