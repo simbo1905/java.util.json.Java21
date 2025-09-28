@@ -640,4 +640,67 @@ public class TestRfc8927 extends JtdTestBase {
       .as("Should have validation errors for additional property")
       .isNotEmpty();
   }
+
+  /// Test case for Issue #98: Empty properties schema should reject additional properties
+  /// Schema: {} (empty object with no properties defined)
+  /// Document: {"extraProperty":"extra-value"} (object with extra property)
+  /// Expected: Invalid (additionalProperties defaults to false when no properties defined)
+  /// Actual: Currently valid (bug - incorrectly treated as EmptySchema)
+  @Test
+  public void testEmptyPropertiesSchemaRejectsAdditionalProperties() throws Exception {
+    JsonValue schema = Json.parse("{}");
+    JsonValue document = Json.parse("{\"extraProperty\":\"extra-value\"}");
+    
+    LOG.info(() -> "Testing empty properties schema - should reject additional properties");
+    LOG.fine(() -> "Schema: " + schema);
+    LOG.fine(() -> "Document: " + document);
+    
+    Jtd validator = new Jtd();
+    Jtd.Result result = validator.validate(schema, document);
+    
+    LOG.fine(() -> "Validation result: " + (result.isValid() ? "VALID" : "INVALID"));
+    if (!result.isValid()) {
+      LOG.fine(() -> "Errors: " + result.errors());
+    }
+    
+    // This should fail because {} means no properties are allowed
+    // and additionalProperties defaults to false per RFC 8927
+    assertThat(result.isValid())
+      .as("Empty properties schema should reject additional properties")
+      .isFalse();
+    assertThat(result.errors())
+      .as("Should have validation errors for additional property")
+      .isNotEmpty();
+  }
+
+  /// Test case for Issue #98: {} ambiguity between RFC and ref resolution
+  /// Tests that {} behaves correctly in different contexts:
+  /// 1. Root {} -> PropertiesSchema (no properties allowed) per RFC 8927
+  /// 2. {} from ref resolution -> EmptySchema (accept anything) for compatibility
+  @Test
+  public void testEmptySchemaContextSensitiveBehavior() throws Exception {
+    // Case 1: RFC root {} -> PropertiesSchema (no props allowed)
+    JsonValue schema1 = Json.parse("{}");
+    JsonValue doc1 = Json.parse("{\"extra\":\"x\"}");
+    Jtd.Result result1 = new Jtd().validate(schema1, doc1);
+    assertThat(result1.isValid())
+      .as("Root {} should reject additional properties per RFC 8927")
+      .isFalse();
+
+    // Case 2: {} from ref -> EmptySchema (accept anything)
+    JsonValue schema2 = Json.parse("""
+      {
+        "definitions": {
+          "foo": { "ref": "bar" },
+          "bar": {}
+        },
+        "ref": "foo"
+      }
+      """);
+    JsonValue doc2 = Json.parse("true");
+    Jtd.Result result2 = new Jtd().validate(schema2, doc2);
+    assertThat(result2.isValid())
+      .as("{} resolved from $ref should accept anything (compatibility mode)")
+      .isTrue();
+  }
 }

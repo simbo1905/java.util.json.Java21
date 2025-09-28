@@ -222,10 +222,20 @@ The property test logs at FINEST level:
 ### Issue Management
 - Use the native tooling for the remote (for example `gh` for GitHub).
 - Create issues in the repository tied to the `origin` remote unless instructed otherwise; if another remote is required, ask for its name.
-- Tickets and issues must state only “what” and “why,” leaving “how” for later discussion.
+- Tickets and issues must state only "what" and "why," leaving "how" for later discussion.
 - Comments may discuss implementation details.
 - Label tickets as `Ready` once actionable; if a ticket lacks that label, request confirmation before proceeding.
 - Limit tidy-up issues to an absolute minimum (no more than two per PR).
+
+### Creating GitHub Issues
+- **Title requirements**: No issue numbers, no special characters, no quotes, no shell metacharacters
+- **Body requirements**: Write issue body to a file first, then use --body-file flag
+- **Example workflow**:
+  ```bash
+  echo "Issue description here" > /tmp/issue_body.md
+  gh issue create --title "Brief description of bug" --body-file /tmp/issue_body.md
+  ```
+- **Never use --body flag** with complex content - always use --body-file to avoid shell escaping issues
 
 ### Commit Requirements
 - Commit messages start with `Issue #<issue number> <short description>`.
