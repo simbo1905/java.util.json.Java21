@@ -288,6 +288,17 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-j
 - **Definitions**: Validate all definitions exist at compile time
 - **Type Checking**: Strict RFC 8927 compliance for all primitive types
 
+## Empty Schema Semantics
+
+**RFC 8927 Strict Compliance**: The empty schema `{}` has specific semantics that differ from other JSON schema specifications:
+
+- **RFC 8927 Meaning**: `{}` means an object with no properties allowed
+- **Equivalent to**: `{ "properties": {}, "optionalProperties": {}, "additionalProperties": false }`
+- **Valid Input**: Only `{}` (empty object)
+- **Invalid Input**: Any object with properties
+
+**Important Note**: Some JSON Schema and AJV implementations treat `{}` as "accept anything". This JTD validator is RFC 8927-strict and will reject documents with additional properties. An INFO-level log message is emitted when `{}` is compiled to highlight this semantic difference.
+
 ## RFC 8927 Compliance
 
 This implementation strictly follows RFC 8927:

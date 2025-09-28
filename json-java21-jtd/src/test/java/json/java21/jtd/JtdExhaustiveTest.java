@@ -70,9 +70,9 @@ class JtdExhaustiveTest extends JtdTestBase {
 
         final var failingDocuments = createFailingJtdDocuments(schema, compliantDocument);
         
-        // Empty schema accepts everything, so no failing documents are expected
-        // Nullable schema also accepts null, so may have limited failing cases
-        if (!(schema instanceof EmptySchema) && !(schema instanceof NullableSchema)) {
+        // RFC 8927: Empty schema {} only accepts empty object, not everything
+        // Nullable schema accepts null, so may have limited failing cases
+        if (!(schema instanceof NullableSchema)) {
             assertThat(failingDocuments)
                 .as("Negative cases should be generated for JTD schema %s", schemaDescription)
                 .isNotEmpty();
@@ -84,7 +84,14 @@ class JtdExhaustiveTest extends JtdTestBase {
         LOG.finest(() -> "Failing JTD documents: " + failingDocumentStrings);
 
         failingDocuments.forEach(failing -> {
+            LOG.finest(() -> String.format("Testing failing document: %s against schema: %s", failing, schemaJson));
             final var failingResult = validator.validate(schemaJson, failing);
+            
+            if (failingResult.isValid()) {
+                LOG.severe(() -> String.format("UNEXPECTED: Failing document passed validation!%nSchema: %s%nDocument: %s%nExpected: FAILURE, Got: SUCCESS", 
+                    schemaJson, failing));
+            }
+            
             assertThat(failingResult.isValid())
                 .as("Expected JTD validation failure for %s against schema %s", failing, schemaDescription)
                 .isFalse();
@@ -96,7 +103,7 @@ class JtdExhaustiveTest extends JtdTestBase {
 
     private static JsonValue buildCompliantJtdDocument(JtdTestSchema schema) {
         return switch (schema) {
-            case EmptySchema() -> JsonString.of("any value works");
+            case EmptySchema() -> JsonObject.of(Map.of()); // RFC 8927: {} only accepts empty object
             case RefSchema(var ref) -> JsonString.of("ref-compliant-value");
             case TypeSchema(var type) -> buildCompliantTypeValue(type);
             case EnumSchema(var values) -> JsonString.of(values.getFirst());
@@ -161,7 +168,14 @@ class JtdExhaustiveTest extends JtdTestBase {
 
     private static List<JsonValue> createFailingJtdDocuments(JtdTestSchema schema, JsonValue compliant) {
         return switch (schema) {
-            case EmptySchema unused -> List.of(); // Empty schema accepts everything
+            case EmptySchema unused -> List.of(
+                JsonString.of("not-an-object"),
+                JsonNumber.of(123),
+                JsonBoolean.of(true),
+                JsonNull.of(),
+                JsonArray.of(List.of()),
+                JsonObject.of(Map.of("extra", JsonString.of("property")))
+            ); // RFC 8927: {} only accepts empty object
             case RefSchema unused -> List.of(JsonNull.of()); // Ref should fail on null
             case TypeSchema(var type) -> createFailingTypeValues(type);
             case EnumSchema(var values) -> List.of(JsonString.of("invalid-enum-value"));

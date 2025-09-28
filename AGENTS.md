@@ -14,6 +14,26 @@
 - Never commit unverified mass changes—compile or test first.
 - Do not use Perl or sed for multi-line structural edits; rely on Python 3.2-friendly heredocs.
 
+## Markdown-Driven-Development (MDD)
+We practice **Markdown-Driven-Development** where documentation precedes implementation:
+
+1. **Create GitHub issue** with clear problem statement and goals
+2. **Update user documentation** (README.md) with new behavior/semantics
+3. **Update agentic documentation** (AGENTS.md) with implementation guidance
+4. **Update specialist documentation** (**/*.md, e.g., ARCHITECTURE.md) as needed
+5. **Create implementation plan** (PLAN_${issue_id}.md) documenting exact changes
+6. **Implement code changes** to match documented behavior
+7. **Update tests** to validate the documented behavior
+8. **Verify all documentation** remains accurate after implementation
+
+This ensures:
+- Users understand behavior changes before code is written
+- Developers have clear implementation guidance
+- Documentation stays synchronized with code
+- Breaking changes are clearly communicated
+
+When making changes, always update documentation files before modifying code.
+
 
 ## Testing & Logging Discipline
 
@@ -497,6 +517,16 @@ IMPORTANT: Never disable tests written for logic that we are yet to write we do 
     * Sealed classes for exhaustive switches
     * Virtual threads for concurrent processing
     * **Use try-with-resources for all AutoCloseable resources** (HttpClient, streams, etc.)
+
+## RFC 8927 Compliance Guidelines
+
+* **Do not introduce AJV/JSON Schema compatibility semantics**
+* **{} must always compile as an empty object schema** (no properties allowed per RFC 8927)
+* **If tests or legacy code expect {} to mean "accept anything", update them to expect failure**
+* **The validator emits an INFO-level log when {} is compiled** to help catch migration issues
+* **Empty schema {} is equivalent to**: `{ "properties": {}, "optionalProperties": {}, "additionalProperties": false }`
+
+When implementing JTD validation logic, ensure strict RFC 8927 compliance rather than maintaining compatibility with other JSON schema specifications.
 
 ## Package Structure
 

@@ -673,34 +673,28 @@ public class TestRfc8927 extends JtdTestBase {
       .isNotEmpty();
   }
 
-  /// Test case for Issue #98: {} ambiguity between RFC and ref resolution
-  /// Tests that {} behaves correctly in different contexts:
-  /// 1. Root {} -> PropertiesSchema (no properties allowed) per RFC 8927
-  /// 2. {} from ref resolution -> EmptySchema (accept anything) for compatibility
+  /// Test case for Issue #99: Strict RFC 8927 {} schema semantics
+  /// Empty schema {} must always mean "no properties allowed" per RFC 8927
   @Test
-  public void testEmptySchemaContextSensitiveBehavior() throws Exception {
-    // Case 1: RFC root {} -> PropertiesSchema (no props allowed)
-    JsonValue schema1 = Json.parse("{}");
-    JsonValue doc1 = Json.parse("{\"extra\":\"x\"}");
-    Jtd.Result result1 = new Jtd().validate(schema1, doc1);
-    assertThat(result1.isValid())
-      .as("Root {} should reject additional properties per RFC 8927")
-      .isFalse();
+  public void testEmptySchemaStrictRfcBehavior() throws Exception {
+    JsonValue schema = Json.parse("{}");
+    JsonValue validDoc = Json.parse("{}");
+    JsonValue invalidDoc = Json.parse("{\"extra\":123}");
 
-    // Case 2: {} from ref -> EmptySchema (accept anything)
-    JsonValue schema2 = Json.parse("""
-      {
-        "definitions": {
-          "foo": { "ref": "bar" },
-          "bar": {}
-        },
-        "ref": "foo"
-      }
-      """);
-    JsonValue doc2 = Json.parse("true");
-    Jtd.Result result2 = new Jtd().validate(schema2, doc2);
-    assertThat(result2.isValid())
-      .as("{} resolved from $ref should accept anything (compatibility mode)")
+    Jtd jtd = new Jtd();
+
+    // Expect INFO log emitted here when {} is compiled
+    Jtd.Result result1 = jtd.validate(schema, validDoc);
+    assertThat(result1.isValid())
+      .as("Empty schema {} should accept empty object per RFC 8927")
       .isTrue();
+
+    Jtd.Result result2 = jtd.validate(schema, invalidDoc);
+    assertThat(result2.isValid())
+      .as("Empty schema {} should reject object with properties per RFC 8927")
+      .isFalse();
+    assertThat(result2.errors())
+      .as("Should have validation error for additional property")
+      .isNotEmpty();
   }
 }

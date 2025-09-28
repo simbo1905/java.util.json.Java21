@@ -19,7 +19,6 @@ import java.util.stream.StreamSupport;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /// Runs the official JTD Test Suite as JUnit dynamic tests.
-/// Based on the pattern from JsonSchemaCheckDraft4IT but simplified for JTD.
 ///
 /// This test class loads and runs two types of tests from the JTD specification:
 ///

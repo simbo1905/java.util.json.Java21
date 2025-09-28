@@ -18,8 +18,7 @@ public class Jtd {
   /// Top-level definitions map for ref resolution
   private final Map<String, JtdSchema> definitions = new java.util.HashMap<>();
   
-  /// Raw definition values for context-aware ref resolution
-  private final Map<String, JsonValue> rawDefinitions = new java.util.HashMap<>();
+  // Removed: RFC 8927 strict mode - no context-aware compilation needed
   
   /// Stack frame for iterative validation with path and offset tracking
   record Frame(JtdSchema schema, JsonValue instance, String ptr, Crumbs crumbs, String discriminatorKey) {
@@ -285,11 +284,6 @@ public class Jtd {
   
   /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
   JtdSchema compileSchema(JsonValue schema) {
-    return compileSchema(schema, false); // Default: not from ref resolution
-  }
-  
-  /// Compiles a JsonValue into a JtdSchema with context-aware handling of {}
-  JtdSchema compileSchema(JsonValue schema, boolean fromRef) {
     if (!(schema instanceof JsonObject obj)) {
       throw new IllegalArgumentException("Schema must be an object");
     }
@@ -308,19 +302,18 @@ public class Jtd {
       for (String key : defsObj.members().keySet()) {
         if (definitions.get(key) == null) {
           JsonValue rawDef = defsObj.members().get(key);
-          rawDefinitions.put(key, rawDef); // Store raw definition for context-aware ref resolution
-          // Compile definitions with fromRef=true for compatibility mode
-          JtdSchema compiled = compileSchema(rawDef, true);
+          // Compile definitions normally (RFC 8927 strict)
+          JtdSchema compiled = compileSchema(rawDef);
           definitions.put(key, compiled);
         }
       }
     }
 
-    return compileObjectSchema(obj, fromRef);
+    return compileObjectSchema(obj);
   }
   
-  /// Compiles an object schema according to RFC 8927 with context-aware handling
-  JtdSchema compileObjectSchema(JsonObject obj, boolean fromRef) {
+  /// Compiles an object schema according to RFC 8927 with strict semantics
+  JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
     Map<String, JsonValue> members = obj.members();
@@ -347,18 +340,15 @@ public class Jtd {
     // Parse the specific schema form
     JtdSchema schema;
     
-    // Context-aware handling of {} - RFC vs compatibility mode
+    // RFC 8927 strict: {} always means "no properties allowed"
     if (forms.isEmpty() && obj.members().isEmpty()) {
-      if (fromRef) {
-        // Compatibility mode: {} from ref resolution behaves as EmptySchema (accept anything)
-        schema = new JtdSchema.EmptySchema();
-      } else {
-        // RFC mode: {} at root or direct context behaves as PropertiesSchema (no properties allowed)
-        schema = new JtdSchema.PropertiesSchema(Map.of(), Map.of(), false);
-      }
+      LOG.info(() -> "Empty schema {} encountered. "
+        + "Note: In some JSON validation specs this means 'accept anything', "
+        + "but per RFC 8927 it means an object with no properties allowed.");
+      return new JtdSchema.PropertiesSchema(Map.of(), Map.of(), false);
     } else if (forms.isEmpty()) {
       // Empty schema with no explicit form - default to EmptySchema for backwards compatibility
-      schema = new JtdSchema.EmptySchema();
+      return new JtdSchema.EmptySchema();
     } else {
       String form = forms.getFirst();
       schema = switch (form) {
@@ -503,10 +493,7 @@ public class Jtd {
     return new JtdSchema.DiscriminatorSchema(discStr.value(), mapping);
   }
   
-  /// Gets raw definition value for context-aware ref resolution
-  JsonValue getRawDefinition(String ref) {
-    return rawDefinitions.get(ref);
-  }
+  // Removed: RFC 8927 strict mode - no context-aware ref resolution needed
   
   /// Extracts and stores top-level definitions for ref resolution
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
