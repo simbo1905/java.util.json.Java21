@@ -121,6 +121,14 @@ Validates tagged unions:
 }
 ```
 
+**Discriminator Constraints (RFC 8927 §2.2.8):**
+- Mapping values must be `properties` schemas (not primitive types)
+- Mapped schemas cannot have `nullable: true`
+- Mapped schemas cannot define the discriminator key in properties/optionalProperties
+- The discriminator field is exempt from additionalProperties validation
+
+These constraints are enforced at compile-time for predictable validation behavior.
+
 ## Nullable Schemas
 
 Any schema can be made nullable by adding `"nullable": true`:

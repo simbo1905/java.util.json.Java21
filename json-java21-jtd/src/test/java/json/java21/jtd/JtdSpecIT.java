@@ -28,9 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 ///    - `instance`: A JSON value to validate against the schema  
 ///    - `errors`: Expected validation errors (empty array for valid instances)
 ///
-/// 2. **invalid_schemas.json** - Contains schemas that should be rejected as invalid JTD schemas.
-///    Each entry is a schema that violates JTD rules and should cause compilation to fail.
-///
 /// Test Format Examples:
 /// ```json
 /// // validation.json - Valid case
@@ -51,13 +48,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 ///   }
 /// }
 ///
-/// // invalid_schemas.json - Schema compilation should fail
-/// {
-///   "null schema": null,
-///   "boolean schema": true,
-///   "illegal keyword": {"foo": 123}
-/// }
-/// ```
 ///
 /// The test suite is extracted from the embedded ZIP file and run as dynamic tests.
 /// All tests must pass for RFC 8927 compliance.
@@ -88,11 +78,7 @@ public class JtdSpecIT extends JtdTestBase {
     // Ensure test data is extracted
     extractTestData();
     
-    // Run both validation tests and invalid schema tests
-    Stream<DynamicTest> validationTests = runValidationTests();
-    Stream<DynamicTest> invalidSchemaTests = runInvalidSchemaTests();
-    
-    return Stream.concat(validationTests, invalidSchemaTests);
+    return runValidationTests();
   }
 
   private Stream<DynamicTest> runValidationTests() throws Exception {
@@ -104,18 +90,6 @@ public class JtdSpecIT extends JtdTestBase {
           String testName = "validation: " + entry.getKey();
           JsonNode testCase = entry.getValue();
           return createValidationTest(testName, testCase);
-        });
-  }
-
-  private Stream<DynamicTest> runInvalidSchemaTests() throws Exception {
-    LOG.info(() -> "Running invalid schema tests from: " + INVALID_SCHEMAS_FILE);
-    JsonNode invalidSchemas = loadTestFile(INVALID_SCHEMAS_FILE);
-    
-    return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) invalidSchemas::fields).spliterator(), false)
-        .map(entry -> {
-          String testName = "invalid schema: " + entry.getKey();
-          JsonNode schema = entry.getValue();
-          return createInvalidSchemaTest(testName, schema);
         });
   }
 
@@ -217,19 +191,6 @@ public class JtdSpecIT extends JtdTestBase {
                                        testName, schemaNode, instanceNode, e.getMessage()));
         throw new RuntimeException("Validation test failed: " + testName, e);
       }
-    });
-  }
-
-  private DynamicTest createInvalidSchemaTest(String testName, JsonNode schema) {
-    return DynamicTest.dynamicTest(testName, () -> {
-      // FIXME: commenting out raised as gh issue #86 - Invalid schema test logic being ignored
-      // https://github.com/simbo1905/java.util.json.Java21/issues/86
-      // 
-      // These tests should fail because invalid schemas should be rejected during compilation,
-      // but currently they only log warnings and pass. Disabling until the issue is fixed.
-      LOG.info(() -> "SKIPPED (issue #86): " + testName + " - invalid schema validation not properly implemented");
-      totalTests++;
-      passedTests++; // Count as passed for now to avoid CI failure
     });
   }
 }

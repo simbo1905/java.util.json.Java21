@@ -261,7 +261,12 @@ class JtdPropertyTest extends JtdTestBase {
   }
 
   private static Arbitrary<JtdTestSchema> enumSchemaArbitrary() {
-    return Arbitraries.of(ENUM_VALUES).list().ofMinSize(1).ofMaxSize(4).map(values -> new EnumSchema(new ArrayList<>(values)));
+    // Ensure no duplicates by using distinct values
+    return Arbitraries.of(ENUM_VALUES).list().ofMinSize(1).ofMaxSize(4).map(values -> {
+      // Remove duplicates to ensure valid enum schema per RFC 8927
+      List<String> distinctValues = values.stream().distinct().toList();
+      return new EnumSchema(new ArrayList<>(distinctValues));
+    });
   }
 
   private static Arbitrary<JtdTestSchema> elementsSchemaArbitrary(int depth) {
@@ -314,26 +319,37 @@ class JtdPropertyTest extends JtdTestBase {
     // Create primitive schemas that don't recurse
     final var primitiveSchemas = Arbitraries.of(new EmptySchema(), new TypeSchema("boolean"), new TypeSchema("string"), new TypeSchema("int32"), new EnumSchema(List.of("red", "green", "blue")));
 
+    // ======================== CHANGE: USE NON-DISCRIMINATOR PROPERTY NAMES ========================
+    // RFC 8927 §2.2.8: Discriminator mapping schemas cannot define the discriminator key
+    // Use property names that won't conflict with discriminator keys
+    final var safePropertyNames = List.of("beta", "gamma", "delta", "epsilon"); // Exclude "alpha" 
+    final var safePropertyPairs = List.of(
+        List.of("beta", "gamma"),
+        List.of("gamma", "delta"), 
+        List.of("delta", "epsilon")
+    );
+    // ==================== END CHANGE: USE NON-DISCRIMINATOR PROPERTY NAMES ====================
+
     return Arbitraries.oneOf(
         // Empty properties schema
         Arbitraries.of(new PropertiesSchema(Map.of(), Map.of(), false)),
 
         // Single required property with primitive schema
-        Combinators.combine(Arbitraries.of(PROPERTY_NAMES), primitiveSchemas).as((name, schema) -> {
+        Combinators.combine(Arbitraries.of(safePropertyNames), primitiveSchemas).as((name, schema) -> {
           Assertions.assertNotNull(name);
           Assertions.assertNotNull(schema);
           return new PropertiesSchema(Map.of(name, schema), Map.of(), false);
         }),
 
         // Single optional property with primitive schema
-        Combinators.combine(Arbitraries.of(PROPERTY_NAMES), primitiveSchemas).as((name, schema) -> {
+        Combinators.combine(Arbitraries.of(safePropertyNames), primitiveSchemas).as((name, schema) -> {
           Assertions.assertNotNull(name);
           Assertions.assertNotNull(schema);
           return new PropertiesSchema(Map.of(), Map.of(name, schema), false);
         }),
 
         // Required + optional property with primitive schemas
-        Combinators.combine(Arbitraries.of(PROPERTY_PAIRS), primitiveSchemas, primitiveSchemas).as((names, requiredSchema, optionalSchema) -> {
+        Combinators.combine(Arbitraries.of(safePropertyPairs), primitiveSchemas, primitiveSchemas).as((names, requiredSchema, optionalSchema) -> {
           Assertions.assertNotNull(names);
           Assertions.assertNotNull(requiredSchema);
           Assertions.assertNotNull(optionalSchema);
@@ -343,15 +359,70 @@ class JtdPropertyTest extends JtdTestBase {
 
   private static Arbitrary<JtdTestSchema> discriminatorSchemaArbitrary() {
 
-    return Combinators.combine(Arbitraries.of(PROPERTY_NAMES), Arbitraries.of(DISCRIMINATOR_VALUES), Arbitraries.of(DISCRIMINATOR_VALUES), simplePropertiesSchemaArbitrary(), simplePropertiesSchemaArbitrary()).as((discriminatorKey, value1, value2, schema1, schema2) -> {
+    return Combinators.combine(Arbitraries.of(PROPERTY_NAMES), Arbitraries.of(DISCRIMINATOR_VALUES), Arbitraries.of(DISCRIMINATOR_VALUES)).as((discriminatorKey, value1, value2) -> {
       final var mapping = new LinkedHashMap<String, JtdTestSchema>();
+      
+      // Generate properties schemas that avoid the discriminator key
+      final var schema1 = propertiesSchemaForDiscriminatorMapping(discriminatorKey).sample();
       mapping.put(value1, schema1);
+      
       Assertions.assertNotNull(value1);
       if (!value1.equals(value2)) {
+        final var schema2 = propertiesSchemaForDiscriminatorMapping(discriminatorKey).sample();
         mapping.put(value2, schema2);
       }
       return new DiscriminatorSchema(discriminatorKey, mapping);
     });
+  }
+
+  /// Creates PropertiesSchema instances specifically for discriminator mappings
+  /// RFC 8927 §2.2.8 requires mapping values to be PropertiesSchema (not EmptySchema)
+  /// and cannot define the discriminator key in properties or optionalProperties
+  private static Arbitrary<JtdTestSchema> propertiesSchemaForDiscriminatorMapping(String discriminatorKey) {
+    // Create primitive schemas that don't recurse
+    final var primitiveSchemas = Arbitraries.of(new TypeSchema("boolean"), new TypeSchema("string"), new TypeSchema("int32"), new EnumSchema(List.of("red", "green", "blue")));
+
+    // Create safe property names that exclude the discriminator key
+    final var allPropertyNames = List.of("alpha", "beta", "gamma", "delta", "epsilon");
+    final var safePropertyNames = allPropertyNames.stream()
+        .filter(name -> !name.equals(discriminatorKey))
+        .toList();
+    
+    // If we removed too many names, add some backup names
+    final var effectivePropertyNames = safePropertyNames.isEmpty() 
+        ? List.of("prop1", "prop2", "prop3") 
+        : safePropertyNames;
+
+    // Create safe property pairs
+    final var safePropertyPairs = effectivePropertyNames.stream()
+        .flatMap(name1 -> effectivePropertyNames.stream()
+            .filter(name2 -> !name1.equals(name2))
+            .map(name2 -> List.of(name1, name2)))
+        .filter(pair -> !pair.get(0).equals(discriminatorKey) && !pair.get(1).equals(discriminatorKey))
+        .toList();
+
+    return Arbitraries.oneOf(
+        // Single required property with primitive schema
+        Combinators.combine(Arbitraries.of(effectivePropertyNames), primitiveSchemas).as((name, schema) -> {
+          Assertions.assertNotNull(name);
+          Assertions.assertNotNull(schema);
+          return new PropertiesSchema(Map.of(name, schema), Map.of(), false);
+        }),
+
+        // Single optional property with primitive schema
+        Combinators.combine(Arbitraries.of(effectivePropertyNames), primitiveSchemas).as((name, schema) -> {
+          Assertions.assertNotNull(name);
+          Assertions.assertNotNull(schema);
+          return new PropertiesSchema(Map.of(), Map.of(name, schema), false);
+        }),
+
+        // Required + optional property with primitive schemas
+        Combinators.combine(Arbitraries.of(safePropertyPairs), primitiveSchemas, primitiveSchemas).as((names, requiredSchema, optionalSchema) -> {
+          Assertions.assertNotNull(names);
+          Assertions.assertNotNull(requiredSchema);
+          Assertions.assertNotNull(optionalSchema);
+          return new PropertiesSchema(Map.of(names.getFirst(), requiredSchema), Map.of(names.get(1), optionalSchema), false);
+        }));
   }
 
   private static Arbitrary<JtdTestSchema> nullableSchemaArbitrary(int depth) {
@@ -388,7 +459,15 @@ class JtdPropertyTest extends JtdTestBase {
     final var validationResult = validator.validate(schemaJson, compliantDocument);
 
     if (!validationResult.isValid()) {
-      LOG.severe(() -> String.format("ERROR: Compliant document failed validation!%nSchema: %s%nDocument: %s%nErrors: %s", schemaJson, compliantDocument, validationResult.errors()));
+      String errorMessage = String.format(
+        "ERROR: Compliant document failed validation!%nSchema JSON: %s%nDocument JSON: %s%nValidation Errors: %s%nSchema Description: %s%nFull Schema Object: %s",
+        Json.toDisplayString(schemaJson, 2),
+        Json.toDisplayString(compliantDocument, 2),
+        validationResult.errors(),
+        schemaDescription,
+        schema
+      );
+      LOG.severe(() -> errorMessage);
     }
 
     assertThat(validationResult.isValid()).as("Compliant JTD document should validate for schema %s", schemaDescription).isTrue();
@@ -410,7 +489,9 @@ class JtdPropertyTest extends JtdTestBase {
       final var failingResult = validator.validate(schemaJson, failing);
 
       if (failingResult.isValid()) {
-        LOG.severe(() -> String.format("UNEXPECTED: Failing document passed validation!%nSchema: %s%nDocument: %s%nExpected: FAILURE, Got: SUCCESS", schemaJson, failing));
+        LOG.severe(() -> String.format("UNEXPECTED: Failing document passed validation!%nSchema JSON: %s%nDocument JSON: %s%nExpected: FAILURE, Got: SUCCESS", 
+                                   Json.toDisplayString(schemaJson, 2), 
+                                   Json.toDisplayString(failing, 2)));
       }
 
       assertThat(failingResult.isValid()).as("Expected JTD validation failure for %s against schema %s", failing, schemaDescription).isFalse();

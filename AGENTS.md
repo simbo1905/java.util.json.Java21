@@ -107,6 +107,36 @@ LOG.fine(() -> "PERFORMANCE WARNING: Validation stack processing " + count + ...
 ### Additional Guidance
 - Logging rules apply globally. The helper superclass ensures JUL configuration remains compatible with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 
+### Error Message Standards
+When throwing exceptions for invalid schemas, provide descriptive error messages that help users understand:
+- What specific constraint was violated
+- The actual value or structure that caused the problem
+- The expected valid format or values
+
+**Good Error Messages:**
+```java
+// Include the actual invalid value
+throw new IllegalArgumentException("enum contains duplicate values: " + 
+    values.stream().collect(Collectors.joining(", ", "[", "]")));
+
+// Include the problematic schema portion
+throw new IllegalArgumentException("Type schema contains unknown key: " + key + 
+    " in schema: " + Json.toDisplayString(obj, 0));
+
+// Include both expected and actual values
+throw new IllegalArgumentException("unknown type: '" + typeStr + 
+    "', expected one of: boolean, string, timestamp, int8, uint8, int16, uint16, int32, uint32, float32, float64");
+```
+
+**Poor Error Messages (Avoid):**
+```java
+throw new IllegalArgumentException("enum contains duplicate values"); // No context
+throw new IllegalArgumentException("invalid schema"); // Too vague
+throw new IllegalArgumentException("bad value"); // No specifics
+```
+
+Use `Json.toDisplayString(value, depth)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
+
 ## JSON Compatibility Suite
 ```bash
 # Build and run compatibility report

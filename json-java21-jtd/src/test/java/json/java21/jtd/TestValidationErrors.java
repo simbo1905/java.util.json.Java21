@@ -148,7 +148,7 @@ public class TestValidationErrors extends JtdTestBase {
     Jtd.Result missingPropertyResult = validator.validate(objectSchema, Json.parse("{\"name\": \"John\"}"));
     assertThat(missingPropertyResult.isValid()).isFalse();
     assertThat(missingPropertyResult.errors()).hasSize(1);
-    assertThat(missingPropertyResult.errors().getFirst()).contains("missing required property: age");
+    assertThat(missingPropertyResult.errors().getFirst()).contains("missing required property: 'age'");
     
     // Test invalid property value
     Jtd.Result invalidPropertyResult = validator.validate(objectSchema, Json.parse("{\"name\": 123, \"age\": 25}"));
@@ -170,7 +170,7 @@ public class TestValidationErrors extends JtdTestBase {
     Jtd.Result additionalPropResult = validator.validate(objectSchema, Json.parse("{\"name\": \"John\", \"extra\": \"not-allowed\"}"));
     assertThat(additionalPropResult.isValid()).isFalse();
     assertThat(additionalPropResult.errors()).hasSize(1);
-    assertThat(additionalPropResult.errors().getFirst()).contains("additional property not allowed: extra");
+    assertThat(additionalPropResult.errors().getFirst()).contains("additional property not allowed: 'extra'");
     
     LOG.fine(() -> "Additional properties error messages test completed successfully");
   }
@@ -213,7 +213,7 @@ public class TestValidationErrors extends JtdTestBase {
     Jtd.Result result = validator.validate(unknownTypeSchema, Json.parse("\"anything\""));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).hasSize(1);
-    assertThat(result.errors().getFirst()).contains("unknown type: unknown-type");
+    assertThat(result.errors().getFirst()).contains("unknown type: 'unknown-type'");
     
     LOG.fine(() -> "Unknown type error message test completed successfully");
   }
