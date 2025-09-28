@@ -213,7 +213,7 @@ public class TestValidationErrors extends JtdTestBase {
     Jtd.Result result = validator.validate(unknownTypeSchema, Json.parse("\"anything\""));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).hasSize(1);
-    assertThat(result.errors().getFirst()).contains("unknown type: unknown-type");
+    assertThat(result.errors().getFirst()).contains("unknown type: 'unknown-type'");
     
     LOG.fine(() -> "Unknown type error message test completed successfully");
   }

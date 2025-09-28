@@ -24,6 +24,15 @@ JTD defines eight mutually-exclusive schema forms:
 7. **values** - Validates objects with homogeneous values (RFC 8927 §2.2.7)
 8. **discriminator** - Validates tagged unions (RFC 8927 §2.2.8)
 
+### Discriminator Schema Constraints (RFC 8927 §2.2.8)
+Discriminator schemas enforce compile-time constraints to ensure predictable validation:
+- **Mapping values must be PropertiesSchema**: Cannot use primitive types, enums, or other forms
+- **No nullable mappings**: Mapped schemas cannot have `nullable: true`
+- **Discriminator key exemption**: The discriminator field is ignored during payload validation
+- **No discriminator redefinition**: Mapped schemas cannot define the discriminator key in properties/optionalProperties
+
+These constraints are enforced at compile-time, preventing invalid schemas from reaching validation.
+
 ## Architecture Flow
 
 ```mermaid
@@ -118,25 +127,34 @@ enum PrimitiveType {
 
 ## Validation Architecture
 
+The JTD validator uses a single stack-based validation engine that enforces RFC 8927 compliance through immutable schema records. All validation flows through one path to prevent behavioral divergence.
+
+### Single Path Validation Principle
+- **No per-schema validate() methods**: Schema records are immutable data only
+- **Stack-based only**: All validation uses `pushChildFrames()` and explicit stack traversal
+- **Compile-time enforcement**: Invalid schemas are rejected during compilation, not validation
+
 ```mermaid
 sequenceDiagram
     participant User
-    participant JTDSchema
+    participant JTD
     participant ValidationStack
     participant ErrorCollector
     
-    User->>JTDSchema: validate(json)
-    JTDSchema->>ValidationStack: push(rootSchema, "#")
+    User->>JTD: validate(schemaJson, instanceJson)
+    JTD->>JTD: compileSchema(schemaJson)
+    Note over JTD: Compile-time checks enforce RFC constraints
+    JTD->>ValidationStack: push(rootSchema, "#")
     loop While stack not empty
-        ValidationStack->>JTDSchema: pop()
-        JTDSchema->>JTDSchema: validateCurrent()
+        ValidationStack->>JTD: pop()
+        JTD->>JTD: validateCurrent()
         alt Validation fails
-            JTDSchema->>ErrorCollector: addError(path, message)
+            JTD->>ErrorCollector: addError(path, message)
         else Has children
-            JTDSchema->>ValidationStack: push(children)
+            JTD->>ValidationStack: push(children)
         end
     end
-    JTDSchema->>User: ValidationResult
+    JTD->>User: ValidationResult
 ```
 
 ## Error Reporting (RFC 8927 Section 3.2)
@@ -273,6 +291,18 @@ Run the official JTD Test Suite:
 ```bash
 # Run all JTD spec compliance tests
 $(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
+```
+
+`JtdSpecIT` exercises only the published `validation.json` cases so coverage maps exactly to behaviour that downstream users rely on. Compilation enforcement is handled through dedicated suites:
+
+- `CompilerSpecIT` replays `invalid_schemas.json` and asserts that compilation fails with deterministic exception messages for every illegal schema.
+- `CompilerTest` holds incremental unit tests for compiler internals (for example, discriminator guard scenarios) while still extending the JUL logging helper to emit INFO banners per method.
+
+Run the compiler-focused suites when evolving compile-time logic:
+
+```bash
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=CompilerSpecIT
+$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=CompilerTest
 ```
 
 ## Performance Considerations

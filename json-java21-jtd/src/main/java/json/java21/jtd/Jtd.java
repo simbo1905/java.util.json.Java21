@@ -5,8 +5,10 @@ import jdk.sandbox.internal.util.json.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Logger;
 
 /// JTD Validator - validates JSON instances against JTD schemas (RFC 8927)
@@ -39,6 +41,15 @@ public class Jtd {
     return "[off=" + off + " ptr=" + ptr + " via=" + via + "] " + baseMessage;
   }
   
+  /// Compiles a JTD schema and throws exceptions for invalid schemas
+  /// @param schema The JTD schema as a JsonValue
+  /// @return Compiled JtdSchema
+  /// @throws IllegalArgumentException if the schema is invalid
+  public JtdSchema compile(JsonValue schema) {
+    definitions.clear();
+    return compileSchema(schema);
+  }
+
   /// Validates a JSON instance against a JTD schema
   /// @param schema The JTD schema as a JsonValue
   /// @param instance The JSON instance to validate
@@ -261,36 +272,64 @@ public class Jtd {
   
   /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
   JtdSchema compileSchema(JsonValue schema) {
+    return compileSchema(schema, true); // Root schema by default
+  }
+  
+  /// Compiles a JsonValue into a JtdSchema based on RFC 8927 rules
+  /// @param schema The JSON schema to compile
+  /// @param isRoot Whether this is a root-level schema (can contain definitions)
+  /// @return Compiled JtdSchema
+  JtdSchema compileSchema(JsonValue schema, boolean isRoot) {
     if (!(schema instanceof JsonObject obj)) {
       throw new IllegalArgumentException("Schema must be an object");
     }
 
-    // First pass: register definition keys as placeholders
-    if (obj.members().containsKey("definitions")) {
-      JsonObject defsObj = (JsonObject) obj.members().get("definitions");
+    // RFC 8927: Only root schemas can contain definitions
+    if (!isRoot && obj.members().containsKey("definitions")) {
+      throw new IllegalArgumentException("Nested schemas cannot contain definitions, found: " + 
+          Json.toDisplayString(obj, 0));
+    }
+
+    // First pass: register definition keys as placeholders (only for root schemas)
+    if (isRoot && obj.members().containsKey("definitions")) {
+      JsonValue definitionsValue = obj.members().get("definitions");
+      if (!(definitionsValue instanceof JsonObject defsObj)) {
+        throw new IllegalArgumentException("definitions must be an object");
+      }
       for (String key : defsObj.members().keySet()) {
         definitions.putIfAbsent(key, null);
       }
     }
 
-    // Second pass: compile each definition if not already compiled
-    if (obj.members().containsKey("definitions")) {
-      JsonObject defsObj = (JsonObject) obj.members().get("definitions");
+    // Second pass: compile each definition if not already compiled (only for root schemas)
+    if (isRoot && obj.members().containsKey("definitions")) {
+      JsonValue definitionsValue = obj.members().get("definitions");
+      if (!(definitionsValue instanceof JsonObject defsObj)) {
+        throw new IllegalArgumentException("definitions must be an object");
+      }
       for (String key : defsObj.members().keySet()) {
         if (definitions.get(key) == null) {
           JsonValue rawDef = defsObj.members().get(key);
           // Compile definitions normally (RFC 8927 strict)
-          JtdSchema compiled = compileSchema(rawDef);
+          JtdSchema compiled = compileSchema(rawDef, false); // Definitions are not root schemas
           definitions.put(key, compiled);
         }
       }
     }
 
-    return compileObjectSchema(obj);
+    return compileObjectSchema(obj, isRoot);
   }
   
   /// Compiles an object schema according to RFC 8927 with strict semantics
   JtdSchema compileObjectSchema(JsonObject obj) {
+    return compileObjectSchema(obj, true); // Default to root schema
+  }
+  
+  /// Compiles an object schema according to RFC 8927 with strict semantics
+  /// @param obj The JSON object to compile
+  /// @param isRoot Whether this is a root-level schema (can contain definitions)
+  /// @return Compiled JtdSchema
+  JtdSchema compileObjectSchema(JsonObject obj, boolean isRoot) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
     Map<String, JsonValue> members = obj.members();
@@ -309,9 +348,49 @@ public class Jtd {
       forms.add("properties"); // Treat as single form
     }
     
+    // RFC 8927: Check for form-specific properties that shouldn't be mixed
+    if (forms.size() == 1) {
+      String form = forms.get(0);
+      switch (form) {
+        case "elements", "values", "enum", "ref", "type" -> {
+          // These forms should not have properties-specific attributes
+          if (members.containsKey("additionalProperties")) {
+            throw new IllegalArgumentException(form + " schema cannot contain additionalProperties");
+          }
+          if (members.containsKey("properties")) {
+            throw new IllegalArgumentException(form + " schema cannot contain properties");
+          }
+          if (members.containsKey("optionalProperties")) {
+            throw new IllegalArgumentException(form + " schema cannot contain optionalProperties");
+          }
+        }
+        case "discriminator" -> {
+          // Discriminator should not have properties-specific attributes (except in mapping values)
+          if (members.containsKey("additionalProperties")) {
+            throw new IllegalArgumentException("discriminator schema cannot contain additionalProperties");
+          }
+          if (members.containsKey("properties")) {
+            throw new IllegalArgumentException("discriminator schema cannot contain properties");
+          }
+          if (members.containsKey("optionalProperties")) {
+            throw new IllegalArgumentException("discriminator schema cannot contain optionalProperties");
+          }
+        }
+      }
+    }
+    
     // RFC 8927: schemas must have exactly one of these forms
     if (forms.size() > 1) {
       throw new IllegalArgumentException("Schema has multiple forms: " + forms);
+    }
+    
+    // RFC 8927: discriminator schemas must have both discriminator and mapping
+    if (members.containsKey("discriminator") && !members.containsKey("mapping")) {
+      throw new IllegalArgumentException("discriminator schema must also contain mapping");
+    }
+    if (members.containsKey("mapping") && !members.containsKey("discriminator")) {
+      throw new IllegalArgumentException("mapping can only appear with discriminator in schema: " + 
+          Json.toDisplayString(obj, 0));
     }
     
     // Parse the specific schema form
@@ -324,6 +403,19 @@ public class Jtd {
       return new JtdSchema.EmptySchema();
     } else if (forms.isEmpty()) {
       // Check if this is effectively an empty schema (ignoring metadata keys)
+      // But first validate nullable if present
+      if (members.containsKey("nullable")) {
+        JsonValue nullableValue = members.get("nullable");
+        if (!(nullableValue instanceof JsonBoolean bool)) {
+          throw new IllegalArgumentException("nullable must be a boolean, found: " + 
+              nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
+        }
+        // If nullable is valid, this becomes a nullable empty schema
+        if (bool.value()) {
+          return new JtdSchema.NullableSchema(new JtdSchema.EmptySchema());
+        }
+      }
+      
       boolean hasNonMetadataKeys = members.keySet().stream()
           .anyMatch(key -> !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions"));
       
@@ -346,11 +438,11 @@ public class Jtd {
         case "ref" -> compileRefSchema(obj);
         case "type" -> compileTypeSchema(obj);
         case "enum" -> compileEnumSchema(obj);
-        case "elements" -> compileElementsSchema(obj);
-        case "properties" -> compilePropertiesSchema(obj);
-        case "optionalProperties" -> compilePropertiesSchema(obj); // handled together
-        case "values" -> compileValuesSchema(obj);
-        case "discriminator" -> compileDiscriminatorSchema(obj);
+        case "elements" -> compileElementsSchema(obj, isRoot);
+        case "properties" -> compilePropertiesSchema(obj, isRoot);
+        case "optionalProperties" -> compilePropertiesSchema(obj, isRoot); // handled together
+        case "values" -> compileValuesSchema(obj, isRoot);
+        case "discriminator" -> compileDiscriminatorSchema(obj, isRoot);
         default -> throw new IllegalArgumentException("Unknown schema form: " + form);
       };
     }
@@ -359,7 +451,8 @@ public class Jtd {
     if (members.containsKey("nullable")) {
       JsonValue nullableValue = members.get("nullable");
       if (!(nullableValue instanceof JsonBoolean bool)) {
-        throw new IllegalArgumentException("nullable must be a boolean");
+        throw new IllegalArgumentException("nullable must be a boolean, found: " + 
+            nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
       }
       if (bool.value()) {
         return new JtdSchema.NullableSchema(schema);
@@ -374,16 +467,48 @@ public class Jtd {
     if (!(refValue instanceof JsonString str)) {
       throw new IllegalArgumentException("ref must be a string");
     }
-    return new JtdSchema.RefSchema(str.value(), definitions);
+    String ref = str.value();
+    
+    // RFC 8927: Validate that ref points to an existing definition at compile time
+    if (!definitions.containsKey(ref)) {
+      throw new IllegalArgumentException("ref '" + ref + "' points to non-existent definition in schema: " + 
+          Json.toDisplayString(obj, 0));
+    }
+    
+    return new JtdSchema.RefSchema(ref, definitions);
   }
   
   JtdSchema compileTypeSchema(JsonObject obj) {
     Map<String, JsonValue> members = obj.members();
+    
+    // Validate that only expected keys are present
+    for (String key : members.keySet()) {
+      if (!key.equals("type") && !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions")) {
+        throw new IllegalArgumentException("Type schema contains unknown key: '" + key + 
+            "' in schema: " + Json.toDisplayString(obj, 0));
+      }
+    }
+    
     JsonValue typeValue = members.get("type");
     if (!(typeValue instanceof JsonString str)) {
       throw new IllegalArgumentException("type must be a string");
     }
-    return new JtdSchema.TypeSchema(str.value());
+    
+    String typeStr = str.value();
+    
+    // RFC 8927 §2.2.3: Validate that type is one of the supported primitive types
+    Set<String> validTypes = Set.of(
+      "boolean", "string", "timestamp",
+      "int8", "uint8", "int16", "uint16", "int32", "uint32",
+      "float32", "float64"
+    );
+    
+    if (!validTypes.contains(typeStr)) {
+      throw new IllegalArgumentException("unknown type: '" + typeStr + 
+          "', expected one of: boolean, string, timestamp, int8, uint8, int16, uint16, int32, uint32, float32, float64");
+    }
+    
+    return new JtdSchema.TypeSchema(typeStr);
   }
   
   JtdSchema compileEnumSchema(JsonObject obj) {
@@ -405,17 +530,32 @@ public class Jtd {
       throw new IllegalArgumentException("enum cannot be empty");
     }
     
+    // RFC 8927: Check for duplicates
+    Set<String> uniqueValues = new java.util.HashSet<>(values);
+    if (uniqueValues.size() != values.size()) {
+      throw new IllegalArgumentException("enum contains duplicate values: " + 
+          values.stream().collect(java.util.stream.Collectors.joining(", ", "[", "]")));
+    }
+    
     return new JtdSchema.EnumSchema(values);
   }
   
   JtdSchema compileElementsSchema(JsonObject obj) {
+    return compileElementsSchema(obj, true); // Default to root
+  }
+  
+  JtdSchema compileElementsSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue elementsValue = members.get("elements");
-    JtdSchema elementsSchema = compileSchema(elementsValue);
+    JtdSchema elementsSchema = compileSchema(elementsValue, false); // Elements are nested schemas
     return new JtdSchema.ElementsSchema(elementsSchema);
   }
   
   JtdSchema compilePropertiesSchema(JsonObject obj) {
+    return compilePropertiesSchema(obj, true); // Default to root
+  }
+  
+  JtdSchema compilePropertiesSchema(JsonObject obj, boolean isRoot) {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
     
@@ -427,7 +567,7 @@ public class Jtd {
       if (!(propsValue instanceof JsonObject propsObj)) {
         throw new IllegalArgumentException("properties must be an object");
       }
-      properties = parsePropertySchemas(propsObj);
+      properties = parsePropertySchemas(propsObj, false); // Property schemas are nested
     }
     
     // Parse optional properties
@@ -436,7 +576,16 @@ public class Jtd {
       if (!(optPropsValue instanceof JsonObject optPropsObj)) {
         throw new IllegalArgumentException("optionalProperties must be an object");
       }
-      optionalProperties = parsePropertySchemas(optPropsObj);
+      optionalProperties = parsePropertySchemas(optPropsObj, false); // Property schemas are nested
+    }
+    
+    // RFC 8927: Check for key overlap between properties and optionalProperties
+    for (String key : properties.keySet()) {
+      if (optionalProperties.containsKey(key)) {
+        throw new IllegalArgumentException("Key '" + key + 
+            "' cannot be defined in both properties and optionalProperties in schema: " + 
+            Json.toDisplayString(obj, 0));
+      }
     }
     
     // RFC 8927: additionalProperties defaults to false when properties or optionalProperties are defined
@@ -453,18 +602,27 @@ public class Jtd {
   }
   
   JtdSchema compileValuesSchema(JsonObject obj) {
+    return compileValuesSchema(obj, true); // Default to root
+  }
+  
+  JtdSchema compileValuesSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue valuesValue = members.get("values");
-    JtdSchema valuesSchema = compileSchema(valuesValue);
+    JtdSchema valuesSchema = compileSchema(valuesValue, false); // Values are nested schemas
     return new JtdSchema.ValuesSchema(valuesSchema);
   }
   
   JtdSchema compileDiscriminatorSchema(JsonObject obj) {
+    return compileDiscriminatorSchema(obj, true); // Default to root
+  }
+  
+  JtdSchema compileDiscriminatorSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue discriminatorValue = members.get("discriminator");
     if (!(discriminatorValue instanceof JsonString discStr)) {
       throw new IllegalArgumentException("discriminator must be a string");
     }
+    String discriminatorKey = discStr.value();
     
     JsonValue mappingValue = members.get("mapping");
     if (!(mappingValue instanceof JsonObject mappingObj)) {
@@ -474,21 +632,86 @@ public class Jtd {
     Map<String, JtdSchema> mapping = new java.util.HashMap<>();
     for (String key : mappingObj.members().keySet()) {
       JsonValue variantValue = mappingObj.members().get(key);
-      JtdSchema variantSchema = compileSchema(variantValue);
+      
+      // Early validation: mapping values must be objects (for PropertiesSchema)
+      if (!(variantValue instanceof JsonObject)) {
+        throw new IllegalArgumentException("Discriminator mapping '" + key + "' must be an object (properties schema)");
+      }
+      
+      JsonObject variantObj = (JsonObject) variantValue;
+      
+      // Check for nullable flag before compiling
+      if (variantObj.members().containsKey("nullable") && 
+          variantObj.members().get("nullable") instanceof JsonBoolean bool &&
+          bool.value()) {
+        throw new IllegalArgumentException("Discriminator mapping '" + key + "' cannot be nullable");
+      }
+      
+      JtdSchema variantSchema = compileSchema(variantValue, false); // Mapping values are nested schemas
+      
+      // RFC 8927 §2.2.8: Validate discriminator mapping constraints
+      validateDiscriminatorMapping(key, variantSchema, discriminatorKey);
+      
       mapping.put(key, variantSchema);
     }
     
-    return new JtdSchema.DiscriminatorSchema(discStr.value(), mapping);
+    return new JtdSchema.DiscriminatorSchema(discriminatorKey, mapping);
+  }
+  
+  /// Validates discriminator mapping constraints per RFC 8927 §2.2.8
+  void validateDiscriminatorMapping(String mappingKey, JtdSchema variantSchema, String discriminatorKey) {
+    // Check if this is a nullable schema and unwrap it
+    JtdSchema unwrappedSchema = variantSchema;
+    boolean isNullable = false;
+    
+    if (variantSchema instanceof JtdSchema.NullableSchema nullableSchema) {
+      isNullable = true;
+      unwrappedSchema = nullableSchema.wrapped();
+    }
+    
+    // RFC 8927 §2.2.8: Mapping values must be PropertiesSchema
+    if (!(unwrappedSchema instanceof JtdSchema.PropertiesSchema)) {
+      String schemaType = isNullable ? "nullable " + unwrappedSchema.getClass().getSimpleName() : 
+                          unwrappedSchema.getClass().getSimpleName();
+      throw new IllegalArgumentException(
+        "Discriminator mapping '" + mappingKey + "' must be a properties schema, found: " + schemaType);
+    }
+    
+    JtdSchema.PropertiesSchema propsSchema = (JtdSchema.PropertiesSchema) unwrappedSchema;
+    
+    // RFC 8927 §2.2.8: Mapped schemas cannot have nullable: true
+    if (isNullable) {
+      throw new IllegalArgumentException(
+        "Discriminator mapping '" + mappingKey + "' cannot be nullable");
+    }
+    
+    // RFC 8927 §2.2.8: Mapped schemas cannot define the discriminator key in properties or optionalProperties
+    if (propsSchema.properties().containsKey(discriminatorKey)) {
+      throw new IllegalArgumentException(
+        "Discriminator mapping '" + mappingKey + "' cannot define discriminator key '" + discriminatorKey + 
+        "' in properties");
+    }
+    
+    if (propsSchema.optionalProperties().containsKey(discriminatorKey)) {
+      throw new IllegalArgumentException(
+        "Discriminator mapping '" + mappingKey + "' cannot define discriminator key '" + discriminatorKey + 
+        "' in optionalProperties");
+    }
   }
   
   // Removed: RFC 8927 strict mode - no context-aware ref resolution needed
   
   /// Extracts and stores top-level definitions for ref resolution
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
+    return parsePropertySchemas(propsObj, true); // Default to root
+  }
+  
+  /// Extracts and stores top-level definitions for ref resolution
+  private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj, boolean isRoot) {
     Map<String, JtdSchema> schemas = new java.util.HashMap<>();
     for (String key : propsObj.members().keySet()) {
       JsonValue schemaValue = propsObj.members().get(key);
-      schemas.put(key, compileSchema(schemaValue));
+      schemas.put(key, compileSchema(schemaValue, isRoot));
     }
     return schemas;
   }

@@ -28,9 +28,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 ///    - `instance`: A JSON value to validate against the schema  
 ///    - `errors`: Expected validation errors (empty array for valid instances)
 ///
-/// 2. **invalid_schemas.json** - Contains schemas that should be rejected as invalid JTD schemas.
-///    Each entry is a schema that violates JTD rules and should cause compilation to fail.
-///
 /// Test Format Examples:
 /// ```json
 /// // validation.json - Valid case
@@ -51,13 +48,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 ///   }
 /// }
 ///
-/// // invalid_schemas.json - Schema compilation should fail
-/// {
-///   "null schema": null,
-///   "boolean schema": true,
-///   "illegal keyword": {"foo": 123}
-/// }
-/// ```
 ///
 /// The test suite is extracted from the embedded ZIP file and run as dynamic tests.
 /// All tests must pass for RFC 8927 compliance.
