@@ -182,6 +182,28 @@ IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **
 - Uses stack-based validation with comprehensive error reporting.
 - Includes full RFC 8927 compliance test suite.
 
+#### Debugging Exhaustive Property Tests
+
+The `JtdExhaustiveTest` uses jqwik property-based testing to generate comprehensive schema/document permutations. When debugging failures:
+
+1. **Enable FINEST logging** to capture exact schema and document inputs:
+   ```bash
+   $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-jtd test -Dtest=JtdExhaustiveTest -Djava.util.logging.ConsoleHandler.level=FINEST > test_debug.log 2>&1
+   ```
+
+2. **Search for failing cases** in the log file:
+   ```bash
+   rg "UNEXPECTED: Failing document passed validation" test_debug.log
+   ```
+
+3. **Extract the exact schema and document** from the log output and add them as specific test cases to `TestRfc8927.java` for targeted debugging.
+
+The property test logs at FINEST level:
+- Schema JSON under test
+- Generated documents (both compliant and failing cases)  
+- Validation results with detailed error messages
+- Unexpected pass/fail results with full context
+
 ## Security Notes
 - Deep nesting can trigger StackOverflowError (stack exhaustion attacks).
 - Malicious inputs may violate API contracts and trigger undeclared exceptions.
@@ -224,11 +246,19 @@ IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **
 
 ### Pull Requests
 - Describe what was done, not the rationale or implementation details.
-- Reference the issues they close using GitHub’s closing keywords.
+- Reference the issues they close using GitHub's closing keywords.
 - Do not repeat information already captured in the issue.
 - Do not report success; CI results provide that signal.
 - Include any additional tests (or flags) needed by CI in the description.
 - Mark the PR as `Draft` whenever checks fail.
+
+### Creating Pull Requests with GitHub CLI
+- Use simple titles without special characters or emojis
+- Write PR body to a file first to avoid shell escaping issues
+- Use `--body-file` flag instead of `--body` for complex content
+- Example: `gh pr create --title "Fix validation bug" --body-file /tmp/pr_body.md`
+- Watch CI checks with `gh pr checks --watch` until all pass
+- Do not merge until all checks are green
 
 ## Release Process (Semi-Manual, Deferred Automation)
 - Releases remain semi-manual until upstream activity warrants completing the draft GitHub Action. Run each line below individually.
