@@ -24,6 +24,7 @@ class JtdExhaustiveTest extends JtdTestBase {
     );
     private static final List<String> DISCRIMINATOR_VALUES = List.of("type1", "type2", "type3");
     private static final List<String> ENUM_VALUES = List.of("red", "green", "blue", "yellow");
+    private static final Random RANDOM = new Random();
 
     @Provide
     Arbitrary<JtdTestSchema> jtdSchemas() {
@@ -162,17 +163,16 @@ class JtdExhaustiveTest extends JtdTestBase {
 
     private static JsonValue generateAnyJsonValue() {
         // Generate a random JSON value of any type for RFC 8927 empty schema
-        var random = new java.util.Random();
-        return switch (random.nextInt(7)) {
+        return switch (RANDOM.nextInt(7)) {
             case 0 -> JsonNull.of();
-            case 1 -> JsonBoolean.of(random.nextBoolean());
-            case 2 -> JsonNumber.of(random.nextInt(100));
-            case 3 -> JsonNumber.of(random.nextDouble());
-            case 4 -> JsonString.of("random-string-" + random.nextInt(1000));
+            case 1 -> JsonBoolean.of(RANDOM.nextBoolean());
+            case 2 -> JsonNumber.of(RANDOM.nextInt(100));
+            case 3 -> JsonNumber.of(RANDOM.nextDouble());
+            case 4 -> JsonString.of("random-string-" + RANDOM.nextInt(1000));
             case 5 -> JsonArray.of(List.of(generateAnyJsonValue(), generateAnyJsonValue()));
             case 6 -> JsonObject.of(Map.of(
-                "key" + random.nextInt(10), generateAnyJsonValue(),
-                "prop" + random.nextInt(10), generateAnyJsonValue()
+                "key" + RANDOM.nextInt(10), generateAnyJsonValue(),
+                "prop" + RANDOM.nextInt(10), generateAnyJsonValue()
             ));
             default -> JsonString.of("fallback");
         };
