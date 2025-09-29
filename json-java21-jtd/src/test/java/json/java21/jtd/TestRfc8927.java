@@ -1064,13 +1064,13 @@ public class TestRfc8927 extends JtdTestBase {
     JsonValue schema = Json.parse("{\"type\": \"int8\"}");
     
     // Create a JsonNumber that definitely returns Double
-    JsonValue doubleValue = JsonNumber.of(1000.0);
+    JsonNumber doubleValue = JsonNumber.of(1000.0);
     
     Jtd validator = new Jtd();
     Jtd.Result result = validator.validate(schema, doubleValue);
     
     LOG.fine(() -> "Explicit Double validation - value: " + doubleValue + 
-             ", toNumber() type: " + ((JsonNumber)doubleValue).toNumber().getClass().getSimpleName());
+             ", toNumber() type: " + doubleValue.toNumber().getClass().getSimpleName());
     
     // This should fail (1000 is way outside int8 range of -128 to 127)
     assertThat(result.isValid())

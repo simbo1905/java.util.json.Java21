@@ -55,7 +55,6 @@ public class JtdSpecIT extends JtdTestBase {
 
   private static final ObjectMapper MAPPER = new ObjectMapper();
   private static final Path VALIDATION_TEST_FILE = Paths.get("target/test-data/json-typedef-spec-2025-09-27/tests/validation.json");
-  private static final Path INVALID_SCHEMAS_FILE = Paths.get("target/test-data/json-typedef-spec-2025-09-27/tests/invalid_schemas.json");
 
   /// Metrics tracking for test results
   private static int totalTests = 0;
@@ -83,7 +82,7 @@ public class JtdSpecIT extends JtdTestBase {
 
   private Stream<DynamicTest> runValidationTests() throws Exception {
     LOG.info(() -> "Running validation tests from: " + VALIDATION_TEST_FILE);
-    JsonNode validationSuite = loadTestFile(VALIDATION_TEST_FILE);
+    JsonNode validationSuite = loadTestFile();
     
     return StreamSupport.stream(((Iterable<Map.Entry<String, JsonNode>>) validationSuite::fields).spliterator(), false)
         .map(entry -> {
@@ -131,13 +130,13 @@ public class JtdSpecIT extends JtdTestBase {
     }
   }
 
-  private JsonNode loadTestFile(Path testFile) throws IOException {
-    if (!Files.exists(testFile)) {
-      throw new RuntimeException("JTD test file not found: " + testFile);
+  private JsonNode loadTestFile() throws IOException {
+    if (!Files.exists(JtdSpecIT.VALIDATION_TEST_FILE)) {
+      throw new RuntimeException("JTD test file not found: " + JtdSpecIT.VALIDATION_TEST_FILE);
     }
     
-    LOG.fine(() -> "Loading JTD test file from: " + testFile);
-    return MAPPER.readTree(Files.newInputStream(testFile));
+    LOG.fine(() -> "Loading JTD test file from: " + JtdSpecIT.VALIDATION_TEST_FILE);
+    return MAPPER.readTree(Files.newInputStream(JtdSpecIT.VALIDATION_TEST_FILE));
   }
 
   private DynamicTest createValidationTest(String testName, JsonNode testCase) {
