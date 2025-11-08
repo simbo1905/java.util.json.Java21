@@ -66,12 +66,13 @@ public class UUIDGenerator {
     /// └──────────────────────────────────────────────────────────────────────────────┘
     public static UUID uniqueThenTime(long uniqueMsb) {
         final int timeBits = 44;
-        final long timeMask = (1L << timeBits) - 1;
         final int randomBits = 20;
         final int randomMask = (1 << randomBits) - 1;
         long timeCounter = timeCounterBits();
         long msb = uniqueMsb;
-        long lsb = ((timeCounter & timeMask) << randomBits) | (getRandom().nextInt() & randomMask);
+        // Take the most significant 44 bits of timeCounter to preserve time ordering
+        long timeComponent = timeCounter >> (64 - timeBits); // timeBits is 44
+        long lsb = (timeComponent << randomBits) | (getRandom().nextInt() & randomMask);
         return new UUID(msb, lsb);
     }
 
