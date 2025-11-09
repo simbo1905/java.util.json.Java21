@@ -24,8 +24,8 @@ import java.util.UUID;
 /// - uniqueThenTime: User-ID-then-time-ordered 128-bit identifier
 /// 
 /// Formatting:
-/// - formatAsUUID: RFC 4122 format with dashes, 36 characters, uppercase or lowercase
 /// - formatAsDenseKey: Base62 encoded, 22 characters, zero-padded fixed-width
+/// - Use UUID.toString() for standard RFC 4122 format (lowercase, 36 characters with dashes)
 /// 
 /// Note: 22-character keys are larger than Firebase push IDs (20 characters)
 /// but provide full 128-bit time-ordered randomized identifiers.
@@ -139,33 +139,6 @@ public class UUIDGenerator {
 
     // Formatting - Public API
 
-    /// Standard RFC 4122 UUID layout with dashes.
-    /// Returns fixed-length 36 character string: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
-    public static String formatAsUUID(UUID uuid, boolean uppercase) {
-        ByteBuffer buffer = ByteBuffer.allocate(16);
-        buffer.putLong(uuid.getMostSignificantBits());
-        buffer.putLong(uuid.getLeastSignificantBits());
-        
-        StringBuilder hex = new StringBuilder();
-        for (byte b : buffer.array()) {
-            hex.append(String.format("%02x", b));
-        }
-        
-        String hexStr = hex.toString();
-        String formatted = String.format("%s-%s-%s-%s-%s",
-            hexStr.substring(0, 8),
-            hexStr.substring(8, 12),
-            hexStr.substring(12, 16),
-            hexStr.substring(16, 20),
-            hexStr.substring(20));
-        
-        return uppercase ? formatted.toUpperCase() : formatted.toLowerCase();
-    }
-
-    public static String formatAsUUID(UUID uuid) {
-        return formatAsUUID(uuid, false);
-    }
-
     /// Alphanumeric base62 encoding.
     /// Returns fixed-length 22 character string for lexicographic sorting.
     public static String formatAsDenseKey(UUID uuid) {
@@ -197,16 +170,16 @@ public class UUIDGenerator {
     public static void main(String[] args) {
         // Test UUIDv7 with current time
         UUID uuid1 = UUIDGenerator.timeThenRandom();
-        System.out.println("UUIDv7: " + UUIDGenerator.formatAsUUID(uuid1));
+        System.out.println("UUIDv7: " + uuid1);
         System.out.println("Dense: " + UUIDGenerator.formatAsDenseKey(uuid1));
         
         // Test UUIDv7 with specific timestamp
         UUID uuid2 = UUIDGenerator.ofEpochMillis(System.currentTimeMillis());
-        System.out.println("UUIDv7 (explicit): " + UUIDGenerator.formatAsUUID(uuid2));
+        System.out.println("UUIDv7 (explicit): " + uuid2);
         
         // Test uniqueThenTime
         UUID uuid3 = UUIDGenerator.uniqueThenTime(0x123456789ABCDEF0L);
-        System.out.println("Unique UUID: " + UUIDGenerator.formatAsUUID(uuid3, true));
+        System.out.println("Unique UUID: " + uuid3);
         System.out.println("Unique Dense: " + UUIDGenerator.formatAsDenseKey(uuid3));
     }
 }

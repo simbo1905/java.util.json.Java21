@@ -80,38 +80,6 @@ class UUIDGeneratorTest {
     }
 
     @Test
-    void testFormatAsUUIDLowercase() {
-        UUID uuid = new UUID(0x123456789ABCDEF0L, 0xFEDCBA9876543210L);
-        String formatted = UUIDGenerator.formatAsUUID(uuid);
-        
-        assertEquals(36, formatted.length());
-        assertTrue(formatted.matches("[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"),
-            "Should match UUID format: " + formatted);
-        assertEquals("12345678-9abc-def0-fedc-ba9876543210", formatted);
-    }
-
-    @Test
-    void testFormatAsUUIDUppercase() {
-        UUID uuid = new UUID(0x123456789ABCDEF0L, 0xFEDCBA9876543210L);
-        String formatted = UUIDGenerator.formatAsUUID(uuid, true);
-        
-        assertEquals(36, formatted.length());
-        assertTrue(formatted.matches("[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}"),
-            "Should match uppercase UUID format: " + formatted);
-        assertEquals("12345678-9ABC-DEF0-FEDC-BA9876543210", formatted);
-    }
-
-    @Test
-    void testFormatAsUUIDDefaultIsLowercase() {
-        UUID uuid = new UUID(0x123456789ABCDEF0L, 0xFEDCBA9876543210L);
-        String formatted = UUIDGenerator.formatAsUUID(uuid);
-        String formattedExplicit = UUIDGenerator.formatAsUUID(uuid, false);
-        
-        assertEquals(formatted, formattedExplicit);
-        assertEquals(formatted, formatted.toLowerCase());
-    }
-
-    @Test
     void testFormatAsDenseKeyLength() {
         UUID uuid = UUIDGenerator.timeThenRandom();
         String denseKey = UUIDGenerator.formatAsDenseKey(uuid);
