@@ -11,16 +11,21 @@ import java.util.UUID;
 
 /// UUID Generator providing time-ordered globally unique IDs.
 /// 
+/// This is a backport of UUIDv7 from Java 26 (JDK-8334015: https://bugs.openjdk.org/browse/JDK-8334015)
+/// 
+/// UUIDv7's time-based sortability makes it an attractive option for globally unique identifiers,
+/// especially in database applications. (https://www.rfc-editor.org/rfc/rfc9562#name-uuid-version-7)
+/// 
+/// As DBMS vendors add support for UUIDv7 (https://commitfest.postgresql.org/47/4388/) Java users
+/// will not easily take advantage of its benefits until it is included in the Java core libraries.
+/// 
 /// Generation:
-/// - timeThenRandom: Time-ordered globally unique 128-bit identifier
+/// - ofEpochMillis: Creates a UUIDv7 from Unix Epoch timestamp (backport from Java 26)
 /// - uniqueThenTime: User-ID-then-time-ordered 128-bit identifier
 /// 
 /// Formatting:
 /// - formatAsUUID: RFC 4122 format with dashes, 36 characters, uppercase or lowercase
 /// - formatAsDenseKey: Base62 encoded, 22 characters, zero-padded fixed-width
-/// 
-/// Note: Intended usage is one instance per JVM process. Multiple instances
-/// in the same process do not guarantee uniqueness due to shared sequence counter.
 /// 
 /// Note: 22-character keys are larger than Firebase push IDs (20 characters)
 /// but provide full 128-bit time-ordered randomized identifiers.
@@ -52,13 +57,69 @@ public class UUIDGenerator {
 
     // Generation - Public API
 
-    /// ┌──────────────────────────────────────────────────────────────────────────────┐
-    /// │  time+counter  (64 bits)  │  random  (64 bits)                              │
-    /// └──────────────────────────────────────────────────────────────────────────────┘
-    public static UUID timeThenRandom() {
-        long msb = timeCounterBits();
-        long lsb = getRandom().nextLong();
+    /// Creates a type 7 UUID (UUIDv7) {@code UUID} from the given Unix Epoch timestamp.
+    ///
+    /// The returned {@code UUID} will have the given {@code timestamp} in
+    /// the first 6 bytes, followed by the version and variant bits representing {@code UUIDv7},
+    /// and the remaining bytes will contain random data from a cryptographically strong
+    /// pseudo-random number generator.
+    ///
+    /// @apiNote {@code UUIDv7} values are created by allocating a Unix timestamp in milliseconds
+    /// in the most significant 48 bits, allocating the required version (4 bits) and variant (2-bits)
+    /// and filling the remaining 74 bits with random bits. As such, this method rejects {@code timestamp}
+    /// values that do not fit into 48 bits.
+    /// <p>
+    /// Monotonicity (each subsequent value being greater than the last) is a primary characteristic
+    /// of {@code UUIDv7} values. This is due to the {@code timestamp} value being part of the {@code UUID}.
+    /// Callers of this method that wish to generate monotonic {@code UUIDv7} values are expected to
+    /// ensure that the given {@code timestamp} value is monotonic.
+    ///
+    /// @param timestamp the number of milliseconds since midnight 1 Jan 1970 UTC,
+    ///                 leap seconds excluded.
+    ///
+    /// @return a {@code UUID} constructed using the given {@code timestamp}
+    ///
+    /// @throws IllegalArgumentException if the timestamp is negative or greater than {@code (1L << 48) - 1}
+    ///
+    /// @since Backport from Java 26 (JDK-8334015)
+    public static UUID ofEpochMillis(long timestamp) {
+        if ((timestamp >> 48) != 0) {
+            throw new IllegalArgumentException("Supplied timestamp: " + timestamp + " does not fit within 48 bits");
+        }
+
+        SecureRandom ng = getRandom();
+        byte[] randomBytes = new byte[16];
+        ng.nextBytes(randomBytes);
+
+        // Embed the timestamp into the first 6 bytes
+        randomBytes[0] = (byte)(timestamp >> 40);
+        randomBytes[1] = (byte)(timestamp >> 32);
+        randomBytes[2] = (byte)(timestamp >> 24);
+        randomBytes[3] = (byte)(timestamp >> 16);
+        randomBytes[4] = (byte)(timestamp >> 8);
+        randomBytes[5] = (byte)(timestamp);
+
+        // Set version to 7
+        randomBytes[6] &= 0x0f;
+        randomBytes[6] |= 0x70;
+
+        // Set variant to IETF
+        randomBytes[8] &= 0x3f;
+        randomBytes[8] |= (byte) 0x80;
+
+        // Convert byte array to UUID using ByteBuffer
+        ByteBuffer buffer = ByteBuffer.wrap(randomBytes);
+        long msb = buffer.getLong();
+        long lsb = buffer.getLong();
         return new UUID(msb, lsb);
+    }
+    
+    /// Convenience method to create a UUIDv7 from the current system time.
+    /// Equivalent to {@code ofEpochMillis(System.currentTimeMillis())}.
+    ///
+    /// @return a {@code UUID} constructed using the current system time
+    public static UUID timeThenRandom() {
+        return ofEpochMillis(System.currentTimeMillis());
     }
 
     /// ┌──────────────────────────────────────────────────────────────────────────────┐
@@ -134,12 +195,18 @@ public class UUIDGenerator {
     }
 
     public static void main(String[] args) {
+        // Test UUIDv7 with current time
         UUID uuid1 = UUIDGenerator.timeThenRandom();
-        System.out.println("UUID: " + UUIDGenerator.formatAsUUID(uuid1));
+        System.out.println("UUIDv7: " + UUIDGenerator.formatAsUUID(uuid1));
         System.out.println("Dense: " + UUIDGenerator.formatAsDenseKey(uuid1));
         
-        UUID uuid2 = UUIDGenerator.uniqueThenTime(0x123456789ABCDEF0L);
-        System.out.println("Unique UUID: " + UUIDGenerator.formatAsUUID(uuid2, true));
-        System.out.println("Unique Dense: " + UUIDGenerator.formatAsDenseKey(uuid2));
+        // Test UUIDv7 with specific timestamp
+        UUID uuid2 = UUIDGenerator.ofEpochMillis(System.currentTimeMillis());
+        System.out.println("UUIDv7 (explicit): " + UUIDGenerator.formatAsUUID(uuid2));
+        
+        // Test uniqueThenTime
+        UUID uuid3 = UUIDGenerator.uniqueThenTime(0x123456789ABCDEF0L);
+        System.out.println("Unique UUID: " + UUIDGenerator.formatAsUUID(uuid3, true));
+        System.out.println("Unique Dense: " + UUIDGenerator.formatAsDenseKey(uuid3));
     }
 }

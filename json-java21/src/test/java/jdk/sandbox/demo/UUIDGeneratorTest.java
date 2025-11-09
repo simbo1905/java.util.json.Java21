@@ -34,13 +34,27 @@ class UUIDGeneratorTest {
 
     @Test
     void testTimeThenRandomIncreasingOrder() {
+        // UUIDv7 uses millisecond timestamps in the first 48 bits.
+        // Within the same millisecond, ordering is not guaranteed due to random bits.
+        // This test verifies that UUIDs generated with different timestamps are ordered.
         UUID prev = UUIDGenerator.timeThenRandom();
-        for (int i = 0; i < 100; i++) {
+        try {
+            Thread.sleep(2); // Ensure at least 1ms passes
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        
+        for (int i = 0; i < 10; i++) {
             UUID current = UUIDGenerator.timeThenRandom();
-            // MSB should be increasing (time+counter)
+            // MSB should be increasing when timestamps differ
             assertTrue(current.getMostSignificantBits() >= prev.getMostSignificantBits(),
-                "UUIDs should be time-ordered");
+                "UUIDs with different timestamps should be time-ordered");
             prev = current;
+            try {
+                Thread.sleep(1); // Small delay to ensure different timestamps
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -234,5 +248,87 @@ class UUIDGeneratorTest {
         String key2 = UUIDGenerator.formatAsDenseKey(uuid);
         
         assertEquals(key1, key2, "Same UUID should produce same dense key");
+    }
+
+    @Test
+    void testOfEpochMillisVersion7() {
+        // Test that generated UUID has version 7
+        long timestamp = System.currentTimeMillis();
+        UUID uuid = UUIDGenerator.ofEpochMillis(timestamp);
+        
+        // Extract version bits (bits 48-51 of the UUID)
+        long msb = uuid.getMostSignificantBits();
+        int version = (int)((msb >> 12) & 0x0F);
+        
+        assertEquals(7, version, "UUID should have version 7");
+    }
+
+    @Test
+    void testOfEpochMillisVariantIETF() {
+        // Test that generated UUID has IETF variant
+        long timestamp = System.currentTimeMillis();
+        UUID uuid = UUIDGenerator.ofEpochMillis(timestamp);
+        
+        // Extract variant bits (bits 64-65 of the UUID)
+        long lsb = uuid.getLeastSignificantBits();
+        int variant = (int)((lsb >> 62) & 0x03);
+        
+        assertEquals(2, variant, "UUID should have IETF variant (2)");
+    }
+
+    @Test
+    void testOfEpochMillisTimestampExtraction() {
+        // Test that timestamp can be extracted from UUID
+        long timestamp = 1000000000000L;
+        UUID uuid = UUIDGenerator.ofEpochMillis(timestamp);
+        
+        // Extract timestamp from first 48 bits
+        long msb = uuid.getMostSignificantBits();
+        long extractedTimestamp = msb >>> 16; // Shift right 16 bits to get top 48 bits
+        
+        assertEquals(timestamp, extractedTimestamp, "Timestamp should be embedded in UUID");
+    }
+
+    @Test
+    void testOfEpochMillisMonotonicity() {
+        // Test that UUIDs with increasing timestamps are monotonic
+        UUID uuid1 = UUIDGenerator.ofEpochMillis(1000000000000L);
+        UUID uuid2 = UUIDGenerator.ofEpochMillis(1000000000001L);
+        UUID uuid3 = UUIDGenerator.ofEpochMillis(1000000000002L);
+        
+        assertTrue(uuid2.compareTo(uuid1) > 0, "UUID2 should be greater than UUID1");
+        assertTrue(uuid3.compareTo(uuid2) > 0, "UUID3 should be greater than UUID2");
+    }
+
+    @Test
+    void testOfEpochMillisInvalidTimestamp() {
+        // Test that timestamps that don't fit in 48 bits are rejected
+        long invalidTimestamp = (1L << 48); // 2^48, doesn't fit in 48 bits
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            UUIDGenerator.ofEpochMillis(invalidTimestamp);
+        }, "Should throw IllegalArgumentException for timestamp that doesn't fit in 48 bits");
+    }
+
+    @Test
+    void testOfEpochMillisNegativeTimestamp() {
+        // Test that negative timestamps are rejected
+        long negativeTimestamp = -1L;
+        
+        assertThrows(IllegalArgumentException.class, () -> {
+            UUIDGenerator.ofEpochMillis(negativeTimestamp);
+        }, "Should throw IllegalArgumentException for negative timestamp");
+    }
+
+    @Test
+    void testOfEpochMillisUniqueness() {
+        // Test that multiple UUIDs with same timestamp are still unique (due to random bits)
+        long timestamp = System.currentTimeMillis();
+        Set<UUID> uuids = new HashSet<>();
+        
+        for (int i = 0; i < 100; i++) {
+            UUID uuid = UUIDGenerator.ofEpochMillis(timestamp);
+            assertTrue(uuids.add(uuid), "Each UUID should be unique even with same timestamp");
+        }
     }
 }
