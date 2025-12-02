@@ -331,12 +331,14 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             addCommonStubs(compilationUnits);
 
             // Parse-only compilation with relaxed settings
+            // Use current Java runtime version for compatibility
+            final var javaVersion = Runtime.version().feature();
             final var options = List.of(
                 "-proc:none",
                 "-XDignore.symbol.file",
                 "-Xlint:none",
                 "--enable-preview",
-                "--release", "24"
+                "--release", String.valueOf(javaVersion)
             );
 
             final var task = (JavacTask) compiler.getTask(
