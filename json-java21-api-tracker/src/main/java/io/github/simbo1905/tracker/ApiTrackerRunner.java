@@ -96,7 +96,10 @@ public class ApiTrackerRunner {
       System.out.println();
       System.out.println("Output files written to: " + outputDir.toAbsolutePath());
     } catch (IOException e) {
-      System.err.println("Warning: Could not write output files: " + e.getMessage());
+      System.err.println("Error: Could not write output files: " + e.getMessage());
+      //noinspection CallToPrintStackTrace
+      e.printStackTrace();
+      System.exit(1);
     }
   }
 
