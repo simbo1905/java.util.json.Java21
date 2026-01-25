@@ -41,14 +41,14 @@ jobs:
           -Djava.util.logging.ConsoleHandler.level=INFO
         
         # Read outputs into environment
-        echo "fingerprint=$(cat json-java21-api-tracker/target/api-tracker/fingerprint.txt)" >> $GITHUB_OUTPUT
-        echo "has_differences=$(cat json-java21-api-tracker/target/api-tracker/has-differences.txt)" >> $GITHUB_OUTPUT
+        echo "fingerprint=$(cat target/api-tracker/fingerprint.txt)" >> $GITHUB_OUTPUT
+        echo "has_differences=$(cat target/api-tracker/has-differences.txt)" >> $GITHUB_OUTPUT
 
     - name: Upload API report artifact
       uses: actions/upload-artifact@v4
       with:
         name: api-tracker-report
-        path: json-java21-api-tracker/target/api-tracker/
+        path: target/api-tracker/
         retention-days: 90
 
     - name: Check for existing issue
@@ -78,7 +78,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         FINGERPRINT="${{ steps.tracker.outputs.fingerprint }}"
-        SUMMARY=$(cat json-java21-api-tracker/target/api-tracker/summary.md)
+        SUMMARY=$(cat target/api-tracker/summary.md)
         
         # Create issue body
         cat > /tmp/issue_body.md << EOF
