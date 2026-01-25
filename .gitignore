@@ -7,11 +7,6 @@ target/
 
 .idea/
 
-# Eclipse
-.classpath
-.project
-.settings/
-
 .claude/
 .aider*
 CLAUDE.md
