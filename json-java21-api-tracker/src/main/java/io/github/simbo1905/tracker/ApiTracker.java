@@ -13,6 +13,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -946,5 +948,146 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var source = fetchFromUrl(url);
         FETCH_CACHE.put(className, source);
         return source;
+    }
+
+    /// Generates a SHA256 fingerprint of the differences (first 7 chars)
+    /// Uses only essential, stable information: class names and change types (sorted)
+    /// Used for deduplicating GitHub issues
+    /// @param report the full comparison report
+    /// @return 7-character fingerprint or "0000000" if no differences
+    static String generateFingerprint(JsonObject report) {
+        if (getDifferentApiCount(report) == 0) {
+            return "0000000";
+        }
+        
+        // Build a stable, sorted representation of just the essential diff info
+        final var differences = (JsonArray) report.members().get("differences");
+        final var stableLines = new ArrayList<String>();
+        
+        for (final var diff : differences.values()) {
+            final var diffObj = (JsonObject) diff;
+            final var status = ((JsonString) diffObj.members().get("status")).value();
+            
+            if (!"DIFFERENT".equals(status)) continue;
+            
+            final var className = ((JsonString) diffObj.members().get("className")).value();
+            final var classDiffs = (JsonArray) diffObj.members().get("differences");
+            
+            if (classDiffs != null) {
+                for (final var change : classDiffs.values()) {
+                    final var changeObj = (JsonObject) change;
+                    final var type = ((JsonString) changeObj.members().get("type")).value();
+                    final var methodValue = changeObj.members().get("method");
+                    final var method = methodValue instanceof JsonString js ? js.value() : "";
+                    // Create stable line: "ClassName:changeType:methodName"
+                    stableLines.add(className + ":" + type + ":" + method);
+                }
+            }
+        }
+        
+        // Sort for deterministic ordering
+        Collections.sort(stableLines);
+        final var stableString = String.join("\n", stableLines);
+        
+        try {
+            final var digest = MessageDigest.getInstance("SHA-256");
+            final var hash = digest.digest(stableString.getBytes(StandardCharsets.UTF_8));
+            final var hexString = new StringBuilder();
+            for (final var b : hash) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.substring(0, 7);
+        } catch (NoSuchAlgorithmException e) {
+            LOGGER.warning("SHA-256 not available, using fallback fingerprint");
+            return String.format("%07x", stableString.hashCode() & 0xFFFFFFF);
+        }
+    }
+
+    /// Extracts the differentApi count from a report summary
+    /// @param report the comparison report
+    /// @return the count of classes with different APIs
+    private static long getDifferentApiCount(JsonObject report) {
+        final var summary = (JsonObject) report.members().get("summary");
+        if (summary == null) {
+            return 0;
+        }
+        final var differentApiValue = summary.members().get("differentApi");
+        if (differentApiValue instanceof JsonNumber num) {
+            return num.toNumber().longValue();
+        }
+        return 0;
+    }
+
+    /// Generates a terse human-readable summary of the API differences
+    /// Suitable for GitHub issue body
+    /// @param report the full comparison report
+    /// @return markdown-formatted summary
+    static String generateSummary(JsonObject report) {
+        final var sb = new StringBuilder();
+        final var summary = (JsonObject) report.members().get("summary");
+        final var differences = (JsonArray) report.members().get("differences");
+        
+        final var totalClasses = ((JsonNumber) summary.members().get("totalClasses")).toNumber().longValue();
+        final var matchingClasses = ((JsonNumber) summary.members().get("matchingClasses")).toNumber().longValue();
+        final var differentApi = getDifferentApiCount(report);
+        final var missingUpstream = ((JsonNumber) summary.members().get("missingUpstream")).toNumber().longValue();
+        
+        sb.append("## API Comparison Summary\n\n");
+        sb.append("| Metric | Count |\n");
+        sb.append("|--------|-------|\n");
+        sb.append("| Total Classes | ").append(totalClasses).append(" |\n");
+        sb.append("| Matching | ").append(matchingClasses).append(" |\n");
+        sb.append("| Different | ").append(differentApi).append(" |\n");
+        sb.append("| Missing Upstream | ").append(missingUpstream).append(" |\n\n");
+        
+        if (differentApi > 0) {
+            sb.append("## Changes Detected\n\n");
+            
+            for (final var diff : differences.values()) {
+                final var diffObj = (JsonObject) diff;
+                final var status = ((JsonString) diffObj.members().get("status")).value();
+                
+                if (!"DIFFERENT".equals(status)) continue;
+                
+                final var className = ((JsonString) diffObj.members().get("className")).value();
+                sb.append("### ").append(className).append("\n\n");
+                
+                final var classDiffs = (JsonArray) diffObj.members().get("differences");
+                if (classDiffs != null) {
+                    for (final var change : classDiffs.values()) {
+                        final var changeObj = (JsonObject) change;
+                        final var type = ((JsonString) changeObj.members().get("type")).value();
+                        final var methodValue = changeObj.members().get("method");
+                        final var method = methodValue instanceof JsonString js ? js.value() : "unknown";
+                        
+                        final var emoji = switch (type) {
+                            case "methodRemoved" -> "➖";
+                            case "methodAdded" -> "➕";
+                            case "methodChanged" -> "🔄";
+                            case "inheritanceChanged" -> "🔗";
+                            case "fieldsChanged" -> "📦";
+                            case "constructorsChanged" -> "🏗️";
+                            default -> "❓";
+                        };
+                        
+                        sb.append("- ").append(emoji).append(" **").append(type).append("**: `").append(method).append("`\n");
+                    }
+                }
+                sb.append("\n");
+            }
+        }
+        
+        sb.append("---\n");
+        final var timestamp = ((JsonString) report.members().get("timestamp")).value();
+        sb.append("*Generated by API Tracker on ").append(timestamp.split("T")[0]).append("*\n");
+        
+        return sb.toString();
+    }
+
+    /// Checks if there are any API differences in the report
+    /// @param report the comparison report
+    /// @return true if differentApi > 0
+    static boolean hasDifferences(JsonObject report) {
+        return getDifferentApiCount(report) > 0;
     }
 }

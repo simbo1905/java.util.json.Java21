@@ -2,6 +2,9 @@ package io.github.simbo1905.tracker;
 
 import jdk.sandbox.java.util.json.Json;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.logging.ConsoleHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,10 +46,57 @@ public class ApiTrackerRunner {
 
       // Pretty print the report
       System.out.println("=== Comparison Report ===");
-      System.out.println(Json.toDisplayString(report, 2));
+      final var jsonOutput = Json.toDisplayString(report, 2);
+      System.out.println(jsonOutput);
+
+      // Generate fingerprint and summary
+      final var fingerprint = ApiTracker.generateFingerprint(report);
+      final var summary = ApiTracker.generateSummary(report);
+      final var hasDiffs = ApiTracker.hasDifferences(report);
+
+      System.out.println();
+      System.out.println("=== Fingerprint ===");
+      System.out.println("hash:" + fingerprint);
+
+      if (hasDiffs) {
+        System.out.println();
+        System.out.println("=== Summary ===");
+        System.out.println(summary);
+      }
+
+      // Write outputs to files for workflow artifact upload
+      writeOutputFiles(jsonOutput, fingerprint, summary, hasDiffs);
 
     } catch (Exception e) {
       System.err.println("Error during comparison: " + e.getMessage());
+      //noinspection CallToPrintStackTrace
+      e.printStackTrace();
+      System.exit(1);
+    }
+  }
+
+  private static void writeOutputFiles(String jsonOutput, String fingerprint, String summary, boolean hasDiffs) {
+    try {
+      // Create output directory
+      final var outputDir = Path.of("target", "api-tracker");
+      Files.createDirectories(outputDir);
+
+      // Write full JSON report
+      Files.writeString(outputDir.resolve("report.json"), jsonOutput);
+
+      // Write fingerprint
+      Files.writeString(outputDir.resolve("fingerprint.txt"), fingerprint);
+
+      // Write summary markdown
+      Files.writeString(outputDir.resolve("summary.md"), summary);
+
+      // Write has-differences flag for workflow
+      Files.writeString(outputDir.resolve("has-differences.txt"), String.valueOf(hasDiffs));
+
+      System.out.println();
+      System.out.println("Output files written to: " + outputDir.toAbsolutePath());
+    } catch (IOException e) {
+      System.err.println("Error: Could not write output files: " + e.getMessage());
       //noinspection CallToPrintStackTrace
       e.printStackTrace();
       System.exit(1);
