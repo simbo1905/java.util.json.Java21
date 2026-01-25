@@ -1,3 +1,9 @@
+json-compatibility-suite/.classpath
+json-compatibility-suite/.project
+json-compatibility-suite/.settings/
+json-java21/.classpath
+json-java21/.project
+json-java21/.settings/
 json-java21-schema/src/test/resources/draft4/
 json-java21-schema/src/test/resources/json-schema-test-suite-data/
 
