@@ -13,6 +13,8 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
@@ -946,5 +948,118 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var source = fetchFromUrl(url);
         FETCH_CACHE.put(className, source);
         return source;
+    }
+
+    /// Generates a SHA256 fingerprint of the differences (first 7 chars)
+    /// Used for deduplicating GitHub issues
+    /// @param report the full comparison report
+    /// @return 7-character fingerprint or "0000000" if no differences
+    static String generateFingerprint(JsonObject report) {
+        final var summary = (JsonObject) report.members().get("summary");
+        final var differentApi = ((JsonNumber) summary.members().get("differentApi")).toNumber().longValue();
+        
+        if (differentApi == 0) {
+            return "0000000";
+        }
+        
+        // Extract just the differences array for fingerprinting
+        final var differences = (JsonArray) report.members().get("differences");
+        final var diffsOnly = differences.values().stream()
+            .filter(v -> {
+                final var obj = (JsonObject) v;
+                final var status = ((JsonString) obj.members().get("status")).value();
+                return "DIFFERENT".equals(status);
+            })
+            .toList();
+        
+        // Serialize to stable JSON string for hashing
+        final var jsonString = JsonArray.of(diffsOnly).toString();
+        
+        try {
+            final var digest = MessageDigest.getInstance("SHA-256");
+            final var hash = digest.digest(jsonString.getBytes(StandardCharsets.UTF_8));
+            final var hexString = new StringBuilder();
+            for (final var b : hash) {
+                hexString.append(String.format("%02x", b));
+            }
+            return hexString.substring(0, 7);
+        } catch (NoSuchAlgorithmException e) {
+            LOGGER.warning("SHA-256 not available, using fallback fingerprint");
+            return String.format("%07d", jsonString.hashCode() & 0xFFFFFFF);
+        }
+    }
+
+    /// Generates a terse human-readable summary of the API differences
+    /// Suitable for GitHub issue body
+    /// @param report the full comparison report
+    /// @return markdown-formatted summary
+    static String generateSummary(JsonObject report) {
+        final var sb = new StringBuilder();
+        final var summary = (JsonObject) report.members().get("summary");
+        final var differences = (JsonArray) report.members().get("differences");
+        
+        final var totalClasses = ((JsonNumber) summary.members().get("totalClasses")).toNumber().longValue();
+        final var matchingClasses = ((JsonNumber) summary.members().get("matchingClasses")).toNumber().longValue();
+        final var differentApi = ((JsonNumber) summary.members().get("differentApi")).toNumber().longValue();
+        final var missingUpstream = ((JsonNumber) summary.members().get("missingUpstream")).toNumber().longValue();
+        
+        sb.append("## API Comparison Summary\n\n");
+        sb.append("| Metric | Count |\n");
+        sb.append("|--------|-------|\n");
+        sb.append("| Total Classes | ").append(totalClasses).append(" |\n");
+        sb.append("| Matching | ").append(matchingClasses).append(" |\n");
+        sb.append("| Different | ").append(differentApi).append(" |\n");
+        sb.append("| Missing Upstream | ").append(missingUpstream).append(" |\n\n");
+        
+        if (differentApi > 0) {
+            sb.append("## Changes Detected\n\n");
+            
+            for (final var diff : differences.values()) {
+                final var diffObj = (JsonObject) diff;
+                final var status = ((JsonString) diffObj.members().get("status")).value();
+                
+                if (!"DIFFERENT".equals(status)) continue;
+                
+                final var className = ((JsonString) diffObj.members().get("className")).value();
+                sb.append("### ").append(className).append("\n\n");
+                
+                final var classDiffs = (JsonArray) diffObj.members().get("differences");
+                if (classDiffs != null) {
+                    for (final var change : classDiffs.values()) {
+                        final var changeObj = (JsonObject) change;
+                        final var type = ((JsonString) changeObj.members().get("type")).value();
+                        final var methodValue = changeObj.members().get("method");
+                        final var method = methodValue instanceof JsonString js ? js.value() : "unknown";
+                        
+                        final var emoji = switch (type) {
+                            case "methodRemoved" -> "➖";
+                            case "methodAdded" -> "➕";
+                            case "methodChanged" -> "🔄";
+                            case "inheritanceChanged" -> "🔗";
+                            case "fieldsChanged" -> "📦";
+                            case "constructorsChanged" -> "🏗️";
+                            default -> "❓";
+                        };
+                        
+                        sb.append("- ").append(emoji).append(" **").append(type).append("**: `").append(method).append("`\n");
+                    }
+                }
+                sb.append("\n");
+            }
+        }
+        
+        sb.append("---\n");
+        sb.append("*Generated by API Tracker on ").append(Instant.now().toString().split("T")[0]).append("*\n");
+        
+        return sb.toString();
+    }
+
+    /// Checks if there are any API differences in the report
+    /// @param report the comparison report
+    /// @return true if differentApi > 0
+    static boolean hasDifferences(JsonObject report) {
+        final var summary = (JsonObject) report.members().get("summary");
+        final var differentApi = ((JsonNumber) summary.members().get("differentApi")).toNumber().longValue();
+        return differentApi > 0;
     }
 }
