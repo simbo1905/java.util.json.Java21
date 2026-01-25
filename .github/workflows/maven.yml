@@ -31,25 +31,25 @@ jobs:
     - name: Test core library (Java 21)
       run: mvn clean test -pl json-java21
 
-  test-java24:
-    name: Test with Tooling (Java 24)
+  test-java25:
+    name: Test with Tooling (Java 25)
     runs-on: ubuntu-latest
     
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up JDK 24
+    - name: Set up JDK 25
       uses: actions/setup-java@v4
       with:
-        java-version: '24'
+        java-version: '25'
         distribution: 'oracle'
     
     - name: Cache Maven dependencies
       uses: actions/cache@v4
       with:
         path: ~/.m2
-        key: ${{ runner.os }}-m2-java24-${{ hashFiles('**/pom.xml') }}
-        restore-keys: ${{ runner.os }}-m2-java24
+        key: ${{ runner.os }}-m2-java25-${{ hashFiles('**/pom.xml') }}
+        restore-keys: ${{ runner.os }}-m2-java25
     
-    - name: Test full project (Java 24)
+    - name: Test full project (Java 25)
       run: mvn clean test
