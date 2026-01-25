@@ -24,18 +24,10 @@
  */
 package jdk.sandbox.java.util.json;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
 
 import jdk.sandbox.internal.util.json.JsonParser;
-import jdk.sandbox.internal.util.json.Utils;
 
 /// This class provides static methods for producing and manipulating a {@link JsonValue}.
 /// 
@@ -45,21 +37,16 @@ import jdk.sandbox.internal.util.json.Utils;
 /// {@link #toDisplayString(JsonValue, int)} is a formatter that produces a
 /// representation of the JSON value suitable for display.
 /// 
-/// {@link #fromUntyped(Object)} and {@link #toUntyped(JsonValue)} provide a conversion
-/// between `JsonValue` and an untyped object.
-/// 
 /// ## Example Usage
 /// ```java
 /// // Parse JSON string
 /// JsonValue json = Json.parse("{\"name\":\"John\",\"age\":30}");
-/// 
-/// // Convert to standard Java types
-/// Map<String, Object> data = (Map<String, Object>) Json.toUntyped(json);
-/// 
-/// // Create JSON from Java objects
-/// JsonValue fromJava = Json.fromUntyped(Map.of("active", true, "score", 95));
+/// if (json instanceof JsonObject obj) {
+///     String name = ((JsonString) obj.members().get("name")).string();
+///     long age = ((JsonNumber) obj.members().get("age")).toLong();
+/// }
 /// ```
-/// 
+///
 /// @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
 ///       Object Notation (JSON) Data Interchange Format
 /// @since 99
@@ -80,8 +67,8 @@ public final class Json {
     /// ```java
     /// JsonValue value = Json.parse("{\"name\":\"Alice\",\"active\":true}");
     /// if (value instanceof JsonObject obj) {
-    ///     String name = ((JsonString) obj.members().get("name")).value();
-    ///     boolean active = ((JsonBoolean) obj.members().get("active")).value();
+    ///     String name = ((JsonString) obj.members().get("name")).string();
+    ///     boolean active = ((JsonBoolean) obj.members().get("active")).bool();
     /// }
     /// ```
     ///
@@ -117,126 +104,6 @@ public final class Json {
         Objects.requireNonNull(in);
         // Defensive copy on input. Ensure source is immutable.
         return new JsonParser(Arrays.copyOf(in, in.length)).parseRoot();
-    }
-
-    /// {@return a `JsonValue` created from the given `src` object}
-    /// The mapping from an untyped `src` object to a `JsonValue`
-    /// follows the table below.
-    /// 
-    /// | Untyped Object | JsonValue |
-    /// |----------------|----------|
-    /// | `List<Object>` | `JsonArray` |
-    /// | `Boolean` | `JsonBoolean` |
-    /// | `null` | `JsonNull` |
-    /// | `Number*` | `JsonNumber` |
-    /// | `Map<String, Object>` | `JsonObject` |
-    /// | `String` | `JsonString` |
-    ///
-    /// *The supported `Number` subclasses are: `Byte`,
-    /// `Short`, `Integer`, `Long`, `Float`,
-    /// `Double`, `BigInteger`, and `BigDecimal`.
-    ///
-    /// If `src` is an instance of `JsonValue`, it is returned as is.
-    /// 
-    /// ## Example
-    /// ```java
-    /// // Convert Java collections to JSON
-    /// JsonValue json = Json.fromUntyped(Map.of(
-    ///     "user", Map.of(
-    ///         "name", "Bob",
-    ///         "age", 25
-    ///     ),
-    ///     "scores", List.of(85, 90, 78)
-    /// ));
-    /// ```
-    ///
-    /// @param src the data to produce the `JsonValue` from. May be null.
-    /// @throws IllegalArgumentException if `src` cannot be converted
-    ///         to a `JsonValue`.
-    /// @see #toUntyped(JsonValue)
-    public static JsonValue fromUntyped(Object src) {
-        return switch (src) {
-            // Structural: JSON object
-            case Map<?, ?> map -> {
-                Map<String, JsonValue> m = LinkedHashMap.newLinkedHashMap(map.size());
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    if (!(entry.getKey() instanceof String key)) {
-                        throw new IllegalArgumentException(
-                                "The key '%s' is not a String".formatted(entry.getKey()));
-                    } else {
-                        m.put(key, Json.fromUntyped(entry.getValue()));
-                    }
-                }
-                // Bypasses defensive copy in JsonObject.of(m)
-                yield Utils.objectOf(m);
-            }
-            // Structural: JSON Array
-            case List<?> list -> {
-                List<JsonValue> l = new ArrayList<>(list.size());
-                for (Object o : list) {
-                    l.add(Json.fromUntyped(o));
-                }
-                // Bypasses defensive copy in JsonArray.of(l)
-                yield Utils.arrayOf(l);
-            }
-            // JSON primitives
-            case String str -> JsonString.of(str);
-            case Boolean bool -> JsonBoolean.of(bool);
-            case Byte b -> JsonNumber.of(b);
-            case Integer i -> JsonNumber.of(i);
-            case Long l -> JsonNumber.of(l);
-            case Short s -> JsonNumber.of(s);
-            case Float f -> JsonNumber.of(f);
-            case Double d -> JsonNumber.of(d);
-            case BigInteger bi -> JsonNumber.of(bi);
-            case BigDecimal bd -> JsonNumber.of(bd);
-            case null -> JsonNull.of();
-            // JsonValue
-            case JsonValue jv -> jv;
-            default -> throw new IllegalArgumentException(src.getClass().getSimpleName() + " is not a recognized type");
-        };
-    }
-
-    /// {@return an `Object` created from the given `src` `JsonValue`} 
-    /// The mapping from a `JsonValue` to an untyped `src` object follows the table below.
-    /// 
-    /// | JsonValue | Untyped Object |
-    /// |-----------|----------------|
-    /// | `JsonArray` | `List<Object>` (unmodifiable) |
-    /// | `JsonBoolean` | `Boolean` |
-    /// | `JsonNull` | `null` |
-    /// | `JsonNumber` | `Number` |
-    /// | `JsonObject` | `Map<String, Object>` (unmodifiable) |
-    /// | `JsonString` | `String` |
-    ///
-    /// A `JsonObject` in `src` is converted to a `Map` whose
-    /// entries occur in the same order as the `JsonObject`'s members.
-    /// 
-    /// ## Example
-    /// ```java
-    /// JsonValue json = Json.parse("{\"active\":true,\"count\":42}");
-    /// Map<String, Object> data = (Map<String, Object>) Json.toUntyped(json);
-    /// // data contains: {"active"=true, "count"=42L}
-    /// ```
-    ///
-    /// @param src the `JsonValue` to convert to untyped. Non-null.
-    /// @throws NullPointerException if `src` is `null`
-    /// @see #fromUntyped(Object)
-    public static Object toUntyped(JsonValue src) {
-        Objects.requireNonNull(src);
-        return switch (src) {
-            case JsonObject jo -> jo.members().entrySet().stream()
-                    .collect(LinkedHashMap::new, // Avoid Collectors.toMap, to allow `null` value
-                            (m, e) -> m.put(e.getKey(), Json.toUntyped(e.getValue())),
-                            HashMap::putAll);
-            case JsonArray ja -> ja.values().stream()
-                    .map(Json::toUntyped)
-                    .toList();
-            case JsonBoolean jb -> jb.value();
-            case JsonNull ignored -> null;
-            case JsonNumber n -> n.toNumber();
-            case JsonString js -> js.value();
-        };
     }
 
     /// {@return the String representation of the given `JsonValue` that conforms
@@ -309,11 +176,11 @@ public final class Json {
     private static String toDisplayString(JsonArray ja, int col, int indent, boolean isField) {
         var prefix = " ".repeat(col);
         var s = new StringBuilder(isField ? " " : prefix);
-        if (ja.values().isEmpty()) {
+        if (ja.elements().isEmpty()) {
             s.append("[]");
         } else {
             s.append("[\n");
-            for (JsonValue v: ja.values()) {
+            for (JsonValue v: ja.elements()) {
                 if (v instanceof JsonValue jv) {
                     s.append(Json.toDisplayString(jv, col + indent, indent, false)).append(",\n");
                 } else {

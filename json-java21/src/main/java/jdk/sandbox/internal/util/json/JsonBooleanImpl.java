@@ -26,6 +26,7 @@
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonBoolean;
+
 /**
  * JsonBoolean implementation class
  */
@@ -45,7 +46,7 @@ public final class JsonBooleanImpl implements JsonBoolean, JsonValueImpl {
     }
 
     @Override
-    public boolean value() {
+    public boolean bool() {
         return theBoolean;
     }
 
@@ -61,16 +62,16 @@ public final class JsonBooleanImpl implements JsonBoolean, JsonValueImpl {
 
     @Override
     public String toString() {
-        return String.valueOf(value());
+        return String.valueOf(bool());
     }
 
     @Override
     public boolean equals(Object o) {
-        return o instanceof JsonBoolean ojb && value() == ojb.value();
+        return o instanceof JsonBoolean ojb && bool() == ojb.bool();
     }
 
     @Override
     public int hashCode() {
-        return Boolean.hashCode(value());
+        return Boolean.hashCode(bool());
     }
 }

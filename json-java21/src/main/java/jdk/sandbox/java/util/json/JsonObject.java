@@ -50,8 +50,8 @@ import jdk.sandbox.internal.util.json.JsonObjectImpl;
 /// ));
 /// 
 /// // Access members
-/// JsonString name = (JsonString) obj.members().get("name");
-/// System.out.println(name.value()); // "Alice"
+    /// JsonString name = (JsonString) obj.members().get("name");
+    /// System.out.println(name.string()); // "Alice"
 /// ```
 ///
 /// @since 99

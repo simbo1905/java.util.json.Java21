@@ -41,9 +41,9 @@ JsonValue value = Json.parse(json);
 
 // Access as map-like structure
 JsonObject obj = (JsonObject) value;
-String name = ((JsonString) obj.members().get("name")).value();
-int age = ((JsonNumber) obj.members().get("age")).intValue();
-boolean active = ((JsonBoolean) obj.members().get("active")).value();
+String name = ((JsonString) obj.members().get("name")).string();
+int age = Math.toIntExact(((JsonNumber) obj.members().get("age")).toLong());
+boolean active = ((JsonBoolean) obj.members().get("active")).bool();
 ```
 
 ### Simple Record Mapping
@@ -58,55 +58,21 @@ JsonObject jsonObj = (JsonObject) Json.parse(userJson);
 
 // Map to record
 User user = new User(
-    ((JsonString) jsonObj.members().get("name")).value(),
-    ((JsonNumber) jsonObj.members().get("age")).intValue(),
-    ((JsonBoolean) jsonObj.members().get("active")).value()
+    ((JsonString) jsonObj.members().get("name")).string(),
+    Math.toIntExact(((JsonNumber) jsonObj.members().get("age")).toLong()),
+    ((JsonBoolean) jsonObj.members().get("active")).bool()
 );
 
 // Convert records back to JSON
-JsonValue backToJson = Json.fromUntyped(Map.of(
-    "name", user.name(),
-    "age", user.age(),
-    "active", user.active()
+JsonValue backToJson = JsonObject.of(Map.of(
+    "name", JsonString.of(user.name()),
+    "age", JsonNumber.of(user.age()),
+    "active", JsonBoolean.of(user.active())
 ));
 
 // Covert back to a JSON string
 String jsonString = backToJson.toString();
 ```
-
-### Converting from Java Objects to JSON (`fromUntyped`)
-
-```java
-// Convert standard Java collections to JsonValue
-Map<String, Object> data = Map.of(
-    "name", "John",
-    "age", 30,
-    "scores", List.of(85, 92, 78)
-);
-JsonValue json = Json.fromUntyped(data);
-```
-
-### Converting from JSON to Java Objects (`toUntyped`)
-
-```java
-// Convert JsonValue back to standard Java types
-JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
-Object data = Json.toUntyped(parsed);
-// Returns a Map<String, Object> with standard Java types
-```
-
-The conversion mappings are:
-- `JsonObject` ↔ `Map<String, Object>`
-- `JsonArray` ↔ `List<Object>`
-- `JsonString` ↔ `String`
-- `JsonNumber` ↔ `Number` (Long, Double, BigInteger, or BigDecimal)
-- `JsonBoolean` ↔ `Boolean`
-- `JsonNull` ↔ `null`
-
-This is useful for:
-- Integrating with existing code that uses standard collections
-- Serializing/deserializing to formats that expect Java types
-- Working with frameworks that use reflection on standard types
 
 ### Realistic Record Mapping
 
@@ -124,28 +90,28 @@ Team team = new Team("Engineering", List.of(
 ));
 
 // Convert records to JSON
-JsonValue teamJson = Json.fromUntyped(Map.of(
-    "teamName", team.teamName(),
-    "members", team.members().stream()
-        .map(u -> Map.of(
-            "name", u.name(),
-            "email", u.email(),
-            "active", u.active()
-        ))
-        .toList()
+JsonValue teamJson = JsonObject.of(Map.of(
+    "teamName", JsonString.of(team.teamName()),
+    "members", JsonArray.of(team.members().stream()
+        .map(u -> JsonObject.of(Map.of(
+            "name", JsonString.of(u.name()),
+            "email", JsonString.of(u.email()),
+            "active", JsonBoolean.of(u.active())
+        )))
+        .toList())
 ));
 
 // Parse JSON back to records
 JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
 Team reconstructed = new Team(
-    ((JsonString) parsed.members().get("teamName")).value(),
-    ((JsonArray) parsed.members().get("members")).values().stream()
+    ((JsonString) parsed.members().get("teamName")).string(),
+    ((JsonArray) parsed.members().get("members")).elements().stream()
         .map(v -> {
             JsonObject member = (JsonObject) v;
             return new User(
-                ((JsonString) member.members().get("name")).value(),
-                ((JsonString) member.members().get("email")).value(),
-                ((JsonBoolean) member.members().get("active")).value()
+                ((JsonString) member.members().get("name")).string(),
+                ((JsonString) member.members().get("email")).string(),
+                ((JsonBoolean) member.members().get("active")).bool()
             );
         })
         .toList()
@@ -182,10 +148,10 @@ Process JSON arrays efficiently with Java streams:
 ```java
 // Filter active users from a JSON array
 JsonArray users = (JsonArray) Json.parse(jsonArrayString);
-List<String> activeUserEmails = users.values().stream()
+List<String> activeUserEmails = users.elements().stream()
     .map(v -> (JsonObject) v)
-    .filter(obj -> ((JsonBoolean) obj.members().get("active")).value())
-    .map(obj -> ((JsonString) obj.members().get("email")).value())
+    .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
+    .map(obj -> ((JsonString) obj.members().get("email")).string())
     .toList();
 ```
 
@@ -198,9 +164,9 @@ try {
     JsonValue value = Json.parse(userInput);
     // Process valid JSON
 } catch (JsonParseException e) {
-    // Handle malformed JSON with line/column information
-    System.err.println("Invalid JSON at line " + e.getLine() + 
-                       ", column " + e.getColumn() + ": " + e.getMessage());
+    // Handle malformed JSON with line/position information
+    System.err.println("Invalid JSON at line " + e.getErrorLine() +
+                       ", position " + e.getErrorPosition() + ": " + e.getMessage());
 }
 ```
 

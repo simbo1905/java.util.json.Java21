@@ -71,15 +71,15 @@ public class ApiTrackerTest {
             // Check if extraction succeeded or failed
             if (api.members().containsKey("error")) {
                 // If file not found, that's expected for some source setups
-                final var error = ((JsonString) api.members().get("error")).value();
+                final var error = ((JsonString) api.members().get("error")).string();
                 assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
             } else {
                 // If extraction succeeded, validate structure
                 assertThat(api.members()).containsKey("className");
-                assertThat(((JsonString) api.members().get("className")).value()).isEqualTo("JsonObject");
+                assertThat(((JsonString) api.members().get("className")).string()).isEqualTo("JsonObject");
 
                 assertThat(api.members()).containsKey("packageName");
-                assertThat(((JsonString) api.members().get("packageName")).value()).isEqualTo("jdk.sandbox.java.util.json");
+                assertThat(((JsonString) api.members().get("packageName")).string()).isEqualTo("jdk.sandbox.java.util.json");
 
                 assertThat(api.members()).containsKey("isInterface");
                 assertThat(api.members().get("isInterface")).isEqualTo(JsonBoolean.of(true));
@@ -94,7 +94,7 @@ public class ApiTrackerTest {
             // Check if extraction succeeded or failed
             if (api.members().containsKey("error")) {
                 // If file not found, that's expected for some source setups
-                final var error = ((JsonString) api.members().get("error")).value();
+                final var error = ((JsonString) api.members().get("error")).string();
                 assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
             } else {
                 // If extraction succeeded, validate structure
@@ -114,7 +114,7 @@ public class ApiTrackerTest {
             final var api = ApiTracker.extractLocalApiFromSource("jdk.sandbox.java.util.json.NonExistentClass");
 
             assertThat(api.members()).containsKey("error");
-            final var error = ((JsonString) api.members().get("error")).value();
+            final var error = ((JsonString) api.members().get("error")).string();
             assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
         }
     }
@@ -179,7 +179,7 @@ public class ApiTrackerTest {
             final var result = ApiTracker.compareApis(local, upstream);
 
             assertThat(result.members()).containsKey("status");
-            assertThat(((JsonString) result.members().get("status")).value()).isEqualTo("UPSTREAM_ERROR");
+            assertThat(((JsonString) result.members().get("status")).string()).isEqualTo("UPSTREAM_ERROR");
             assertThat(result.members()).containsKey("error");
         }
     }

@@ -148,7 +148,7 @@ sealed interface JtdSchema {
     boolean validateTimestampWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonString str) {
-        String value = str.value();
+        String value = str.string();
         if (RFC3339.matcher(value).matches()) {
           try {
             // Replace :60 with :59 to allow leap seconds through parsing
@@ -165,44 +165,19 @@ sealed interface JtdSchema {
       return false;
     }
 
-    private boolean hasFractionalComponent(Number value) {
-      return switch (value) {
-        case null -> false;
-        case Double d -> d != Math.floor(d);
-        case Float f -> f != Math.floor(f);
-        case java.math.BigDecimal bd -> bd.remainder(java.math.BigDecimal.ONE).signum() != 0;
-        default ->
-          // Long, Integer, Short, Byte are always integers
-            false;
-      };
-    }
-    
     boolean validateIntegerWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonNumber num) {
-        Number value = num.toNumber();
-        
-        // Check for fractional component first (applies to all Number types)
-        if (hasFractionalComponent(value)) {
+        final long longValue;
+        try {
+          longValue = num.toLong();
+        } catch (JsonAssertionException ex) {
           String error = Jtd.Error.EXPECTED_INTEGER.message();
           errors.add(Jtd.enrichedError(error, frame, instance));
           return false;
         }
-        
-        // Handle precision loss for large Double values
-        if (value instanceof Double d) {
-          if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) {
-            String error = verboseErrors
-                ? Jtd.Error.EXPECTED_NUMERIC_TYPE.message(instance, type, "out of range")
-                : Jtd.Error.EXPECTED_NUMERIC_TYPE.message(type, "out of range");
-            errors.add(Jtd.enrichedError(error, frame, instance));
-            return false;
-          }
-        }
-        
+
         // Now check if the value is within range for the specific integer type
-        // Convert to long for range checking (works for all Number types)
-        long longValue = value.longValue();
         boolean inRange = switch (type) {
           case "int8" -> longValue >= -128 && longValue <= 127;
           case "uint8" -> longValue >= 0 && longValue <= 255;
@@ -250,12 +225,12 @@ sealed interface JtdSchema {
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonString str) {
-        if (values.contains(str.value())) {
+        if (values.contains(str.string())) {
           return true;
         }
         String error = verboseErrors
-            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.value(), values)
-            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.value(), values);
+            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.string(), values)
+            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.string(), values);
         errors.add(Jtd.enrichedError(error, frame, instance));
         return false;
       }
@@ -281,7 +256,7 @@ sealed interface JtdSchema {
     @Override
     public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
       if (instance instanceof JsonArray arr) {
-        for (JsonValue element : arr.values()) {
+        for (JsonValue element : arr.elements()) {
           Jtd.Result result = elements.validate(element, verboseErrors);
           if (!result.isValid()) {
             return result;
@@ -483,7 +458,7 @@ sealed interface JtdSchema {
         return Jtd.Result.failure(error);
       }
       
-      String discriminatorValueStr = discStr.value();
+      String discriminatorValueStr = discStr.string();
       JtdSchema variantSchema = mapping.get(discriminatorValueStr);
       if (variantSchema == null) {
         String error = verboseErrors
@@ -526,7 +501,7 @@ sealed interface JtdSchema {
         return false;
       }
       
-      String discriminatorValueStr = discStr.value();
+      String discriminatorValueStr = discStr.string();
       JtdSchema variantSchema = mapping.get(discriminatorValueStr);
       if (variantSchema == null) {
         String error = verboseErrors

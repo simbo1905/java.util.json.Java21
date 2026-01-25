@@ -26,6 +26,7 @@
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonString;
+
 /**
  * JsonString implementation class
  */
@@ -42,20 +43,12 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
     // non-conformant characters are properly escaped.
     private final StableValue<String> jsonStr = StableValue.of();
 
-    // The String instance returned by `value()`.
-    // If created by parsing a JSON document, escaped characters are unescaped.
-    // If created via the factory method, the input String is used as-is.
+    // The String instance returned by `string()`. Escaped characters are unescaped.
     private final StableValue<String> value = StableValue.of();
 
-    // Called by JsonString.of() factory. The passed String represents the
-    // unescaped value.
-    public JsonStringImpl(String str) {
-        jsonStr.setOrThrow('"' + Utils.escape(value.orElseSet(() -> str)) + '"');
-        // unused
-        doc = null;
-        startOffset = -1;
-        endOffset = -1;
-        hasEscape = false;
+    // LazyConstants initializers
+    private String initJsonStr() {
+        return new String(doc, startOffset, endOffset - startOffset);
     }
 
     public JsonStringImpl(char[] doc, int start, int end, boolean escape) {
@@ -66,7 +59,7 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
     }
 
     @Override
-    public String value() {
+    public String string() {
         return value.orElseSet(this::unescape);
     }
 
@@ -82,8 +75,7 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
 
     @Override
     public String toString() {
-        return jsonStr.orElseSet(
-                () -> new String(doc, startOffset, endOffset - startOffset));
+        return jsonStr.orElseSet(this::initJsonStr);
     }
 
     /*
@@ -130,11 +122,11 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
     @Override
     public boolean equals(Object o) {
         return o instanceof JsonString ojs &&
-                value().equals(ojs.value());
+                string().equals(ojs.string());
     }
 
     @Override
     public int hashCode() {
-        return value().hashCode();
+        return string().hashCode();
     }
 }

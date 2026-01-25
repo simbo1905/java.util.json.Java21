@@ -30,6 +30,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
+
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonObject;
 import jdk.sandbox.java.util.json.JsonParseException;
@@ -40,15 +41,14 @@ import jdk.sandbox.java.util.json.JsonValue;
  * Parses a JSON Document char[] into a tree of JsonValues. JsonObject and JsonArray
  * nodes create their data structures which maintain the connection to children.
  * JsonNumber and JsonString contain only a start and end offset, which
- * are used to lazily procure their underlying value/string on demand. Singletons
- * are used for JsonBoolean and JsonNull.
+ * are used to lazily procure their underlying value/string on demand.
  */
 public final class JsonParser {
 
     // Access to the underlying JSON contents
     private final char[] doc;
     // Lazily initialized for member names with escape sequences
-    private final Supplier<StringBuilder> sb = StableValue.supplier(this::initSb);
+    private final StableValue<StringBuilder> sb = StableValue.of();
     // Current offset during parsing
     private int offset;
     // For exception message on failure
@@ -114,10 +114,7 @@ public final class JsonParser {
             // Why not parse the name as a JsonString and then return its value()?
             // Would requires 2 passes; we should build the String as we parse.
             var name = parseName();
-
-            if (members.containsKey(name)) {
-                throw failure("The duplicate member name: \"%s\" was already parsed".formatted(name));
-            }
+            var nameOffset = offset;
 
             // Move from name to ':'
             skipWhitespaces();
@@ -125,7 +122,11 @@ public final class JsonParser {
                 throw failure(
                         "Expected a colon after the member name");
             }
-            members.put(name, parseValue());
+
+            if (members.putIfAbsent(name, parseValue()) != null) {
+                throw failure(nameOffset, "The duplicate member name: \"%s\" was already parsed".formatted(name));
+            }
+
             // Ensure current char is either ',' or '}'
             if (charEquals('}')) {
                 return new JsonObjectImpl(members, startO, doc);
@@ -171,7 +172,7 @@ public final class JsonParser {
                 }
                 if (!useBldr) {
                     // Append everything up to the first escape sequence
-                    sb.get().append(doc, start, offset - escapeLength - 1 - start);
+                    sb.orElseSet(this::initSb).append(doc, start, offset - escapeLength - 1 - start);
                     useBldr = true;
                 }
                 escape = false;
@@ -181,8 +182,8 @@ public final class JsonParser {
             } else if (c == '\"') {
                 offset++;
                 if (useBldr) {
-                    var name = sb.toString();
-                    sb.get().setLength(0);
+                    var name = sb.orElseSet(this::initSb).toString();
+                    sb.orElseSet(this::initSb).setLength(0);
                     return name;
                 } else {
                     return new String(doc, start, offset - start - 1);
@@ -191,7 +192,7 @@ public final class JsonParser {
                 throw failure(UNESCAPED_CONTROL_CODE);
             }
             if (useBldr) {
-                sb.get().append(c);
+                sb.orElseSet(this::initSb).append(c);
             }
         }
         throw failure(UNCLOSED_STRING.formatted("JSON Object member name"));
@@ -257,31 +258,27 @@ public final class JsonParser {
         throw failure(UNCLOSED_STRING.formatted("JSON String"));
     }
 
-    /*
-     * Parsing true, false, and null return singletons. These JsonValues
-     * do not require offsets to lazily compute their values.
-     */
     private JsonBooleanImpl parseTrue() {
-        offset++;
+        var start = offset++;
         if (charEquals('r') && charEquals('u') && charEquals('e')) {
-            return new JsonBooleanImpl(true, doc, offset);
+            return new JsonBooleanImpl(true, doc, start);
         }
         throw failure(UNEXPECTED_VAL);
     }
 
     private JsonBooleanImpl parseFalse() {
-        offset++;
+        var start = offset++;
         if (charEquals('a') && charEquals('l') && charEquals('s')
                 && charEquals('e')) {
-            return new JsonBooleanImpl(false, doc, offset);
+            return new JsonBooleanImpl(false, doc, start);
         }
         throw failure(UNEXPECTED_VAL);
     }
 
     private JsonNullImpl parseNull() {
-        offset++;
+        var start = offset++;
         if (charEquals('u') && charEquals('l') && charEquals('l')) {
-            return new JsonNullImpl(doc, offset);
+            return new JsonNullImpl(doc, start);
         }
         throw failure(UNEXPECTED_VAL);
     }
@@ -293,8 +290,8 @@ public final class JsonParser {
      * See https://datatracker.ietf.org/doc/html/rfc8259#section-6
      */
     private JsonNumberImpl parseNumber() {
-        boolean sawDecimal = false;
-        boolean sawExponent = false;
+        int decOff = -1;
+        int expOff = -1;
         boolean sawZero = false;
         boolean havePart = false;
         boolean sawSign = false;
@@ -305,19 +302,19 @@ public final class JsonParser {
             var c = doc[offset];
             switch (c) {
                 case '-' -> {
-                    if (offset != start && !sawExponent || sawSign) {
+                    if (offset != start && expOff == -1 || sawSign) {
                         throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                     }
                     sawSign = true;
                 }
                 case '+' -> {
-                    if (!sawExponent || havePart || sawSign) {
+                    if (expOff == -1 || havePart || sawSign) {
                         throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                     }
                     sawSign = true;
                 }
                 case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9' -> {
-                    if (!sawDecimal && !sawExponent && sawZero) {
+                    if (decOff == -1 && expOff == -1 && sawZero) {
                         throw failure(INVALID_POSITION_IN_NUMBER.formatted('0'));
                     }
                     if (doc[offset] == '0' && !havePart) {
@@ -326,24 +323,24 @@ public final class JsonParser {
                     havePart = true;
                 }
                 case '.' -> {
-                    if (sawDecimal) {
+                    if (decOff != -1) {
                         throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                     } else {
                         if (!havePart) {
                             throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                         }
-                        sawDecimal = true;
+                        decOff = offset;
                         havePart = false;
                     }
                 }
                 case 'e', 'E' -> {
-                    if (sawExponent) {
+                    if (expOff != -1) {
                         throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                     } else {
                         if (!havePart) {
                             throw failure(INVALID_POSITION_IN_NUMBER.formatted(c));
                         }
-                        sawExponent = true;
+                        expOff = offset;
                         havePart = false;
                         sawSign = false;
                     }
@@ -357,7 +354,7 @@ public final class JsonParser {
         if (!havePart) {
             throw failure("Input expected after '[.|e|E]'");
         }
-        return new JsonNumberImpl(doc, start, offset, sawDecimal || sawExponent);
+        return new JsonNumberImpl(doc, start, offset, decOff, expOff);
     }
 
     // Utility functions
@@ -408,7 +405,7 @@ public final class JsonParser {
         return switch (doc[offset]) {
             case ' ', '\t','\r' -> false;
             case '\n' -> {
-                // Increments the row and col
+                // Increments the line and lineStart
                 line++;
                 lineStart = offset + 1;
                 yield false;
@@ -427,15 +424,15 @@ public final class JsonParser {
         return false;
     }
 
-    // Return the col position reflective of the current row
-    private int col() {
-        return offset - lineStart;
+    private JsonParseException failure(String message) {
+        return failure(offset, message);
     }
 
-    private JsonParseException failure(String message) {
+    private JsonParseException failure(int off, String message) {
         // Non-revealing message does not produce input source String
-        return new JsonParseException("%s. Location: row %d, col %d."
-                .formatted(message, line, col()), line, col());
+        var pos = off - lineStart;
+        return new JsonParseException("%s. Location: line %d, position %d."
+                .formatted(message, line, pos), line, pos);
     }
 
     // Parsing error messages ----------------------

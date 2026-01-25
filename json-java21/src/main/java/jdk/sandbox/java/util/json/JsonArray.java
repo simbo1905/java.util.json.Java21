@@ -47,11 +47,11 @@ import jdk.sandbox.internal.util.json.JsonArrayImpl;
 /// ));
 /// 
 /// // Access elements
-/// for (JsonValue value : arr.values()) {
+/// for (JsonValue value : arr.elements()) {
 ///     switch (value) {
-///         case JsonString s -> System.out.println("String: " + s.value());
-///         case JsonNumber n -> System.out.println("Number: " + n.toNumber());
-///         case JsonBoolean b -> System.out.println("Boolean: " + b.value());
+///         case JsonString s -> System.out.println("String: " + s.string());
+///         case JsonNumber n -> System.out.println("Number: " + n.toLong());
+///         case JsonBoolean b -> System.out.println("Boolean: " + b.bool());
 ///         default -> System.out.println("Other: " + value);
 ///     }
 /// }
@@ -62,7 +62,7 @@ public non-sealed interface JsonArray extends JsonValue {
 
     /// {@return an unmodifiable list of the `JsonValue` elements in
     /// this `JsonArray`}
-    List<JsonValue> values();
+    List<JsonValue> elements();
 
     /// {@return the `JsonArray` created from the given
     /// list of `JsonValue`s}
@@ -83,20 +83,20 @@ public non-sealed interface JsonArray extends JsonValue {
     /// {@return `true` if the given object is also a `JsonArray`
     /// and the two `JsonArray`s represent the same elements} Two
     /// `JsonArray`s `ja1` and `ja2` represent the same
-    /// elements if `ja1.values().equals(ja2.values())`.
+    /// elements if `ja1.elements().equals(ja2.elements())`.
     ///
-    /// @see #values()
+    /// @see #elements()
     @Override
     boolean equals(Object obj);
 
     /// {@return the hash code value for this `JsonArray`} The hash code value
     /// of a `JsonArray` is derived from the hash code of `JsonArray`'s
-    /// {@link #values()}.
+    /// {@link #elements()}.
     /// Thus, for two `JsonArray`s `ja1` and `ja2`,
     /// `ja1.equals(ja2)` implies that `ja1.hashCode() == ja2.hashCode()`
     /// as required by the general contract of {@link Object#hashCode}.
     ///
-    /// @see #values()
+    /// @see #elements()
     @Override
     int hashCode();
 }

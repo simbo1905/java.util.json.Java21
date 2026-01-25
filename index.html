@@ -95,8 +95,8 @@ JsonValue value = Json.parse("{\"name\":\"Alice\",\"age\":30}");
 JsonObject obj = (JsonObject) value;
 
 // Access values
-String name = ((JsonString) obj.members().get("name")).value();
-int age = ((JsonNumber) obj.members().get("age")).toNumber().intValue();</code></pre>
+String name = ((JsonString) obj.members().get("name")).string();
+int age = Math.toIntExact(((JsonNumber) obj.members().get("age")).toLong());</code></pre>
 
         <h2>Key Features</h2>
         <ul>
@@ -118,15 +118,15 @@ Team team = new Team("Engineering", List.of(
     new User("Bob", "bob@example.com", false)
 ));
 
-JsonValue teamJson = Json.fromUntyped(Map.of(
-    "teamName", team.teamName(),
-    "members", team.members().stream()
-        .map(u -> Map.of(
-            "name", u.name(),
-            "email", u.email(),
-            "active", u.active()
-        ))
-        .toList()
+JsonValue teamJson = JsonObject.of(Map.of(
+    "teamName", JsonString.of(team.teamName()),
+    "members", JsonArray.of(team.members().stream()
+        .map(u -> JsonObject.of(Map.of(
+            "name", JsonString.of(u.name()),
+            "email", JsonString.of(u.email()),
+            "active", JsonBoolean.of(u.active())
+        )))
+        .toList())
 ));</code></pre>
 
         <h2>Resources</h2>

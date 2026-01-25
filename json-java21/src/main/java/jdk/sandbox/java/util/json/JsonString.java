@@ -53,12 +53,12 @@ public non-sealed interface JsonString extends JsonValue {
     /// {@return the {@code JsonString} created from the given
     /// {@code String}}
     ///
-    /// @param value the given {@code String} used as the {@code value} of this
-    ///             {@code JsonString}. Non-null.
-    /// @throws NullPointerException if {@code value} is {@code null}
-    static JsonString of(String value) {
-        Objects.requireNonNull(value);
-        return new JsonStringImpl(value);
+    /// @param src the given source {@code String}. Non-null.
+    /// @throws NullPointerException if {@code src} is {@code null}
+    static JsonString of(String src) {
+        var escaped = '"' + jdk.sandbox.internal.util.json.Utils.escape(Objects.requireNonNull(src)) + '"';
+        return new JsonStringImpl(escaped.toCharArray(), 0, escaped.length(),
+                escaped.length() != src.length() + 2);
     }
 
     /// {@return the JSON {@code String} represented by this {@code JsonString}}
@@ -66,7 +66,7 @@ public non-sealed interface JsonString extends JsonValue {
     /// preserves the text representation of the corresponding JSON String. Otherwise,
     /// the {@code value} is escaped to produce the JSON {@code String}.
     ///
-    /// @see #value()
+    /// @see #string()
     String toString();
 
     /// {@return the {@code String} value represented by this {@code JsonString}}
@@ -75,21 +75,21 @@ public non-sealed interface JsonString extends JsonValue {
     /// unescaped form.
     ///
     /// @see #toString()
-    String value();
+    String string();
 
     /// {@return true if the given {@code obj} is equal to this {@code JsonString}}
     /// Two {@code JsonString}s {@code js1} and {@code js2} represent the same value
-    /// if {@code js1.value().equals(js2.value())}.
+    /// if {@code js1.string().equals(js2.string())}.
     ///
-    /// @see #value()
+    /// @see #string()
     @Override
     boolean equals(Object obj);
 
     /// {@return the hash code value of this {@code JsonString}} The hash code of a
     /// {@code JsonString} is derived from the hash code of {@code JsonString}'s
-    /// {@link #value()}.
+    /// {@link #string()}.
     ///
-    /// @see #value()
+    /// @see #string()
     @Override
     int hashCode();
 }
