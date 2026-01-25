@@ -951,6 +951,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     }
 
     /// Generates a SHA256 fingerprint of the differences (first 7 chars)
+    /// Uses only essential, stable information: class names and change types (sorted)
     /// Used for deduplicating GitHub issues
     /// @param report the full comparison report
     /// @return 7-character fingerprint or "0000000" if no differences
@@ -962,22 +963,38 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             return "0000000";
         }
         
-        // Extract just the differences array for fingerprinting
+        // Build a stable, sorted representation of just the essential diff info
         final var differences = (JsonArray) report.members().get("differences");
-        final var diffsOnly = differences.values().stream()
-            .filter(v -> {
-                final var obj = (JsonObject) v;
-                final var status = ((JsonString) obj.members().get("status")).value();
-                return "DIFFERENT".equals(status);
-            })
-            .toList();
+        final var stableLines = new ArrayList<String>();
         
-        // Serialize to stable JSON string for hashing
-        final var jsonString = JsonArray.of(diffsOnly).toString();
+        for (final var diff : differences.values()) {
+            final var diffObj = (JsonObject) diff;
+            final var status = ((JsonString) diffObj.members().get("status")).value();
+            
+            if (!"DIFFERENT".equals(status)) continue;
+            
+            final var className = ((JsonString) diffObj.members().get("className")).value();
+            final var classDiffs = (JsonArray) diffObj.members().get("differences");
+            
+            if (classDiffs != null) {
+                for (final var change : classDiffs.values()) {
+                    final var changeObj = (JsonObject) change;
+                    final var type = ((JsonString) changeObj.members().get("type")).value();
+                    final var methodValue = changeObj.members().get("method");
+                    final var method = methodValue instanceof JsonString js ? js.value() : "";
+                    // Create stable line: "ClassName:changeType:methodName"
+                    stableLines.add(className + ":" + type + ":" + method);
+                }
+            }
+        }
+        
+        // Sort for deterministic ordering
+        Collections.sort(stableLines);
+        final var stableString = String.join("\n", stableLines);
         
         try {
             final var digest = MessageDigest.getInstance("SHA-256");
-            final var hash = digest.digest(jsonString.getBytes(StandardCharsets.UTF_8));
+            final var hash = digest.digest(stableString.getBytes(StandardCharsets.UTF_8));
             final var hexString = new StringBuilder();
             for (final var b : hash) {
                 hexString.append(String.format("%02x", b));
@@ -985,7 +1002,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             return hexString.substring(0, 7);
         } catch (NoSuchAlgorithmException e) {
             LOGGER.warning("SHA-256 not available, using fallback fingerprint");
-            return String.format("%07d", jsonString.hashCode() & 0xFFFFFFF);
+            return String.format("%07d", stableString.hashCode() & 0xFFFFFFF);
         }
     }
 
