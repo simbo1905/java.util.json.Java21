@@ -229,15 +229,15 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 
 ## Current Status
 
-This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json” branch at commit [a8e7de8b49e4e4178eb53c94ead2fa2846c30635](https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635) ("Produce path/col during path building", 2025-08-14 UTC).
+This code (as of 2026-01-25) is derived from the OpenJDK jdk-sandbox repository "json" branch at commit [4de0eb4f0c867df2d420501cf6741e50dee142d9](https://github.com/openjdk/jdk-sandbox/commit/4de0eb4f0c867df2d420501cf6741e50dee142d9) ("initial integration into the JDK repository", 2024-10-10 UTC).
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
-The JSON compatibitlity tests in this repo suggest 99% conformance with a leading test suite when in "strict" mode. The two conformance expecatations that fail assume that duplicated keys in a JSON document are okay. The upstream code at this time appear to take a strict stance that it should not siliently ignore duplicate keys in a json object. 
+The JSON compatibility tests in this repo suggest 99.3% conformance with a leading test suite. The two conformance expectations that fail assume that duplicate keys in a JSON document are okay. The upstream code takes a strict stance that it should not silently ignore duplicate keys in a JSON object.
 
 ### CI: Upstream API Tracking
 
-A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. Implication: differences do not currently fail the build or auto‑open issues; check the workflow logs (or adjust the workflow to fail on diffs) if you need notifications.
+A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. API drift is automatically detected and issues are created when differences are found, with fingerprint deduplication to avoid duplicate issues for the same drift.
 
 ## Modifications
 
@@ -248,12 +248,12 @@ This is a simplified backport with the following changes from the original:
 
 ## Security Considerations
 
-**⚠️ This unstable API historically contained a undocumented security vulnerabilities.** The compatibility test suite (documented below) includes crafted attack vectors that expose these issues:
+**⚠️ This unstable API contains known security considerations.** The parser uses recursion internally which means:
 
 - **Stack exhaustion attacks**: Deeply nested JSON structures can trigger `StackOverflowError`, potentially leaving applications in an undefined state and enabling denial-of-service attacks
 - **API contract violations**: The `Json.parse()` method documentation only declares `JsonParseException` and `NullPointerException`, but malicious inputs can trigger undeclared exceptions
 
-Such vulnerabilities existed at one point in the upstream OpenJDK sandbox implementation and were reported here for transparency. Until the upstream code is stable it is probably better to assume that such issue or similar may be present or may reappear. If you are only going to use this library in small cli programs where the json is configuration you write then you will not parse objects nested to tens of thousands of levels designed crash a parser. Yet you should not at this tiome expose this parser to the internet where someone can choose to attack it in that manner. 
+The upstream OpenJDK sandbox implementation uses a recursive descent parser. Until the upstream code is stable it is probably better to assume that such issues or similar may be present or may reappear. If you are only going to use this library in small CLI programs where the JSON is configuration you write, then you will not parse objects nested to tens of thousands of levels designed to crash a parser. However, you should not at this time expose this parser to the internet where someone can choose to attack it in that manner. 
 
 ## JSON Type Definition (JTD) Validator
 
