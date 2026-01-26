@@ -6,7 +6,7 @@
 
     <groupId>io.github.simbo1905.json</groupId>
     <artifactId>parent</artifactId>
-    <version>0.1.9</version>
+    <version>2026.01.26</version>
     <packaging>pom</packaging>
 
     <name>java.util.json Java21 Backport Parent</name>
