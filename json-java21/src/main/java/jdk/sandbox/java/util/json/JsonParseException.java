@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -25,43 +25,57 @@
 
 package jdk.sandbox.java.util.json;
 
+
 import java.io.Serial;
 
-
-/// Signals that an error has been detected while parsing the
-/// JSON document.
-///
-/// @since 99
+/**
+ * Signals that an error has been detected while parsing the
+ * JSON document. This exception is thrown if the value supplied
+ * to the {@link Json#parse(String) Json::parse} methods is not valid JSON
+ * syntax, or contains a JSON object with duplicate names.
+ *
+ * @since 99
+ */
 public class JsonParseException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 7022545379651073390L;
 
-    /// Position of the error row in the document
-    /// @serial
-    private final int row;
+    /**
+     * Position of the error line in the document
+     * @serial
+     */
+    private final int line;
 
-    /// Position of the error column in the document
-    /// @serial
-    private final int col;
+    /**
+     * Position of the error position in the document
+     * @serial
+     */
+    private final int pos;
 
-    /// Constructs a JsonParseException with the specified detail message.
-    /// @param message the detail message
-    /// @param row the row of the error on parsing the document
-    /// @param col the column of the error on parsing the document
-    public JsonParseException(String message, int row, int col) {
+    /**
+     * Constructs a JsonParseException with the specified detail message.
+     * @param message the detail message
+     * @param line the line of the error on parsing the document
+     * @param pos the position of the error on parsing the document
+     */
+    public JsonParseException(String message, int line, int pos) {
         super(message);
-        this.row = row;
-        this.col = col;
+        this.line = line;
+        this.pos = pos;
     }
 
-    /// {@return the row of the error on parsing the document}
-    public int getErrorRow() {
-        return row;
+    /**
+     * {@return the line of the error on parsing the document}
+     */
+    public int getErrorLine() {
+        return line;
     }
 
-    /// {@return the column of the error on parsing the document}
-    public int getErrorColumn() {
-        return col;
+    /**
+     * {@return the position of the error on parsing the document}
+     */
+    public int getErrorPosition() {
+        return pos;
     }
 }

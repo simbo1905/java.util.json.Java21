@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,44 +32,33 @@ import java.util.stream.Collectors;
 
 import jdk.sandbox.internal.util.json.JsonArrayImpl;
 
-/// The interface that represents JSON array.
-/// 
-/// A `JsonArray` can be produced by {@link Json#parse(String)}.
-/// Alternatively, {@link #of(List)} can be used to obtain a `JsonArray`.
-/// 
-/// ## Example Usage
-/// ```java
-/// // Create from a List
-/// JsonArray arr = JsonArray.of(List.of(
-///     JsonString.of("first"),
-///     JsonNumber.of(42),
-///     JsonBoolean.of(true)
-/// ));
-/// 
-/// // Access elements
-/// for (JsonValue value : arr.values()) {
-///     switch (value) {
-///         case JsonString s -> System.out.println("String: " + s.value());
-///         case JsonNumber n -> System.out.println("Number: " + n.toNumber());
-///         case JsonBoolean b -> System.out.println("Boolean: " + b.value());
-///         default -> System.out.println("Other: " + value);
-///     }
-/// }
-/// ```
-///
-/// @since 99
+/**
+ * The interface that represents JSON array.
+ * <p>
+ * A {@code JsonArray} can be produced by {@link Json#parse(String)}.
+ * <p> Alternatively, {@link #of(List)} can be used to obtain a {@code JsonArray}.
+ *
+ * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-5 RFC 8259:
+ *      The JavaScript Object Notation (JSON) Data Interchange Format - Arrays
+ * @since 99
+ */
 public non-sealed interface JsonArray extends JsonValue {
 
-    /// {@return an unmodifiable list of the `JsonValue` elements in
-    /// this `JsonArray`}
-    List<JsonValue> values();
+    /**
+     * {@return an unmodifiable list of the {@code JsonValue} elements in
+     * this {@code JsonArray}}
+     */
+    @Override
+    List<JsonValue> elements();
 
-    /// {@return the `JsonArray` created from the given
-    /// list of `JsonValue`s}
-    ///
-    /// @param src the list of `JsonValue`s. Non-null.
-    /// @throws NullPointerException if `src` is `null`, or contains
-    ///         any values that are `null`
+    /**
+     * {@return the {@code JsonArray} created from the given
+     * list of {@code JsonValue}s}
+     *
+     * @param src the list of {@code JsonValue}s. Non-null.
+     * @throws NullPointerException if {@code src} is {@code null}, or contains
+     *      any values that are {@code null}
+     */
     static JsonArray of(List<? extends JsonValue> src) {
         // Careful not to use List::contains on src for null checking which
         // throws NPE for immutable lists
@@ -80,23 +69,27 @@ public non-sealed interface JsonArray extends JsonValue {
         );
     }
 
-    /// {@return `true` if the given object is also a `JsonArray`
-    /// and the two `JsonArray`s represent the same elements} Two
-    /// `JsonArray`s `ja1` and `ja2` represent the same
-    /// elements if `ja1.values().equals(ja2.values())`.
-    ///
-    /// @see #values()
+    /**
+     * {@return {@code true} if the given object is also a {@code JsonArray}
+     * and the two {@code JsonArray}s represent the same elements} Two
+     * {@code JsonArray}s {@code ja1} and {@code ja2} represent the same
+     * elements if {@code ja1.elements().equals(ja2.elements())}.
+     *
+     * @see #elements()
+     */
     @Override
     boolean equals(Object obj);
 
-    /// {@return the hash code value for this `JsonArray`} The hash code value
-    /// of a `JsonArray` is derived from the hash code of `JsonArray`'s
-    /// {@link #values()}.
-    /// Thus, for two `JsonArray`s `ja1` and `ja2`,
-    /// `ja1.equals(ja2)` implies that `ja1.hashCode() == ja2.hashCode()`
-    /// as required by the general contract of {@link Object#hashCode}.
-    ///
-    /// @see #values()
+    /**
+     * {@return the hash code value for this {@code JsonArray}} The hash code value
+     * of a {@code JsonArray} is derived from the hash code of {@code JsonArray}'s
+     * {@link #elements()}.
+     * Thus, for two {@code JsonArray}s {@code ja1} and {@code ja2},
+     * {@code ja1.equals(ja2)} implies that {@code ja1.hashCode() == ja2.hashCode()}
+     * as required by the general contract of {@link Object#hashCode}.
+     *
+     * @see #elements()
+     */
     @Override
     int hashCode();
 }

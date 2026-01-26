@@ -16,10 +16,10 @@ public class JsonPatternMatchingTests {
     private String identifyJsonValue(JsonValue jsonValue) {
         return switch (jsonValue) {
             case JsonObject o -> "Object with " + o.members().size() + " members";
-            case JsonArray a -> "Array with " + a.values().size() + " elements";
-            case JsonString s -> "String with value: " + s.value();
-            case JsonNumber n -> "Number with value: " + n.toNumber();
-            case JsonBoolean b -> "Boolean with value: " + b.value();
+            case JsonArray a -> "Array with " + a.elements().size() + " elements";
+            case JsonString s -> "String with value: " + s.string();
+            case JsonNumber n -> "Number with value: " + n.toDouble();
+            case JsonBoolean b -> "Boolean with value: " + b.bool();
             case JsonNull ignored -> "Null";
         };
     }

@@ -447,7 +447,7 @@ public class TestRfc8927 extends JtdTestBase {
   @Test
   public void testInt32RejectsDecimal() {
     JsonValue schema = Json.parse("{\"type\": \"int32\"}");
-    JsonValue decimalValue = JsonNumber.of(new java.math.BigDecimal("3.14"));
+    JsonValue decimalValue = JsonNumber.of("3.14");
     
     LOG.info(() -> "Testing int32 validation against decimal value 3.14");
     LOG.fine(() -> "Schema: " + schema);
@@ -479,10 +479,10 @@ public class TestRfc8927 extends JtdTestBase {
     
     // Valid integer representations with trailing zeros
     JsonValue[] validIntegers = {
-      JsonNumber.of(new java.math.BigDecimal("3.0")),
-      JsonNumber.of(new java.math.BigDecimal("3.000")),
-      JsonNumber.of(new java.math.BigDecimal("42.00")),
-      JsonNumber.of(new java.math.BigDecimal("0.0"))
+      JsonNumber.of("3.0"),
+      JsonNumber.of("3.000"),
+      JsonNumber.of("42.00"),
+      JsonNumber.of("0.0")
     };
     
     Jtd validator = new Jtd();
@@ -509,10 +509,10 @@ public class TestRfc8927 extends JtdTestBase {
     
     // Invalid values with actual fractional components
     JsonValue[] invalidValues = {
-      JsonNumber.of(new java.math.BigDecimal("3.1")),
-      JsonNumber.of(new java.math.BigDecimal("3.0001")),
-      JsonNumber.of(new java.math.BigDecimal("3.14")),
-      JsonNumber.of(new java.math.BigDecimal("0.1"))
+      JsonNumber.of("3.1"),
+      JsonNumber.of("3.0001"),
+      JsonNumber.of("3.14"),
+      JsonNumber.of("0.1")
     };
     
     Jtd validator = new Jtd();
@@ -900,8 +900,8 @@ public class TestRfc8927 extends JtdTestBase {
       Jtd.Result result = validator.validate(schema, outOfRange);
       
       LOG.fine(() -> "Testing int8 range with Double value: " + outOfRange + 
-               " (JsonNumber.toNumber() type: " + 
-               ((JsonNumber)outOfRange).toNumber().getClass().getSimpleName() + ")");
+               " (JsonNumber.toLong(): " + 
+               ((JsonNumber)outOfRange).toLong() + ")");
       
       // This should fail but currently passes due to the bug
       assertThat(result.isValid())
@@ -1041,16 +1041,15 @@ public class TestRfc8927 extends JtdTestBase {
   public void testJsonNumberToNumberReturnsDouble() {
     JsonValue numberValue = Json.parse("1000");
     
-    // Verify that JsonNumber.toNumber() returns Double for typical JSON numbers
+    // Verify that JsonNumber works properly for typical JSON numbers
     assertThat(numberValue).isInstanceOf(JsonNumber.class);
-    Number number = ((JsonNumber) numberValue).toNumber();
+    long longValue = ((JsonNumber) numberValue).toLong();
     
-    LOG.info(() -> "JsonNumber.toNumber() returns: " + number.getClass().getSimpleName() + 
+    LOG.info(() -> "JsonNumber.toLong() returns: " + longValue + 
                    " for value: " + numberValue);
     
-    // This demonstrates what type JsonNumber.toNumber() returns for typical values
-    // The actual type depends on the JSON parser implementation
-    LOG.info(() -> "JsonNumber.toNumber() returns: " + number.getClass().getSimpleName() + 
+    // This demonstrates what value JsonNumber.toLong() returns for typical values
+    LOG.info(() -> "JsonNumber.toLong() returns: " + longValue + 
                    " for value: " + numberValue);
     
     // The key test is that regardless of the Number type, range validation should work
@@ -1070,7 +1069,7 @@ public class TestRfc8927 extends JtdTestBase {
     Jtd.Result result = validator.validate(schema, doubleValue);
     
     LOG.fine(() -> "Explicit Double validation - value: " + doubleValue + 
-             ", toNumber() type: " + doubleValue.toNumber().getClass().getSimpleName());
+             ", toDouble(): " + doubleValue.toDouble());
     
     // This should fail (1000 is way outside int8 range of -128 to 127)
     assertThat(result.isValid())
@@ -1107,7 +1106,7 @@ public class TestRfc8927 extends JtdTestBase {
   @Test
   public void testIntegerValidationWithBigDecimalValues() {
     JsonValue schema = Json.parse("{\"type\": \"uint32\"}");
-    JsonValue bigValue = JsonNumber.of(new java.math.BigDecimal("5000000000")); // > uint32 max
+    JsonValue bigValue = JsonNumber.of("5000000000"); // > uint32 max
     
     Jtd validator = new Jtd();
     Jtd.Result result = validator.validate(schema, bigValue);

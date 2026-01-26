@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -27,8 +27,10 @@ package jdk.sandbox.internal.util.json;
 
 import java.util.Collections;
 import java.util.List;
+
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonValue;
+
 /**
  * JsonArray implementation class
  */
@@ -49,7 +51,7 @@ public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
     }
 
     @Override
-    public List<JsonValue> values() {
+    public List<JsonValue> elements() {
         return Collections.unmodifiableList(theValues);
     }
 
@@ -66,10 +68,10 @@ public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
     @Override
     public String toString() {
         var s = new StringBuilder("[");
-        for (JsonValue v: values()) {
+        for (JsonValue v: elements()) {
             s.append(v.toString()).append(",");
         }
-        if (!values().isEmpty()) {
+        if (!elements().isEmpty()) {
             s.setLength(s.length() - 1); // trim final comma
         }
         return s.append("]").toString();
@@ -78,11 +80,11 @@ public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
     @Override
     public boolean equals(Object o) {
         return o instanceof JsonArray oja &&
-                values().equals(oja.values());
+                elements().equals(oja.elements());
     }
 
     @Override
     public int hashCode() {
-        return values().hashCode();
+        return elements().hashCode();
     }
 }

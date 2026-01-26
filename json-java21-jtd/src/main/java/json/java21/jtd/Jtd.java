@@ -175,7 +175,7 @@ public class Jtd {
       case JtdSchema.ElementsSchema elementsSchema -> {
         if (instance instanceof JsonArray arr) {
           int index = 0;
-          for (JsonValue element : arr.values()) {
+          for (JsonValue element : arr.elements()) {
             String childPtr = frame.ptr() + "/" + index;
             Crumbs childCrumbs = frame.crumbs().withArrayIndex(index);
             Frame childFrame = new Frame(elementsSchema.elements(), element, childPtr, childCrumbs);
@@ -249,7 +249,7 @@ public class Jtd {
         if (instance instanceof JsonObject obj) {
           JsonValue discriminatorValue = obj.members().get(discSchema.discriminator());
           if (discriminatorValue instanceof JsonString discStr) {
-            String discriminatorValueStr = discStr.value();
+            String discriminatorValueStr = discStr.string();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
 
@@ -418,7 +418,7 @@ public class Jtd {
               nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
         }
         // If nullable is valid, this becomes a nullable empty schema
-        if (bool.value()) {
+        if (bool.bool()) {
           return new JtdSchema.NullableSchema(new JtdSchema.EmptySchema());
         }
       }
@@ -461,7 +461,7 @@ public class Jtd {
         throw new IllegalArgumentException("nullable must be a boolean, found: " + 
             nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
       }
-      if (bool.value()) {
+      if (bool.bool()) {
         return new JtdSchema.NullableSchema(schema);
       }
     }
@@ -474,7 +474,7 @@ public class Jtd {
     if (!(refValue instanceof JsonString str)) {
       throw new IllegalArgumentException("ref must be a string");
     }
-    String ref = str.value();
+    String ref = str.string();
     
     // RFC 8927: Validate that ref points to an existing definition at compile time
     if (!definitions.containsKey(ref)) {
@@ -501,7 +501,7 @@ public class Jtd {
       throw new IllegalArgumentException("type must be a string");
     }
     
-    String typeStr = str.value();
+    String typeStr = str.string();
     
     // RFC 8927 §2.2.3: Validate that type is one of the supported primitive types
     if (!VALID_TYPES.contains(typeStr)) {
@@ -520,11 +520,11 @@ public class Jtd {
     }
     
     List<String> values = new ArrayList<>();
-    for (JsonValue value : arr.values()) {
+    for (JsonValue value : arr.elements()) {
       if (!(value instanceof JsonString str)) {
         throw new IllegalArgumentException("enum values must be strings");
       }
-      values.add(str.value());
+      values.add(str.string());
     }
     
     if (values.isEmpty()) {
@@ -596,7 +596,7 @@ public class Jtd {
       if (!(addPropsValue instanceof JsonBoolean bool)) {
         throw new IllegalArgumentException("additionalProperties must be a boolean");
       }
-      additionalProperties = bool.value();
+      additionalProperties = bool.bool();
     }  // Empty schema with no properties defined rejects additional properties by default
 
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
@@ -623,7 +623,7 @@ public class Jtd {
     if (!(discriminatorValue instanceof JsonString discStr)) {
       throw new IllegalArgumentException("discriminator must be a string");
     }
-    String discriminatorKey = discStr.value();
+    String discriminatorKey = discStr.string();
     
     JsonValue mappingValue = members.get("mapping");
     if (!(mappingValue instanceof JsonObject mappingObj)) {
@@ -644,7 +644,7 @@ public class Jtd {
       // Check for nullable flag before compiling
       if (variantObj.members().containsKey("nullable") && 
           variantObj.members().get("nullable") instanceof JsonBoolean bool &&
-          bool.value()) {
+          bool.bool()) {
         throw new IllegalArgumentException("Discriminator mapping '" + key + "' cannot be nullable");
       }
       

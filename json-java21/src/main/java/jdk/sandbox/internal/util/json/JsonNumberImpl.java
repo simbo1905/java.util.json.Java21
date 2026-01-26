@@ -25,10 +25,12 @@
 
 package jdk.sandbox.internal.util.json;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.Locale;
+
+import java.util.Optional;
 import jdk.sandbox.java.util.json.JsonNumber;
+
+
 /**
  * JsonNumber implementation class
  */
@@ -37,64 +39,31 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
     private final char[] doc;
     private final int startOffset;
     private final int endOffset;
-    private final boolean isFp;
-    private final StableValue<Number> theNumber = StableValue.of();
-    private final StableValue<String> numString = StableValue.of();
-    private final StableValue<BigDecimal> cachedBD = StableValue.of();
+    private final int decimalOffset;
+    private final int exponentOffset;
 
-    public JsonNumberImpl(Number num) {
-        // Called by factories. Input is Double, Long, BI, or BD.
-        if (num == null ||
-            num instanceof Double d && (d.isNaN() || d.isInfinite())) {
-            throw new IllegalArgumentException("Not a valid JSON number");
-        }
-        theNumber.setOrThrow(num);
-        numString.setOrThrow(num.toString());
-        // unused
-        startOffset = -1;
-        endOffset = -1;
-        isFp = false;
-        doc = null;
-    }
+    private final LazyConstant<String> numString = LazyConstant.of(this::initNumString);
+    private final LazyConstant<Optional<Long>> numLong = LazyConstant.of(this::initNumLong);
+    private final LazyConstant<Optional<Double>> numDouble = LazyConstant.of(this::initNumDouble);
 
-    public JsonNumberImpl(char[] doc, int start, int end, boolean fp) {
+    public JsonNumberImpl(char[] doc, int start, int end, int dec, int exp) {
         this.doc = doc;
         startOffset = start;
         endOffset = end;
-        isFp = fp;
+        decimalOffset = dec;
+        exponentOffset = exp;
     }
 
     @Override
-    public Number toNumber() {
-        return theNumber.orElseSet(() -> {
-            var str = toString();
-            if (isFp) {
-                var db = Double.parseDouble(str);
-                if (Double.isInfinite(db)) {
-                    return toBigDecimal();
-                } else {
-                    return db;
-                }
-            } else {
-                try {
-                    return Long.parseLong(str);
-                } catch(NumberFormatException e) {
-                    return new BigInteger(str);
-                }
-            }
-        });
+    public long toLong() {
+        return numLong.get().orElseThrow(() ->
+                Utils.composeError(this, this + " cannot be represented as a long."));
     }
 
     @Override
-    public BigDecimal toBigDecimal() {
-        return cachedBD.orElseSet(() -> {
-            // If we already computed theNumber, check if it's BD
-            if (theNumber.orElse(null) instanceof BigDecimal bd) {
-                return bd;
-            } else {
-                return new BigDecimal(toString());
-            }
-        });
+    public double toDouble() {
+        return numDouble.get().orElseThrow(() ->
+                Utils.composeError(this, this + " cannot be represented as a double."));
     }
 
     @Override
@@ -109,8 +78,7 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
 
     @Override
     public String toString() {
-        return numString.orElseSet(
-                () -> new String(doc, startOffset, endOffset - startOffset));
+        return numString.get();
     }
 
     @Override
@@ -122,5 +90,72 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
     @Override
     public int hashCode() {
         return toString().toLowerCase(Locale.ROOT).hashCode();
+    }
+
+    // LazyConstants initializers
+    private String initNumString() {
+        return new String(doc, startOffset, endOffset - startOffset);
+    }
+
+    // 4 cases: Fully integral, has decimal, has exponent, has decimal and exponent
+    private Optional<Long> initNumLong() {
+        try {
+            if (decimalOffset == -1 && exponentOffset == -1) {
+                // Parseable Long format
+                return Optional.of(Long.parseLong(numString.get()));
+            } else {
+                // Decimal or exponent exists, can't parse w/ Long::parseLong
+                if (exponentOffset != -1) {
+                    // Exponent exists
+                    // Calculate exponent value
+                    int exp = Math.abs(Integer.parseInt(new String(doc,
+                            exponentOffset + 1, endOffset - exponentOffset - 1), 10));
+                    long sig;
+                    long scale;
+                    if (decimalOffset == -1) {
+                        // Exponent with no decimal
+                        sig = Long.parseLong(new String(doc, startOffset, exponentOffset - startOffset));
+                    } else {
+                        // Exponent with decimal
+                        for (int i = decimalOffset + exp + 1; i < exponentOffset; i++) {
+                            if (doc[i] != '0') {
+                                return Optional.empty();
+                            }
+                        }
+                        var shiftedFractionPart = new String(doc, decimalOffset + 1, Math.min(exp, exponentOffset - decimalOffset - 1));
+                        exp = exp - shiftedFractionPart.length();
+                        sig = Long.parseLong(new String(doc, startOffset, decimalOffset - startOffset) + shiftedFractionPart);
+                    }
+                    scale = Utils.powExact(10L, exp);
+                    if (doc[exponentOffset + 1] != '-') {
+                        return Optional.of(Math.multiplyExact(sig, scale));
+                    } else {
+                        if (sig % scale == 0) {
+                            return Optional.of(Math.divideExact(sig, scale));
+                        } else {
+                            return Optional.empty();
+                        }
+                    }
+                } else {
+                    // Decimal with no exponent
+                    for (int i = decimalOffset + 1; i < endOffset; i++) {
+                        if (doc[i] != '0') {
+                            return Optional.empty();
+                        }
+                    }
+                    return Optional.of(Long.parseLong(new String(doc,
+                            startOffset, decimalOffset - startOffset), 10));
+                }
+            }
+        } catch (NumberFormatException | ArithmeticException ignored) {}
+        return Optional.empty();
+    }
+
+    private Optional<Double> initNumDouble() {
+        var db = Double.parseDouble(numString.get());
+        if (Double.isFinite(db)) {
+            return Optional.of(db);
+        }
+        return Optional.empty();
     }
 }

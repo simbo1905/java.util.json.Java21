@@ -98,7 +98,7 @@ class JtdPropertyTest extends JtdTestBase {
       case "uint16" -> JsonNumber.of(50000);
       case "int32" -> JsonNumber.of(1000000);
       case "uint32" -> JsonNumber.of(3000000000L);
-      case "float32", "float64" -> JsonNumber.of(new BigDecimal("3.14159"));
+      case "float32", "float64" -> JsonNumber.of("3.14159");
       default -> JsonString.of("unknown-type-value");
     };
   }
@@ -110,10 +110,10 @@ class JtdPropertyTest extends JtdTestBase {
       case TypeSchema(var type) -> createFailingTypeValues(type);
       case EnumSchema(var ignored) -> List.of(JsonString.of("invalid-enum-value"));
       case ElementsSchema(var elementSchema) -> {
-        if (compliant instanceof JsonArray arr && !arr.values().isEmpty()) {
-          final var invalidElement = createFailingJtdDocuments(elementSchema, arr.values().getFirst());
+        if (compliant instanceof JsonArray arr && !arr.elements().isEmpty()) {
+          final var invalidElement = createFailingJtdDocuments(elementSchema, arr.elements().getFirst());
           if (!invalidElement.isEmpty()) {
-            final var mixedArray = JsonArray.of(List.of(arr.values().getFirst(), invalidElement.getFirst()));
+            final var mixedArray = JsonArray.of(List.of(arr.elements().getFirst(), invalidElement.getFirst()));
             yield List.of(mixedArray, JsonNull.of());
           }
         }
@@ -153,7 +153,7 @@ class JtdPropertyTest extends JtdTestBase {
       case "boolean" -> List.of(JsonString.of("not-boolean"), JsonNumber.of(1));
       case "string", "timestamp" -> List.of(JsonNumber.of(123), JsonBoolean.of(false));
       case "int8", "uint8", "int16", "int32", "uint32", "uint16" ->
-          List.of(JsonString.of("not-integer"), JsonNumber.of(new BigDecimal("3.14")));
+          List.of(JsonString.of("not-integer"), JsonNumber.of("3.14"));
       case "float32", "float64" -> List.of(JsonString.of("not-float"), JsonBoolean.of(true));
       default -> List.of(JsonNull.of());
     };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -28,68 +28,85 @@ package jdk.sandbox.java.util.json;
 import java.util.Objects;
 
 import jdk.sandbox.internal.util.json.JsonStringImpl;
+import jdk.sandbox.internal.util.json.Utils;
 
-/// The interface that represents a JSON string.
-/// 
-/// A {@code JsonString} can be produced by a {@link Json#parse(String)}.
-/// Within a valid JSON String, any character may be escaped using either a
-/// two-character escape sequence (if applicable) or a Unicode escape sequence.
-/// Quotation mark (U+0022), reverse solidus (U+005C), and the control characters
-/// (U+0000 through U+001F) must be escaped.
-/// 
-/// Alternatively, {@link #of(String)} can be used to obtain a {@code JsonString}
-/// directly from a {@code String}. The following expressions are all equivalent,
-/// {@snippet lang="java" :
-///     Json.parse("\"foo\\t\"");
-///     Json.parse("\"foo\\u0009\"");
-///     JsonString.of("foo\t");
-/// }
-///
-/// @spec https://datatracker.ietf.org/doc/html/rfc8259#section-7 RFC 8259:
-///      The JavaScript Object Notation (JSON) Data Interchange Format - Strings
-/// @since 99
+/**
+ * The interface that represents a JSON string.
+ * <p>
+ * A {@code JsonString} can be produced by a {@link Json#parse(String)}.
+ * Within a valid JSON string, any character may be escaped using either a
+ * two-character escape sequence (if applicable) or a Unicode escape sequence.
+ * Quotation mark (U+0022), reverse solidus (U+005C), and the control characters
+ * (U+0000 through U+001F) must be escaped.
+ * <p> Alternatively, {@link #of(String)} can be used to obtain a {@code JsonString}
+ * directly from a {@code String}. The {@code JsonString} instances produced by
+ * the following expressions are all equivalent,
+ * {@snippet lang = "java":
+ *     Json.parse("\"foo\\t\"");
+ *     Json.parse("\"foo\\u0009\"");
+ *     JsonString.of("foo\t");
+ *}
+ *
+ * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-7 RFC 8259:
+ *      The JavaScript Object Notation (JSON) Data Interchange Format - Strings
+ * @since 99
+ */
 public non-sealed interface JsonString extends JsonValue {
 
-    /// {@return the {@code JsonString} created from the given
-    /// {@code String}}
-    ///
-    /// @param value the given {@code String} used as the {@code value} of this
-    ///             {@code JsonString}. Non-null.
-    /// @throws NullPointerException if {@code value} is {@code null}
-    static JsonString of(String value) {
-        Objects.requireNonNull(value);
-        return new JsonStringImpl(value);
+    /**
+     * {@return the {@code JsonString} created from the given
+     * {@code String}}
+     *
+     * @param src the given source {@code String}. Non-null.
+     * @throws NullPointerException if {@code src} is {@code null}
+     */
+    static JsonString of(String src) {
+        var escaped = '"' + Utils.escape(Objects.requireNonNull(src)) + '"';
+        return new JsonStringImpl(escaped.toCharArray(), 0, escaped.length(),
+                escaped.length() != src.length() + 2);
     }
 
-    /// {@return the JSON {@code String} represented by this {@code JsonString}}
-    /// If this {@code JsonString} was created by parsing a JSON document, it
-    /// preserves the text representation of the corresponding JSON String. Otherwise,
-    /// the {@code value} is escaped to produce the JSON {@code String}.
-    ///
-    /// @see #value()
+    /**
+     * {@return the JSON string represented by this {@code JsonString}}
+     * If this {@code JsonString} was created by parsing a JSON document, it
+     * preserves the original text representation of the corresponding JSON
+     * string. Otherwise, the source {@code String} passed to the factory method
+     * {@link #of(String)} is used to generate the JSON string, with special
+     * characters properly escaped.
+     *
+     * @see #string()
+     */
+    @Override
     String toString();
 
-    /// {@return the {@code String} value represented by this {@code JsonString}}
-    /// If this {@code JsonString} was created by parsing a JSON document, any
-    /// escaped characters in the original JSON document are converted to their
-    /// unescaped form.
-    ///
-    /// @see #toString()
-    String value();
+    /**
+     * {@return the {@code String} value represented by this {@code JsonString}}
+     * If this {@code JsonString} was created by parsing a JSON document, any
+     * escaped characters in the original JSON document are converted to their
+     * unescaped form.
+     *
+     * @see #toString()
+     */
+    @Override
+    String string();
 
-    /// {@return true if the given {@code obj} is equal to this {@code JsonString}}
-    /// Two {@code JsonString}s {@code js1} and {@code js2} represent the same value
-    /// if {@code js1.value().equals(js2.value())}.
-    ///
-    /// @see #value()
+    /**
+     * {@return true if the given {@code obj} is equal to this {@code JsonString}}
+     * Two {@code JsonString}s {@code js1} and {@code js2} represent the same value
+     * if {@code js1.string().equals(js2.string())}.
+     *
+     * @see #string()
+     */
     @Override
     boolean equals(Object obj);
 
-    /// {@return the hash code value of this {@code JsonString}} The hash code of a
-    /// {@code JsonString} is derived from the hash code of {@code JsonString}'s
-    /// {@link #value()}.
-    ///
-    /// @see #value()
+    /**
+     * {@return the hash code value of this {@code JsonString}} The hash code of a
+     * {@code JsonString} is derived from the hash code of {@code JsonString}'s
+     * {@link #string()}.
+     *
+     * @see #string()
+     */
     @Override
     int hashCode();
 }

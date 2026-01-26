@@ -25,8 +25,6 @@
 
 package jdk.sandbox.internal.util.json;
 
-import java.util.List;
-import java.util.Map;
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonAssertionException;
 import jdk.sandbox.java.util.json.JsonBoolean;
@@ -43,16 +41,6 @@ public class Utils {
 
     // Non instantiable
     private Utils() {}
-
-    // Equivalent to JsonObject/Array.of() factories without the need for defensive copy
-    // and other input validation
-    public static JsonArray arrayOf(List<JsonValue> list) {
-        return new JsonArrayImpl(list);
-    }
-
-    public static JsonObject objectOf(Map<String, JsonValue> map) {
-        return new JsonObjectImpl(map);
-    }
 
     /*
      * Escapes a String to ensure it is a valid JSON String.
@@ -99,31 +87,33 @@ public class Utils {
         return sb == null ? str : sb.toString();
     }
 
+    public static JsonAssertionException composeError(JsonValue jv, String message) {
+        return new JsonAssertionException(message +
+                (jv instanceof JsonValueImpl jvi && jvi.doc() != null ? JsonPath.getPath(jvi) : ""));
+    }
+
     // Use to compose an exception when casting to an incorrect type
     public static JsonAssertionException composeTypeError(JsonValue jv, String expected) {
         var actual = switch (jv) {
-            case JsonObject obj -> "JsonObject";
-            case JsonArray arr -> "JsonArray";
-            case JsonBoolean b -> "JsonBoolean";
-            case JsonNull n -> "JsonNull";
-            case JsonNumber num -> "JsonNumber";
-            case JsonString str -> "JsonString";
+            case JsonObject ignored -> "JsonObject";
+            case JsonArray ignored -> "JsonArray";
+            case JsonBoolean ignored -> "JsonBoolean";
+            case JsonNull ignored -> "JsonNull";
+            case JsonNumber ignored -> "JsonNumber";
+            case JsonString ignored -> "JsonString";
         };
-        return new JsonAssertionException("%s is not a %s.".formatted(actual, expected)
-                + ((jv instanceof JsonValueImpl jvi && jvi.doc() != null) ? JsonPath.getPath(jvi) : ""));
+        return composeError(jv, "%s is not a %s.".formatted(actual, expected));
     }
 
-    static String getPath(JsonValueImpl jvi) {
-        return JsonPath.getPath(jvi);
-    }
-
+    // This class is responsible for creating the path produced by JAE.
+    // Backtracks from the offset of the offending JSON element to the root.
     private static final class JsonPath {
 
         private final int offset;
         private final char[] doc;
         // Tracked and incremented during path creation
-        private int row;
-        private int col;
+        private int line;
+        private int pos;
 
         private JsonPath(JsonValueImpl jvi) {
             this.offset = jvi.offset();
@@ -138,17 +128,17 @@ public class Utils {
             var sb = new StringBuilder();
             // Updates the sb
             toPath(offset, sb);
-            // If no new line encountered, col is the starting offset value
-            if (row == 0) {
-                col = offset;
+            // If no new line encountered, pos is the starting offset value
+            if (line == 0) {
+                pos = offset;
             }
-            return " Path: \"%s\". Location: row %d, col %d.".formatted(sb.toString(), row, col);
+            return " Path: \"%s\". Location: line %d, position %d.".formatted(sb.toString(), line, pos);
         }
 
-        private void addRow(int curr) {
-            row++;
-            if (row == 1) {
-                col = offset - curr - 1;
+        private void addLine(int curr) {
+            line++;
+            if (line == 1) {
+                pos = offset - curr - 1;
             }
         }
 
@@ -175,7 +165,7 @@ public class Utils {
                 var ws = switch (doc[offset]) {
                     case ' ', '\t','\r' -> true;
                     case '\n' -> {
-                        addRow(offset);
+                        addLine(offset);
                         yield true;
                     }
                     default -> false;
@@ -215,7 +205,7 @@ public class Utils {
                     } else if (c == '"') {
                         inString = true;
                     } else if (c == '\n') {
-                        addRow(offset);
+                        addLine(offset);
                     }
                     if (aDepth > 0) {
                         break;
@@ -271,7 +261,7 @@ public class Utils {
                     } else if (c == '"') {
                         inString = true;
                     } else if (c == '\n') {
-                        addRow(offset);
+                        addLine(offset);
                     }
                     if (depth > 0) {
                         break;
@@ -281,5 +271,24 @@ public class Utils {
             }
             return offset;
         }
+    }
+
+    // Polyfill for Math.powExact(long, int) which is not available in Java 21
+    // Computes base^exponent with overflow checking
+    public static long powExact(long base, int exponent) {
+        if (exponent < 0) {
+            throw new ArithmeticException("Negative exponent");
+        }
+        if (exponent == 0) {
+            return 1L;
+        }
+        if (exponent == 1) {
+            return base;
+        }
+        long result = 1L;
+        for (int i = 0; i < exponent; i++) {
+            result = Math.multiplyExact(result, base);
+        }
+        return result;
     }
 }

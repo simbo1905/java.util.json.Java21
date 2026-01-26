@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -32,44 +32,39 @@ import java.util.stream.Collectors;
 
 import jdk.sandbox.internal.util.json.JsonObjectImpl;
 
-/// The interface that represents JSON object.
-/// 
-/// A `JsonObject` can be produced by a {@link Json#parse(String)}.
-/// Alternatively, {@link #of(Map)} can be used to obtain a `JsonObject`.
-/// Implementations of `JsonObject` cannot be created from sources that
-/// contain duplicate member names. If duplicate names appear during
-/// a {@link Json#parse(String)}, a `JsonParseException` is thrown.
-/// 
-/// ## Example Usage
-/// ```java
-/// // Create from a Map
-/// JsonObject obj = JsonObject.of(Map.of(
-///     "name", JsonString.of("Alice"),
-///     "age", JsonNumber.of(30),
-///     "active", JsonBoolean.of(true)
-/// ));
-/// 
-/// // Access members
-/// JsonString name = (JsonString) obj.members().get("name");
-/// System.out.println(name.value()); // "Alice"
-/// ```
-///
-/// @since 99
+/**
+ * The interface that represents JSON object.
+ * <p>
+ * A {@code JsonObject} can be produced by a {@link Json#parse(String)}.
+ * <p> Alternatively, {@link #of(Map)} can be used to obtain a {@code JsonObject}.
+ * Implementations of {@code JsonObject} cannot be created from sources that
+ * contain duplicate member names. If duplicate names appear during
+ * a {@link Json#parse(String)}, a {@code JsonParseException} is thrown.
+ *
+ * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-4 RFC 8259:
+ *      The JavaScript Object Notation (JSON) Data Interchange Format - Objects
+ * @since 99
+ */
 public non-sealed interface JsonObject extends JsonValue {
 
-    /// {@return an unmodifiable map of the `String` to `JsonValue`
-    /// members in this `JsonObject`}
+    /**
+     * {@return an unmodifiable map of the {@code String} to {@code JsonValue}
+     * members in this {@code JsonObject}}
+     */
+    @Override
     Map<String, JsonValue> members();
 
-    /// {@return the `JsonObject` created from the given
-    /// map of `String` to `JsonValue`s}
-    ///
-    /// The `JsonObject`'s members occur in the same order as the given
-    /// map's entries.
-    ///
-    /// @param map the map of `JsonValue`s. Non-null.
-    /// @throws NullPointerException if `map` is `null`, contains
-    ///         any keys that are `null`, or contains any values that are `null`.
+    /**
+     * {@return the {@code JsonObject} created from the given
+     * map of {@code String} to {@code JsonValue}s}
+     *
+     * The {@code JsonObject}'s members occur in the same order as the given
+     * map's entries.
+     *
+     * @param map the map of {@code JsonValue}s. Non-null.
+     * @throws NullPointerException if {@code map} is {@code null}, contains
+     *      any keys that are {@code null}, or contains any values that are {@code null}.
+     */
     static JsonObject of(Map<String, ? extends JsonValue> map) {
         return new JsonObjectImpl(map.entrySet() // Implicit NPE on map
                 .stream()
@@ -78,22 +73,26 @@ public non-sealed interface JsonObject extends JsonValue {
                         (ignored, v) -> v, LinkedHashMap::new)));
     }
 
-    /// {@return `true` if the given object is also a `JsonObject`
-    /// and the two `JsonObject`s represent the same mappings} Two
-    /// `JsonObject`s `jo1` and `jo2` represent the same
-    /// mappings if `jo1.members().equals(jo2.members())`.
-    ///
-    /// @see #members()
+    /**
+     * {@return {@code true} if the given object is also a {@code JsonObject}
+     * and the two {@code JsonObject}s represent the same mappings} Two
+     * {@code JsonObject}s {@code jo1} and {@code jo2} represent the same
+     * mappings if {@code jo1.members().equals(jo2.members())}.
+     *
+     * @see #members()
+     */
     @Override
     boolean equals(Object obj);
 
-    /// {@return the hash code value for this `JsonObject`} The hash code value
-    /// of a `JsonObject` is derived from the hash code of `JsonObject`'s
-    /// {@link #members()}. Thus, for two `JsonObject`s `jo1` and `jo2`,
-    /// `jo1.equals(jo2)` implies that `jo1.hashCode() == jo2.hashCode()`
-    /// as required by the general contract of {@link Object#hashCode}.
-    ///
-    /// @see #members()
+    /**
+     * {@return the hash code value for this {@code JsonObject}} The hash code value
+     * of a {@code JsonObject} is derived from the hash code of {@code JsonObject}'s
+     * {@link #members()}. Thus, for two {@code JsonObject}s {@code jo1} and {@code jo2},
+     * {@code jo1.equals(jo2)} implies that {@code jo1.hashCode() == jo2.hashCode()}
+     * as required by the general contract of {@link Object#hashCode}.
+     *
+     * @see #members()
+     */
     @Override
     int hashCode();
 }
