@@ -26,6 +26,7 @@
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonNull;
+
 /**
  * JsonNull implementation class
  */

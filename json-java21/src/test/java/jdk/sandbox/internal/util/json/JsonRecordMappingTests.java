@@ -77,31 +77,31 @@ public class JsonRecordMappingTests {
         }
 
         Map<String, JsonValue> members = jsonObject.members();
-        String type = ((JsonString) members.get("type")).value();
+        String type = ((JsonString) members.get("type")).string();
 
         return switch (type) {
             case "order" -> {
-                String orderId = ((JsonString) members.get("orderId")).value();
+                String orderId = ((JsonString) members.get("orderId")).string();
                 Customer customer = (Customer) toDomain(members.get("customer"));
-                List<LineItem> items = ((JsonArray) members.get("items")).values().stream()
+                List<LineItem> items = ((JsonArray) members.get("items")).elements().stream()
                         .map(item -> (LineItem) toDomain(item))
                         .collect(Collectors.toList());
                 yield new Order(orderId, customer, items);
             }
             case "customer" -> {
-                String name = ((JsonString) members.get("name")).value();
-                String email = ((JsonString) members.get("email")).value();
+                String name = ((JsonString) members.get("name")).string();
+                String email = ((JsonString) members.get("email")).string();
                 yield new Customer(name, email);
             }
             case "lineItem" -> {
                 Product product = (Product) toDomain(members.get("product"));
-                int quantity = ((JsonNumber) members.get("quantity")).toNumber().intValue();
+                int quantity = (int) ((JsonNumber) members.get("quantity")).toLong();
                 yield new LineItem(product, quantity);
             }
             case "product" -> {
-                String sku = ((JsonString) members.get("sku")).value();
-                String name = ((JsonString) members.get("name")).value();
-                double price = ((JsonNumber) members.get("price")).toNumber().doubleValue();
+                String sku = ((JsonString) members.get("sku")).string();
+                String name = ((JsonString) members.get("name")).string();
+                double price = ((JsonNumber) members.get("price")).toDouble();
                 yield new Product(sku, name, price);
             }
             default -> throw new IllegalStateException("Unexpected value: " + type);

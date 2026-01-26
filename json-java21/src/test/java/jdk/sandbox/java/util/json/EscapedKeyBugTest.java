@@ -51,8 +51,8 @@ public class EscapedKeyBugTest {
         JsonObject obj = (JsonObject) result;
         
         // Verify both keys are parsed correctly
-        assertEquals(1L, ((JsonNumber) obj.members().get("foo\nbar")).toNumber());
-        assertEquals(2L, ((JsonNumber) obj.members().get("foo\tbar")).toNumber());
+        assertEquals(1L, ((JsonNumber) obj.members().get("foo\nbar")).toLong());
+        assertEquals(2L, ((JsonNumber) obj.members().get("foo\tbar")).toLong());
     }
 
     @Test
@@ -67,7 +67,7 @@ public class EscapedKeyBugTest {
         JsonObject obj = (JsonObject) result;
         
         // Verify key with escaped quote is parsed correctly
-        assertEquals(1L, ((JsonNumber) obj.members().get("foo\"bar")).toNumber());
+        assertEquals(1L, ((JsonNumber) obj.members().get("foo\"bar")).toLong());
     }
 
     @Test
@@ -82,7 +82,7 @@ public class EscapedKeyBugTest {
         JsonObject obj = (JsonObject) result;
         
         // Verify key with escaped backslash is parsed correctly
-        assertEquals(1L, ((JsonNumber) obj.members().get("foo\\bar")).toNumber());
+        assertEquals(1L, ((JsonNumber) obj.members().get("foo\\bar")).toLong());
     }
 
     @Test
@@ -97,6 +97,6 @@ public class EscapedKeyBugTest {
         JsonObject obj = (JsonObject) result;
         
         // Verify key with multiple escaped characters is parsed correctly
-        assertEquals(1L, ((JsonNumber) obj.members().get("foo\n\t\"bar")).toNumber());
+        assertEquals(1L, ((JsonNumber) obj.members().get("foo\n\t\"bar")).toLong());
     }
 }

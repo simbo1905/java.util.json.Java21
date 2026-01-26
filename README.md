@@ -41,16 +41,16 @@ JsonValue value = Json.parse(json);
 
 // Access as map-like structure
 JsonObject obj = (JsonObject) value;
-String name = ((JsonString) obj.members().get("name")).value();
-int age = ((JsonNumber) obj.members().get("age")).intValue();
-boolean active = ((JsonBoolean) obj.members().get("active")).value();
+String name = ((JsonString) obj.members().get("name")).string();
+long age = ((JsonNumber) obj.members().get("age")).toLong();
+boolean active = ((JsonBoolean) obj.members().get("active")).bool();
 ```
 
 ### Simple Record Mapping
 
 ```java
 // Define records for structured data
-record User(String name, int age, boolean active) {}
+record User(String name, long age, boolean active) {}
 
 // Parse JSON directly to records
 String userJson = "{\"name\":\"Bob\",\"age\":25,\"active\":false}";
@@ -58,55 +58,60 @@ JsonObject jsonObj = (JsonObject) Json.parse(userJson);
 
 // Map to record
 User user = new User(
-    ((JsonString) jsonObj.members().get("name")).value(),
-    ((JsonNumber) jsonObj.members().get("age")).intValue(),
-    ((JsonBoolean) jsonObj.members().get("active")).value()
+    ((JsonString) jsonObj.members().get("name")).string(),
+    ((JsonNumber) jsonObj.members().get("age")).toLong(),
+    ((JsonBoolean) jsonObj.members().get("active")).bool()
 );
 
-// Convert records back to JSON
-JsonValue backToJson = Json.fromUntyped(Map.of(
-    "name", user.name(),
-    "age", user.age(),
-    "active", user.active()
+// Convert records back to JSON using typed factories
+JsonValue backToJson = JsonObject.of(Map.of(
+    "name", JsonString.of(user.name()),
+    "age", JsonNumber.of(user.age()),
+    "active", JsonBoolean.of(user.active())
 ));
 
-// Covert back to a JSON string
+// Convert back to a JSON string
 String jsonString = backToJson.toString();
 ```
 
-### Converting from Java Objects to JSON (`fromUntyped`)
+### Building JSON Programmatically
 
 ```java
-// Convert standard Java collections to JsonValue
-Map<String, Object> data = Map.of(
-    "name", "John",
-    "age", 30,
-    "scores", List.of(85, 92, 78)
-);
-JsonValue json = Json.fromUntyped(data);
+// Build JSON using typed factory methods
+JsonObject data = JsonObject.of(Map.of(
+    "name", JsonString.of("John"),
+    "age", JsonNumber.of(30),
+    "scores", JsonArray.of(List.of(
+        JsonNumber.of(85),
+        JsonNumber.of(92),
+        JsonNumber.of(78)
+    ))
+));
+String json = data.toString();
 ```
 
-### Converting from JSON to Java Objects (`toUntyped`)
+### Extracting Values from JSON
 
 ```java
-// Convert JsonValue back to standard Java types
+// Extract values from parsed JSON
 JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
-Object data = Json.toUntyped(parsed);
-// Returns a Map<String, Object> with standard Java types
+JsonObject obj = (JsonObject) parsed;
+
+// Use the new type-safe accessor methods
+String name = obj.get("name").string();      // Returns "John"
+long age = obj.get("age").toLong();          // Returns 30L
+double ageDouble = obj.get("age").toDouble(); // Returns 30.0
 ```
 
-The conversion mappings are:
-- `JsonObject` ↔ `Map<String, Object>`
-- `JsonArray` ↔ `List<Object>`
-- `JsonString` ↔ `String`
-- `JsonNumber` ↔ `Number` (Long, Double, BigInteger, or BigDecimal)
-- `JsonBoolean` ↔ `Boolean`
-- `JsonNull` ↔ `null`
-
-This is useful for:
-- Integrating with existing code that uses standard collections
-- Serializing/deserializing to formats that expect Java types
-- Working with frameworks that use reflection on standard types
+The accessor methods on `JsonValue`:
+- `string()` - Returns the String value (for JsonString)
+- `toLong()` - Returns the long value (for JsonNumber, if representable)
+- `toDouble()` - Returns the double value (for JsonNumber, if representable)
+- `bool()` - Returns the boolean value (for JsonBoolean)
+- `elements()` - Returns List<JsonValue> (for JsonArray)
+- `members()` - Returns Map<String, JsonValue> (for JsonObject)
+- `get(String name)` - Access JsonObject member by name
+- `element(int index)` - Access JsonArray element by index
 
 ### Realistic Record Mapping
 
@@ -123,29 +128,29 @@ Team team = new Team("Engineering", List.of(
     new User("Bob", "bob@example.com", false)
 ));
 
-// Convert records to JSON
-JsonValue teamJson = Json.fromUntyped(Map.of(
-    "teamName", team.teamName(),
-    "members", team.members().stream()
-        .map(u -> Map.of(
-            "name", u.name(),
-            "email", u.email(),
-            "active", u.active()
-        ))
-        .toList()
+// Convert records to JSON using typed factories
+JsonValue teamJson = JsonObject.of(Map.of(
+    "teamName", JsonString.of(team.teamName()),
+    "members", JsonArray.of(team.members().stream()
+        .map(u -> JsonObject.of(Map.of(
+            "name", JsonString.of(u.name()),
+            "email", JsonString.of(u.email()),
+            "active", JsonBoolean.of(u.active())
+        )))
+        .toList())
 ));
 
 // Parse JSON back to records
 JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
 Team reconstructed = new Team(
-    ((JsonString) parsed.members().get("teamName")).value(),
-    ((JsonArray) parsed.members().get("members")).values().stream()
+    ((JsonString) parsed.members().get("teamName")).string(),
+    ((JsonArray) parsed.members().get("members")).elements().stream()
         .map(v -> {
             JsonObject member = (JsonObject) v;
             return new User(
-                ((JsonString) member.members().get("name")).value(),
-                ((JsonString) member.members().get("email")).value(),
-                ((JsonBoolean) member.members().get("active")).value()
+                ((JsonString) member.members().get("name")).string(),
+                ((JsonString) member.members().get("email")).string(),
+                ((JsonBoolean) member.members().get("active")).bool()
             );
         })
         .toList()
@@ -182,10 +187,10 @@ Process JSON arrays efficiently with Java streams:
 ```java
 // Filter active users from a JSON array
 JsonArray users = (JsonArray) Json.parse(jsonArrayString);
-List<String> activeUserEmails = users.values().stream()
+List<String> activeUserEmails = users.elements().stream()
     .map(v -> (JsonObject) v)
-    .filter(obj -> ((JsonBoolean) obj.members().get("active")).value())
-    .map(obj -> ((JsonString) obj.members().get("email")).value())
+    .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
+    .map(obj -> ((JsonString) obj.members().get("email")).string())
     .toList();
 ```
 
@@ -263,7 +268,14 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 
 ## Current Status
 
-This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json” branch at commit [a8e7de8b49e4e4178eb53c94ead2fa2846c30635](https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635) ("Produce path/col during path building", 2025-08-14 UTC).
+This code (as of 2026-01-25) is derived from the OpenJDK jdk-sandbox repository "json" branch. Key API changes from the previous version include:
+- `JsonString.value()` → `JsonString.string()`
+- `JsonNumber.toNumber()` → `JsonNumber.toLong()` / `JsonNumber.toDouble()`
+- `JsonBoolean.value()` → `JsonBoolean.bool()`
+- `JsonArray.values()` → `JsonArray.elements()`
+- `Json.fromUntyped()` and `Json.toUntyped()` have been removed
+- New accessor methods on `JsonValue`: `get(String)`, `element(int)`, `getOrAbsent(String)`, `valueOrNull()`
+- Internal implementation changed from `StableValue` to `LazyConstant`
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
@@ -276,8 +288,11 @@ A daily workflow runs an API comparison against the OpenJDK sandbox and prints a
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
-- Replaced `StableValue.of()` with double-checked locking pattern.
+- Replaced `LazyConstant` with a package-local polyfill using double-checked locking pattern.
+- Added `Utils.powExact()` polyfill for `Math.powExact(long, int)` which is not available in Java 21.
+- Replaced unnamed variables `_` with `ignored` for Java 21 compatibility.
 - Removed `@ValueBased` annotations.
+- Removed `@PreviewFeature` annotations.
 - Compatible with JDK 21.
 
 ## Security Considerations

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,168 +23,47 @@
  * questions.
  */
 
-/// Provides APIs for parsing JSON text, creating `JsonValue`s, and
-/// offering a mapping between a `JsonValue` and its corresponding Java Object.
-///
-/// ## Design
-/// This API is designed so that JSON values are composed as Algebraic
-/// Data Types (ADTs) defined by interfaces. Each JSON value is represented as a
-/// sealed `JsonValue` _sum_ type, which can be
-/// pattern-matched into one of the following _product_ types: `JsonObject`,
-/// `JsonArray`, `JsonString`, `JsonNumber`, `JsonBoolean`,
-/// `JsonNull`. These product types are defined as non-sealed interfaces that
-/// allow flexibility in the implementation of the type. For example, `JsonArray`
-/// is defined as follows:
-/// ```java
-/// public non-sealed interface JsonArray extends JsonValue
-/// ```
-///
-/// This API relies on pattern matching to allow for the extraction of a
-/// JSON Value in a _single and class safe expression_ as follows:
-/// ```java
-/// JsonValue doc = Json.parse(text);
-/// if (doc instanceof JsonObject o && o.members() instanceof Map<String, JsonValue> members
-///     && members.get("name") instanceof JsonString js && js.value() instanceof String name
-///     && members.get("age") instanceof JsonNumber jn && jn.toNumber() instanceof long age) {
-///         // can use both "name" and "age" from a single expression
-/// }
-/// ```
-///
-/// Both `JsonValue` instances and their underlying values are immutable.
-///
-/// ## Parsing
-///
-/// Parsing produces a `JsonValue` from JSON text and is done using either
-/// {@link Json#parse(java.lang.String)} or {@link Json#parse(char[])}. A successful
-/// parse indicates that the JSON text adheres to the
-/// [JSON grammar](https://datatracker.ietf.org/doc/html/rfc8259).
-/// The parsing APIs provided do not accept JSON text that contain JSON Objects
-/// with duplicate names.
-///
-/// For the reference JDK implementation, `JsonValue`s created via parsing
-/// procure their underlying values _lazily_.
-///
-/// ## Formatting
-///
-/// Formatting of a `JsonValue` is performed with either {@link
-/// JsonValue#toString()} or {@link Json#toDisplayString(JsonValue, int)}.
-/// These methods produce formatted String representations of a `JsonValue`.
-/// The returned text adheres to the JSON grammar defined in RFC 8259.
-/// `JsonValue.toString()` produces the most compact representation which does not
-/// include extra whitespaces or line-breaks, preferable for network transaction
-/// or storage. `Json.toDisplayString(JsonValue, int)` produces a text representation that
-/// is human friendly, preferable for debugging or logging.
-///
-/// ---
-///
-/// ## Usage Notes from Unofficial Backport
-///
-/// ### Major Classes
-///
-/// - {@link Json} - Main entry point for parsing and converting JSON
-/// - {@link JsonValue} - Base sealed interface for all JSON values
-/// - {@link JsonObject} - Represents JSON objects (key-value pairs)
-/// - {@link JsonArray} - Represents JSON arrays
-/// - {@link JsonString} - Represents JSON strings
-/// - {@link JsonNumber} - Represents JSON numbers
-/// - {@link JsonBoolean} - Represents JSON booleans (true/false)
-/// - {@link JsonNull} - Represents JSON null
-/// - {@link JsonParseException} - Thrown when parsing invalid JSON
-///
-/// ### Simple Parsing Example
-///
-/// ```java
-/// // Parse a JSON string
-/// String jsonText = """
-///     {
-///         "name": "Alice",
-///         "age": 30,
-///         "active": true
-///     }
-///     """;
-/// 
-/// JsonValue value = Json.parse(jsonText);
-/// JsonObject obj = (JsonObject) value;
-/// 
-/// // Access values
-/// String name = ((JsonString) obj.members().get("name")).value();
-/// int age = ((JsonNumber) obj.members().get("age")).toNumber().intValue();
-/// boolean active = ((JsonBoolean) obj.members().get("active")).value();
-/// ```
-///
-/// ### Record Mapping Example
-///
-/// The API works seamlessly with Java records for domain modeling:
-///
-/// ```java
-/// // Define your domain model
-/// record User(String name, String email, boolean active) {}
-/// record Team(String teamName, List<User> members) {}
-/// 
-/// // Create domain objects
-/// Team team = new Team("Engineering", List.of(
-///     new User("Alice", "alice@example.com", true),
-///     new User("Bob", "bob@example.com", false)
-/// ));
-/// 
-/// // Convert to JSON using Java collections
-/// JsonValue teamJson = Json.fromUntyped(Map.of(
-///     "teamName", team.teamName(),
-///     "members", team.members().stream()
-///         .map(u -> Map.of(
-///             "name", u.name(),
-///             "email", u.email(),
-///             "active", u.active()
-///         ))
-///         .toList()
-/// ));
-/// 
-/// // Parse back to records
-/// JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
-/// Team reconstructed = new Team(
-///     ((JsonString) parsed.members().get("teamName")).value(),
-///     ((JsonArray) parsed.members().get("members")).values().stream()
-///         .map(v -> {
-///             JsonObject member = (JsonObject) v;
-///             return new User(
-///                 ((JsonString) member.members().get("name")).value(),
-///                 ((JsonString) member.members().get("email")).value(),
-///                 ((JsonBoolean) member.members().get("active")).value()
-///             );
-///         })
-///         .toList()
-/// );
-/// ```
-///
-/// ### REST API Response Example
-///
-/// Build complex JSON structures programmatically:
-///
-/// ```java
-/// // Build a typical REST API response
-/// JsonObject response = JsonObject.of(Map.of(
-///     "status", JsonString.of("success"),
-///     "data", JsonObject.of(Map.of(
-///         "user", JsonObject.of(Map.of(
-///             "id", JsonNumber.of(12345),
-///             "name", JsonString.of("John Doe"),
-///             "roles", JsonArray.of(List.of(
-///                 JsonString.of("admin"),
-///                 JsonString.of("user")
-///             ))
-///         )),
-///         "timestamp", JsonNumber.of(System.currentTimeMillis())
-///     )),
-///     "errors", JsonArray.of(List.of())
-/// ));
-/// 
-/// // Pretty print the response
-/// String formatted = Json.toDisplayString(response, 2);
-/// ```
-///
-/// @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
-///      Object Notation (JSON) Data Interchange Format
-/// @since 99
-
+/**
+ * Provides APIs for parsing JSON text, retrieving JSON values in the text, and
+ * generating JSON text.
+ *
+ * <h2><a>Parsing JSON documents</a></h2>
+ *
+ * Parsing produces a {@code JsonValue} from JSON text and is done using either
+ * {@link Json#parse(java.lang.String)} or {@link Json#parse(char[])}. A successful
+ * parse indicates that the JSON text adheres to the
+ * <a href="https://datatracker.ietf.org/doc/html/rfc8259">JSON grammar</a>.
+ * The parsing APIs provided do not accept JSON text that contain JSON objects
+ * with duplicate names.
+ *
+ * <h2><a>Retrieving JSON values</a></h2>
+ *
+ * Retrieving values from a JSON document involves two steps: first navigating
+ * the document structure using a chain of "access" methods, and then converting
+ * the result to the desired type using a "conversion" method. For example,
+ * {@snippet lang=java:
+ * var name = doc.get("foo").get("bar").element(0).string();
+ * }
+ * By chaining access methods, the "foo" member is retrieved from the root object,
+ * then the "bar" member from "foo", followed by the element at index 0 from "bar".
+ * The navigation process leads to a leaf JSON string element. The final call to the
+ * {@code string()} conversion method returns the corresponding String object. For more
+ * details on these methods, see {@link JsonValue JsonValue}.
+ *
+ * <h2><a>Generating JSON documents</a></h2>
+ *
+ * Generating JSON text is performed with either {@link
+ * JsonValue#toString()} or {@link Json#toDisplayString(JsonValue, int)}.
+ * These methods produce formatted String representations of a {@code JsonValue}.
+ * The returned text adheres to the JSON grammar defined in RFC 8259.
+ * {@code JsonValue.toString()} produces the most compact representation which does not
+ * include extra whitespaces or line-breaks, preferable for network transaction
+ * or storage. {@code Json.toDisplayString(JsonValue, int)} produces a text which
+ * is human friendly, preferable for debugging or logging.
+ *
+ * @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
+ *      Object Notation (JSON) Data Interchange Format
+ * @since 99
+ */
 package jdk.sandbox.java.util.json;
 

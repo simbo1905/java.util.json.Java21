@@ -18,8 +18,8 @@ public class ReadmeDemoTests {
 
     assertThat(value).isInstanceOf(JsonObject.class);
     JsonObject obj = (JsonObject) value;
-    assertThat(((JsonString) obj.members().get("name")).value()).isEqualTo("Alice");
-    assertThat(((JsonNumber) obj.members().get("age")).toNumber()).isEqualTo(30L);
+    assertThat(((JsonString) obj.members().get("name")).string()).isEqualTo("Alice");
+    assertThat(((JsonNumber) obj.members().get("age")).toLong()).isEqualTo(30L);
 
     String roundTrip = value.toString();
     assertThat(roundTrip).isEqualTo(jsonString);
@@ -40,37 +40,37 @@ public class ReadmeDemoTests {
         new User("Bob", "bob@example.com", false)
     ));
 
-    // Convert records to JSON using untyped conversion
-    JsonValue teamJson = Json.fromUntyped(Map.of(
-        "teamName", team.teamName(),
-        "members", team.members().stream()
-            .map(u -> Map.of(
-                "name", u.name(),
-                "email", u.email(),
-                "active", u.active()
-            ))
-            .toList()
+    // Convert records to JSON using typed factories
+    JsonValue teamJson = JsonObject.of(Map.of(
+        "teamName", JsonString.of(team.teamName()),
+        "members", JsonArray.of(team.members().stream()
+            .map(u -> JsonObject.of(Map.of(
+                "name", JsonString.of(u.name()),
+                "email", JsonString.of(u.email()),
+                "active", JsonBoolean.of(u.active())
+            )))
+            .toList())
     ));
 
     // Verify the JSON structure
     assertThat(teamJson).isInstanceOf(JsonObject.class);
     JsonObject teamObj = (JsonObject) teamJson;
-    assertThat(((JsonString) teamObj.members().get("teamName")).value()).isEqualTo("Engineering");
+    assertThat(((JsonString) teamObj.members().get("teamName")).string()).isEqualTo("Engineering");
 
     JsonArray members = (JsonArray) teamObj.members().get("members");
-    assertThat(members.values()).hasSize(2);
+    assertThat(members.elements()).hasSize(2);
 
     // Parse JSON back to records
     JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
     Team reconstructed = new Team(
-        ((JsonString) parsed.members().get("teamName")).value(),
-        ((JsonArray) parsed.members().get("members")).values().stream()
+        ((JsonString) parsed.members().get("teamName")).string(),
+        ((JsonArray) parsed.members().get("members")).elements().stream()
             .map(v -> {
               JsonObject member = (JsonObject) v;
               return new User(
-                  ((JsonString) member.members().get("name")).value(),
-                  ((JsonString) member.members().get("email")).value(),
-                  ((JsonBoolean) member.members().get("active")).value()
+                  ((JsonString) member.members().get("name")).string(),
+                  ((JsonString) member.members().get("email")).string(),
+                  ((JsonBoolean) member.members().get("active")).bool()
               );
             })
             .toList()
@@ -106,19 +106,19 @@ public class ReadmeDemoTests {
     ));
 
     // Verify structure
-    assertThat(((JsonString) response.members().get("status")).value()).isEqualTo("success");
+    assertThat(((JsonString) response.members().get("status")).string()).isEqualTo("success");
 
     JsonObject data = (JsonObject) response.members().get("data");
     JsonObject user = (JsonObject) data.members().get("user");
-    assertThat(((JsonNumber) user.members().get("id")).toNumber()).isEqualTo(12345L);
-    assertThat(((JsonString) user.members().get("name")).value()).isEqualTo("John Doe");
+    assertThat(((JsonNumber) user.members().get("id")).toLong()).isEqualTo(12345L);
+    assertThat(((JsonString) user.members().get("name")).string()).isEqualTo("John Doe");
 
     JsonArray roles = (JsonArray) user.members().get("roles");
-    assertThat(roles.values()).hasSize(2);
-    assertThat(((JsonString) roles.values().getFirst()).value()).isEqualTo("admin");
+    assertThat(roles.elements()).hasSize(2);
+    assertThat(((JsonString) roles.elements().getFirst()).string()).isEqualTo("admin");
 
     JsonArray errors = (JsonArray) response.members().get("errors");
-    assertThat(errors.values()).isEmpty();
+    assertThat(errors.elements()).isEmpty();
   }
 
   @Test
@@ -136,10 +136,10 @@ public class ReadmeDemoTests {
 
     // Process a large array of records
     JsonArray items = (JsonArray) Json.parse(largeJsonArray);
-    List<String> activeUserEmails = items.values().stream()
+    List<String> activeUserEmails = items.elements().stream()
         .map(v -> (JsonObject) v)
-        .filter(obj -> ((JsonBoolean) obj.members().get("active")).value())
-        .map(obj -> ((JsonString) obj.members().get("email")).value())
+        .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
+        .map(obj -> ((JsonString) obj.members().get("email")).string())
         .toList();
 
     // Verify we got only active users
@@ -162,41 +162,6 @@ public class ReadmeDemoTests {
     assertThatThrownBy(() -> Json.parse(invalidJson))
         .isInstanceOf(JsonParseException.class)
         .hasMessageContaining("Expecting a JSON Object member name");
-  }
-
-  @Test
-  void typeConversionExample() {
-    // Using fromUntyped and toUntyped for complex structures
-    Map<String, Object> config = Map.of(
-        "server", Map.of(
-            "host", "localhost",
-            "port", 8080,
-            "ssl", true
-        ),
-        "features", List.of("auth", "logging", "metrics"),
-        "maxConnections", 1000
-    );
-
-    // Convert to JSON
-    JsonValue json = Json.fromUntyped(config);
-
-    // Convert back to Java types
-    @SuppressWarnings("unchecked")
-    Map<String, Object> restored = (Map<String, Object>) Json.toUntyped(json);
-
-    // Verify round-trip conversion
-    assert restored != null;
-    @SuppressWarnings("unchecked")
-    Map<String, Object> server = (Map<String, Object>) restored.get("server");
-    assertThat(server.get("host")).isEqualTo("localhost");
-    assertThat(server.get("port")).isEqualTo(8080L); // Note: integers become Long
-    assertThat(server.get("ssl")).isEqualTo(true);
-
-    @SuppressWarnings("unchecked")
-    List<Object> features = (List<Object>) restored.get("features");
-    assertThat(features).containsExactly("auth", "logging", "metrics");
-
-    assertThat(restored.get("maxConnections")).isEqualTo(1000L);
   }
 
   @Test
