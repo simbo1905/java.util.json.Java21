@@ -295,6 +295,12 @@ This is a simplified backport with the following changes from the original:
 - Removed `@PreviewFeature` annotations.
 - Compatible with JDK 21.
 
+### Upstream Bug Fixes
+
+The following fixes have been applied to address bugs in the upstream OpenJDK jdk-sandbox code. These are upstream issues that should be reported to the [core-libs-dev@openjdk.org](mailto:core-libs-dev@openjdk.org) mailing list per OpenJDK process:
+
+- **`JsonNumber.of(double)` offset bug** ([#118](https://github.com/simbo1905/java.util.json.Java21/issues/118)): The upstream implementation hardcodes `decimalOffset=0` and `exponentOffset=0`, causing `toLong()` to fail for integral doubles like `123.0`. Our fix delegates to `JsonNumber.of(String)` which correctly computes offsets via `Json.parse()`.
+
 ## Security Considerations
 
 **⚠️ This unstable API historically contained a undocumented security vulnerabilities.** The compatibility test suite (documented below) includes crafted attack vectors that expose these issues:

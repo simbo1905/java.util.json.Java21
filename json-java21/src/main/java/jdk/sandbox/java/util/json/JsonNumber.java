@@ -113,8 +113,11 @@ public non-sealed interface JsonNumber extends JsonValue {
         if (!Double.isFinite(num)) {
             throw new IllegalArgumentException("Not a valid JSON number");
         }
-        var str = Double.toString(num);
-        return new JsonNumberImpl(str.toCharArray(), 0, str.length(), 0, 0);
+        // LOCAL FIX for upstream bug: The original code hardcoded decimalOffset=0
+        // and exponentOffset=0, which breaks toLong() for integral doubles like 123.0.
+        // Delegating to of(String) ensures correct offset computation via Json.parse().
+        // See: https://github.com/simbo1905/java.util.json.Java21/issues/118
+        return JsonNumber.of(Double.toString(num));
     }
 
     /**
