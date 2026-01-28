@@ -15,6 +15,18 @@ We welcome contributions to the JTD Validator incubating within this repo.
 
 ## Usage Examples
 
+### Running the Examples
+
+To try the examples from this README, build the project and run the standalone example class:
+
+```bash
+mvn package
+java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
+  jdk.sandbox.java.util.json.examples.ReadmeExamples
+```
+
+*Replace `*` with the actual version number from the JAR filename.*
+
 ## API Overview
 
 The API provides immutable JSON value types:
