@@ -376,11 +376,10 @@ Features:
 Requires JDK 21 or later. Build with Maven:
 
 ```bash
-mvn clean compile
-mvn package
+mvn clean package
 ```
 
-Please see AGENTS.md for more guidance such as how to enable logging when running the JTD Validator. 
+See AGENTS.md for detailed guidance including logging configuration. 
 
 ## Augmented Intelligence (AI) Welcomed
 
