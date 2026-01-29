@@ -443,7 +443,7 @@ public class TestRfc8927 extends JtdTestBase {
   }
 
   /// Micro test to debug int32 validation with decimal values
-  /// Should reject non-integer values like 3.14 for int32 type
+  /// Should reject noninteger values like 3.14 for int32 type
   @Test
   public void testInt32RejectsDecimal() {
     JsonValue schema = Json.parse("{\"type\": \"int32\"}");
@@ -627,7 +627,7 @@ public class TestRfc8927 extends JtdTestBase {
   /// Test case from JtdExhaustiveTest property test failure
   /// Nested elements containing properties schemas should reject additional properties
   /// Schema: {"elements":{"elements":{"properties":{}}}}
-  /// Document: [[{},{},[{},{extraProperty":"extra-value"}]]
+  /// Document: [[{},{},[{},{extraProperty":"extra-value"}]
   /// This should fail validation but currently passes incorrectly
   @Test
   public void testNestedElementsPropertiesRejectsAdditionalProperties() {
@@ -901,7 +901,7 @@ public class TestRfc8927 extends JtdTestBase {
       
       LOG.fine(() -> "Testing int8 range with Double value: " + outOfRange + 
                " (JsonNumber.toLong(): " + 
-               ((JsonNumber)outOfRange).toLong() + ")");
+               outOfRange.toLong() + ")");
       
       // This should fail but currently passes due to the bug
       assertThat(result.isValid())
@@ -1043,7 +1043,7 @@ public class TestRfc8927 extends JtdTestBase {
     
     // Verify that JsonNumber works properly for typical JSON numbers
     assertThat(numberValue).isInstanceOf(JsonNumber.class);
-    long longValue = ((JsonNumber) numberValue).toLong();
+    long longValue = numberValue.toLong();
     
     LOG.info(() -> "JsonNumber.toLong() returns: " + longValue + 
                    " for value: " + numberValue);

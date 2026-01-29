@@ -165,18 +165,6 @@ sealed interface JtdSchema {
       return false;
     }
 
-    private boolean hasFractionalComponent(Number value) {
-      return switch (value) {
-        case null -> false;
-        case Double d -> d != Math.floor(d);
-        case Float f -> f != Math.floor(f);
-        case java.math.BigDecimal bd -> bd.remainder(java.math.BigDecimal.ONE).signum() != 0;
-        default ->
-          // Long, Integer, Short, Byte are always integers
-            false;
-      };
-    }
-    
     boolean validateIntegerWithFrame(Frame frame, String type, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonNumber num) {

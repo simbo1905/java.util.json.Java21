@@ -5,7 +5,7 @@ import jdk.sandbox.internal.util.json.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
+
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -49,12 +49,12 @@ public class Jtd {
   }
   
   /// Compiles a JTD schema and throws exceptions for invalid schemas
+  ///
   /// @param schema The JTD schema as a JsonValue
-  /// @return Compiled JtdSchema
   /// @throws IllegalArgumentException if the schema is invalid
-  public JtdSchema compile(JsonValue schema) {
+  public void compile(JsonValue schema) {
     definitions.clear();
-    return compileSchema(schema);
+    compileSchema(schema);
   }
 
   /// Validates a JSON instance against a JTD schema
@@ -324,19 +324,13 @@ public class Jtd {
       }
     }
 
-    return compileObjectSchema(obj, isRoot);
+    return compileObjectSchema(obj);
   }
-  
-  /// Compiles an object schema according to RFC 8927 with strict semantics
-  JtdSchema compileObjectSchema(JsonObject obj) {
-    return compileObjectSchema(obj, true); // Default to root schema
-  }
-  
+
   /// Compiles an object schema according to RFC 8927 with strict semantics
   /// @param obj The JSON object to compile
-  /// @param isRoot Whether this is a root-level schema (can contain definitions)
   /// @return Compiled JtdSchema
-  JtdSchema compileObjectSchema(JsonObject obj, boolean isRoot) {
+  JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
     Map<String, JsonValue> members = obj.members();
@@ -357,7 +351,7 @@ public class Jtd {
     
     // RFC 8927: Check for form-specific properties that shouldn't be mixed
     if (forms.size() == 1) {
-      String form = forms.get(0);
+      String form = forms.getFirst();
       switch (form) {
         case "elements", "values", "enum", "ref", "type" -> {
           // These forms should not have properties-specific attributes
@@ -445,11 +439,11 @@ public class Jtd {
         case "ref" -> compileRefSchema(obj);
         case "type" -> compileTypeSchema(obj);
         case "enum" -> compileEnumSchema(obj);
-        case "elements" -> compileElementsSchema(obj, isRoot);
-        case "properties" -> compilePropertiesSchema(obj, isRoot);
-        case "optionalProperties" -> compilePropertiesSchema(obj, isRoot); // handled together
-        case "values" -> compileValuesSchema(obj, isRoot);
-        case "discriminator" -> compileDiscriminatorSchema(obj, isRoot);
+        case "elements" -> compileElementsSchema(obj);
+        case "properties" -> compilePropertiesSchema(obj);
+        case "optionalProperties" -> compilePropertiesSchema(obj); // handled together
+        case "values" -> compileValuesSchema(obj);
+        case "discriminator" -> compileDiscriminatorSchema(obj);
         default -> throw new IllegalArgumentException("Unknown schema form: " + form);
       };
     }
@@ -542,21 +536,13 @@ public class Jtd {
   }
   
   JtdSchema compileElementsSchema(JsonObject obj) {
-    return compileElementsSchema(obj, true); // Default to root
-  }
-  
-  JtdSchema compileElementsSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue elementsValue = members.get("elements");
     JtdSchema elementsSchema = compileSchema(elementsValue, false); // Elements are nested schemas
     return new JtdSchema.ElementsSchema(elementsSchema);
   }
-  
+
   JtdSchema compilePropertiesSchema(JsonObject obj) {
-    return compilePropertiesSchema(obj, true); // Default to root
-  }
-  
-  JtdSchema compilePropertiesSchema(JsonObject obj, boolean isRoot) {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
     
@@ -568,7 +554,7 @@ public class Jtd {
       if (!(propsValue instanceof JsonObject propsObj)) {
         throw new IllegalArgumentException("properties must be an object");
       }
-      properties = parsePropertySchemas(propsObj, false); // Property schemas are nested
+      properties = parsePropertySchemas(propsObj); // Property schemas are nested
     }
     
     // Parse optional properties
@@ -577,7 +563,7 @@ public class Jtd {
       if (!(optPropsValue instanceof JsonObject optPropsObj)) {
         throw new IllegalArgumentException("optionalProperties must be an object");
       }
-      optionalProperties = parsePropertySchemas(optPropsObj, false); // Property schemas are nested
+      optionalProperties = parsePropertySchemas(optPropsObj); // Property schemas are nested
     }
     
     // RFC 8927: Check for key overlap between properties and optionalProperties
@@ -603,21 +589,13 @@ public class Jtd {
   }
   
   JtdSchema compileValuesSchema(JsonObject obj) {
-    return compileValuesSchema(obj, true); // Default to root
-  }
-  
-  JtdSchema compileValuesSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue valuesValue = members.get("values");
     JtdSchema valuesSchema = compileSchema(valuesValue, false); // Values are nested schemas
     return new JtdSchema.ValuesSchema(valuesSchema);
   }
-  
+
   JtdSchema compileDiscriminatorSchema(JsonObject obj) {
-    return compileDiscriminatorSchema(obj, true); // Default to root
-  }
-  
-  JtdSchema compileDiscriminatorSchema(JsonObject obj, boolean isRoot) {
     Map<String, JsonValue> members = obj.members();
     JsonValue discriminatorValue = members.get("discriminator");
     if (!(discriminatorValue instanceof JsonString discStr)) {
@@ -704,15 +682,10 @@ public class Jtd {
   
   /// Extracts and stores top-level definitions for ref resolution
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
-    return parsePropertySchemas(propsObj, true); // Default to root
-  }
-  
-  /// Extracts and stores top-level definitions for ref resolution
-  private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj, boolean isRoot) {
     Map<String, JtdSchema> schemas = new java.util.HashMap<>();
     for (String key : propsObj.members().keySet()) {
       JsonValue schemaValue = propsObj.members().get(key);
-      schemas.put(key, compileSchema(schemaValue, isRoot));
+      schemas.put(key, compileSchema(schemaValue, false));
     }
     return schemas;
   }

@@ -4,7 +4,6 @@ import jdk.sandbox.java.util.json.*;
 import net.jqwik.api.*;
 import org.junit.jupiter.api.Assertions;
 
-import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -14,7 +13,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 /// Generates comprehensive schema/document permutations to validate RFC 8927 compliance
 class JtdPropertyTest extends JtdTestBase {
 
-  private static final int MAX_DEPTH = 3;
   private static final List<String> PROPERTY_NAMES = List.of("alpha", "beta", "gamma", "delta", "epsilon");
   private static final List<List<String>> PROPERTY_PAIRS = List.of(List.of("alpha", "beta"), List.of("alpha", "gamma"), List.of("beta", "delta"), List.of("gamma", "epsilon"));
   private static final List<String> DISCRIMINATOR_VALUES = List.of("type1", "type2", "type3");
@@ -313,50 +311,6 @@ class JtdPropertyTest extends JtdTestBase {
     return jtdSchemaArbitrary(depth - 1).map(ValuesSchema::new);
   }
 
-  /// Creates simple PropertiesSchema instances for discriminator mappings without recursion
-  /// This prevents stack overflow while ensuring RFC 8927 compliance
-  private static Arbitrary<JtdTestSchema> simplePropertiesSchemaArbitrary() {
-    // Create primitive schemas that don't recurse
-    final var primitiveSchemas = Arbitraries.of(new EmptySchema(), new TypeSchema("boolean"), new TypeSchema("string"), new TypeSchema("int32"), new EnumSchema(List.of("red", "green", "blue")));
-
-    // ======================== CHANGE: USE NON-DISCRIMINATOR PROPERTY NAMES ========================
-    // RFC 8927 §2.2.8: Discriminator mapping schemas cannot define the discriminator key
-    // Use property names that won't conflict with discriminator keys
-    final var safePropertyNames = List.of("beta", "gamma", "delta", "epsilon"); // Exclude "alpha" 
-    final var safePropertyPairs = List.of(
-        List.of("beta", "gamma"),
-        List.of("gamma", "delta"), 
-        List.of("delta", "epsilon")
-    );
-    // ==================== END CHANGE: USE NON-DISCRIMINATOR PROPERTY NAMES ====================
-
-    return Arbitraries.oneOf(
-        // Empty properties schema
-        Arbitraries.of(new PropertiesSchema(Map.of(), Map.of(), false)),
-
-        // Single required property with primitive schema
-        Combinators.combine(Arbitraries.of(safePropertyNames), primitiveSchemas).as((name, schema) -> {
-          Assertions.assertNotNull(name);
-          Assertions.assertNotNull(schema);
-          return new PropertiesSchema(Map.of(name, schema), Map.of(), false);
-        }),
-
-        // Single optional property with primitive schema
-        Combinators.combine(Arbitraries.of(safePropertyNames), primitiveSchemas).as((name, schema) -> {
-          Assertions.assertNotNull(name);
-          Assertions.assertNotNull(schema);
-          return new PropertiesSchema(Map.of(), Map.of(name, schema), false);
-        }),
-
-        // Required + optional property with primitive schemas
-        Combinators.combine(Arbitraries.of(safePropertyPairs), primitiveSchemas, primitiveSchemas).as((names, requiredSchema, optionalSchema) -> {
-          Assertions.assertNotNull(names);
-          Assertions.assertNotNull(requiredSchema);
-          Assertions.assertNotNull(optionalSchema);
-          return new PropertiesSchema(Map.of(names.getFirst(), requiredSchema), Map.of(names.get(1), optionalSchema), false);
-        }));
-  }
-
   private static Arbitrary<JtdTestSchema> discriminatorSchemaArbitrary() {
 
     return Combinators.combine(Arbitraries.of(PROPERTY_NAMES), Arbitraries.of(DISCRIMINATOR_VALUES), Arbitraries.of(DISCRIMINATOR_VALUES)).as((discriminatorKey, value1, value2) -> {
@@ -398,7 +352,7 @@ class JtdPropertyTest extends JtdTestBase {
         .flatMap(name1 -> effectivePropertyNames.stream()
             .filter(name2 -> !name1.equals(name2))
             .map(name2 -> List.of(name1, name2)))
-        .filter(pair -> !pair.get(0).equals(discriminatorKey) && !pair.get(1).equals(discriminatorKey))
+        .filter(pair -> !pair.getFirst().equals(discriminatorKey) && !pair.get(1).equals(discriminatorKey))
         .toList();
 
     return Arbitraries.oneOf(
@@ -431,12 +385,12 @@ class JtdPropertyTest extends JtdTestBase {
 
   @Provide
   Arbitrary<JtdTestSchema> jtdSchemas() {
-    return jtdSchemaArbitrary(MAX_DEPTH);
+    return jtdSchemaArbitrary(3);
   }
 
   @Property(generation = GenerationMode.AUTO)
   void exhaustiveJtdValidation(@ForAll("jtdSchemas") JtdPropertyTest.JtdTestSchema schema) {
-    LOG.finer(() -> "Executing exhaustiveJtdValidation property test");
+    LOG.finer(() -> "Executing exhaustiveValidation property test");
 
     final var schemaDescription = describeJtdSchema(schema);
 
