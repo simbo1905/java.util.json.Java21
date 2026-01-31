@@ -13,6 +13,24 @@ During the last upstream sync, those entry points were removed. **That is consis
 
 Put differently: the design is “JSON numbers are text first”, not “JSON numbers are a Java numeric tower”.
 
+## `JsonNumber` is not a primitive (and that’s the point)
+
+The core abstraction here is `JsonValue`, a **sealed interface** with one subtype per JSON kind:
+
+- `JsonString`
+- `JsonNumber`
+- `JsonObject`
+- `JsonArray`
+- `JsonBoolean`
+- `JsonNull`
+
+So `JsonNumber` is not intended to *replace* Java numeric primitives; it’s the JSON-layer representation of “a number token in a JSON document”.
+
+The deliberate split is:
+
+- **JSON layer**: preserve what was written (especially for numbers), keep round-tripping sane, avoid choosing a single “native numeric type” too early.
+- **Application layer**: *you* decide what “native” means (long? double? BigDecimal? BigInteger? domain-specific types?), and you do that conversion explicitly.
+
 ## Why upstream prefers `String` (and why BigDecimal constructors are a footgun)
 
 ### 1) JSON numbers are arbitrary precision *text*
@@ -58,6 +76,28 @@ var n = (JsonNumber) Json.parse("3.141592653589793238462643383279");
 var bd = new BigDecimal(n.toString()); // exact
 ```
 
+### Counter-example: converting to `double` can lose information
+
+```java
+var n = (JsonNumber) Json.parse("3.141592653589793238462643383279");
+double d = n.toDouble(); // finite, but lossy
+// BigDecimal.valueOf(d) is NOT equal to the original high-precision value
+```
+
+### Counter-example: converting to `long` can throw (even for numbers)
+
+```java
+var n = (JsonNumber) Json.parse("5.5");
+n.toLong(); // throws JsonAssertionException (not an integral value)
+```
+
+### Counter-example: converting to `double` can throw (range overflow)
+
+```java
+var n = (JsonNumber) Json.parse("1e309");
+n.toDouble(); // throws JsonAssertionException (outside finite double range)
+```
+
 ### Parse → BigInteger (lossless, when integral)
 
 ```java
@@ -92,6 +132,37 @@ assert !a.toString().equals(b.toString()); // lexical difference preserved
 ```
 
 If your application needs *numeric* equality or canonicalization, perform it explicitly with `BigDecimal` (or your own policy), rather than relying on the JSON value object to do it implicitly.
+
+## Ergonomics: mapping `JsonValue` to native Java types (pattern matching)
+
+If you want the “old style” `Map` / `List` / primitives view, you can build it explicitly using a `switch` over the sealed `JsonValue` hierarchy.
+
+One pragmatic policy for numbers is:
+
+- try `toLong()` first (exact integer in range)
+- otherwise fall back to `BigDecimal` from `toString()` (lossless)
+
+```java
+static Object toNative(JsonValue v) {
+    return switch (v) {
+        case JsonNull ignored -> null;
+        case JsonBoolean b -> b.bool();
+        case JsonString s -> s.string();
+        case JsonNumber n -> {
+            try {
+                yield n.toLong();
+            } catch (JsonAssertionException ignored) {
+                yield new BigDecimal(n.toString());
+            }
+        }
+        case JsonArray a -> a.elements().stream().map(Design::toNative).toList();
+        case JsonObject o -> o.members().entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> toNative(e.getValue())));
+    };
+}
+```
+
+This gives you native ergonomics **without** forcing the core JSON API to guess which numeric type you wanted.
 
 ## Runnable examples
 
