@@ -328,6 +328,29 @@ This repo contains an incubating JTD validator that has the core JSON API as its
 
 A complete JSON Type Definition validator is included (module: json-java21-jtd).
 
+## JsonPath (AST + evaluator over `java.util.json`)
+
+This repo also includes (in progress) a **JsonPath** module based on Stefan Goessner’s article:
+`https://goessner.net/articles/JsonPath/index.html`.
+
+Design goals:
+- **No runtime deps beyond `java.base`** (and the core `json-java21` module)
+- **Parse JsonPath strings to a custom AST**
+- **Evaluate against already-parsed JSON** (`JsonValue`), not against JSON text
+- Pure Java 21, functional/data-oriented style (records + sealed interfaces)
+- Unit tests mirror the article examples
+
+Planned public API (module: `json-java21-jsonpath`):
+
+```java
+import jdk.sandbox.java.util.json.JsonValue;
+import json.java21.jsonpath.JsonPath;
+
+JsonValue doc = /* Json.parse(...) from json-java21 */;
+var expr = JsonPath.parse("$.store.book[*].author");
+var matches = expr.select(doc); // List<JsonValue>
+```
+
 ### Empty Schema `{}` Semantics (RFC 8927)
 
 Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
