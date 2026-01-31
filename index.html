@@ -5,146 +5,259 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>java.util.json Backport for JDK 21+</title>
     <style>
+        :root {
+            --bg: #f6f1e8;
+            --paper: #fffaf2;
+            --ink: #1f2933;
+            --muted: #52616b;
+            --accent: #0f766e;
+            --accent-2: #b45309;
+            --border: rgba(31, 41, 51, 0.12);
+            --shadow: 0 18px 60px rgba(16, 24, 40, 0.10);
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            line-height: 1.6;
-            color: #333;
-            max-width: 900px;
-            margin: 0 auto;
-            padding: 20px;
-            background-color: #f5f5f5;
+            margin: 0;
+            padding: 24px;
+            color: var(--ink);
+            line-height: 1.65;
+            font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", serif;
+            background:
+                radial-gradient(1200px 600px at 18% 12%, rgba(15, 118, 110, 0.10), transparent 55%),
+                radial-gradient(900px 500px at 85% 18%, rgba(180, 83, 9, 0.10), transparent 60%),
+                linear-gradient(180deg, var(--bg), #f9f6ef);
         }
+
         .container {
-            background-color: white;
-            padding: 30px;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            max-width: 980px;
+            margin: 0 auto;
+            padding: 28px;
+            border-radius: 16px;
+            background: var(--paper);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow);
         }
-        h1, h2, h3 {
-            color: #2c3e50;
+
+        header {
+            padding: 6px 0 18px;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 22px;
         }
+
         h1 {
-            border-bottom: 3px solid #3498db;
-            padding-bottom: 10px;
+            margin: 0 0 6px;
+            font-size: clamp(28px, 3.3vw, 38px);
+            letter-spacing: -0.02em;
         }
+
+        h2 {
+            margin: 22px 0 10px;
+            font-size: 20px;
+            letter-spacing: -0.01em;
+        }
+
+        h3 {
+            margin: 14px 0 8px;
+            font-size: 16px;
+        }
+
+        p, li {
+            color: var(--ink);
+        }
+
+        .subhead {
+            margin: 0;
+            color: var(--muted);
+            max-width: 70ch;
+        }
+
+        .callout {
+            margin: 14px 0 0;
+            padding: 12px 14px;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 118, 110, 0.25);
+            background: rgba(15, 118, 110, 0.06);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 14px;
+        }
+
+        @media (min-width: 900px) {
+            .grid {
+                grid-template-columns: 1.1fr 0.9fr;
+                gap: 18px;
+            }
+        }
+
         pre {
-            background-color: #f4f4f4;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            padding: 15px;
+            margin: 10px 0 0;
+            padding: 14px;
             overflow-x: auto;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+            background: rgba(31, 41, 51, 0.04);
         }
+
         code {
-            background-color: #f4f4f4;
-            padding: 2px 4px;
-            border-radius: 3px;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+            font-size: 0.95em;
         }
-        .highlight {
-            background-color: #fff3cd;
-            border-left: 4px solid #ffc107;
-            padding: 10px;
-            margin: 15px 0;
+
+        pre code {
+            background: transparent;
         }
+
+        .links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
         .button {
             display: inline-block;
-            padding: 10px 20px;
-            background-color: #3498db;
-            color: white;
+            padding: 10px 14px;
+            border-radius: 999px;
             text-decoration: none;
-            border-radius: 5px;
-            margin-right: 10px;
-            margin-top: 10px;
+            font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+            font-weight: 650;
+            border: 1px solid rgba(15, 118, 110, 0.35);
+            background: rgba(15, 118, 110, 0.10);
+            color: var(--ink);
         }
+
         .button:hover {
-            background-color: #2980b9;
+            background: rgba(15, 118, 110, 0.16);
         }
+
         .button.secondary {
-            background-color: #95a5a6;
+            border-color: rgba(180, 83, 9, 0.35);
+            background: rgba(180, 83, 9, 0.10);
         }
+
         .button.secondary:hover {
-            background-color: #7f8c8d;
+            background: rgba(180, 83, 9, 0.16);
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 14px;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>java.util.json Backport for JDK 21+</h1>
+        <header>
+            <h1>java.util.json Backport for JDK 21+</h1>
+            <p class="subhead">A backport of the experimental <code>java.util.json</code> API from the OpenJDK jdk-sandbox “json” branch, plus an incubating JSON Type Definition (JTD) validator (RFC 8927).</p>
+            <div class="callout">
+                <strong>Early access / unstable:</strong> APIs and behaviour may change as upstream evolves.
+            </div>
+            <div class="links">
+                <a href="https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json" class="button">Maven Central</a>
+                <a href="https://github.com/simbo1905/java.util.json.Java21" class="button">GitHub</a>
+                <a href="Towards%20a%20JSON%20API%20for%20the%20JDK.pdf" class="button secondary">Design Paper (PDF)</a>
+                <a href="https://github.com/openjdk/jdk-sandbox/tree/json" class="button secondary">OpenJDK jdk-sandbox</a>
+            </div>
+        </header>
 
-        <div class="highlight">
-            <strong>Early Access:</strong> This is an unofficial backport of the experimental <code>java.util.json</code> API from OpenJDK sandbox, 
-            enabling developers to use future JSON API patterns today on JDK 21+.
+        <div class="grid">
+            <section>
+                <h2>Quick Start</h2>
+
+                <h3>Maven</h3>
+                <pre><code>&lt;dependency&gt;
+    &lt;groupId&gt;io.github.simbo1905.json&lt;/groupId&gt;
+    &lt;artifactId&gt;java.util.json&lt;/artifactId&gt;
+    &lt;version&gt;2026.01.26&lt;/version&gt;
+&lt;/dependency&gt;
+</code></pre>
+
+                <h3>Parse and access</h3>
+                <pre><code>import jdk.sandbox.java.util.json.*;
+
+JsonObject obj = (JsonObject) Json.parse("{\"name\":\"Alice\",\"age\":30}");
+
+String name = obj.get("name").string();
+long age = obj.get("age").toLong();</code></pre>
+            </section>
+
+            <section>
+                <h2>What’s Included</h2>
+                <ul>
+                    <li><strong>Immutable JSON values:</strong> <code>JsonObject</code>, <code>JsonArray</code>, <code>JsonString</code>, <code>JsonNumber</code>, <code>JsonBoolean</code>, <code>JsonNull</code></li>
+                    <li><strong>Typed factories:</strong> build JSON with <code>JsonObject.of</code>, <code>JsonArray.of</code>, <code>JsonString.of</code>, <code>JsonNumber.of</code>, <code>JsonBoolean.of</code></li>
+                    <li><strong>Type-safe accessors:</strong> <code>obj.get("x").string()</code>, <code>value.toLong()</code>, <code>value.toDouble()</code>, <code>value.bool()</code></li>
+                    <li><strong>JTD validator (RFC 8927):</strong> module <code>json-java21-jtd</code> for real-world JSON-heavy logic</li>
+                </ul>
+            </section>
         </div>
 
-        <h2>Quick Start</h2>
-        
-        <h3>Maven Dependency</h3>
-        <pre><code>
-            &lt;dependency&gt;
-                &lt;groupId&gt;io.github.simbo1905.json&lt;/groupId&gt;
-                &lt;artifactId&gt;java.util.json&lt;/artifactId&gt;
-                &lt;version&gt;0.1.8&lt;/version&gt;
-            &lt;/dependency&gt;
-        </code></pre>
-
-        <h3>Simple Example</h3>
+        <h2>Record Mapping (explicit, typed)</h2>
         <pre><code>import jdk.sandbox.java.util.json.*;
+import java.util.*;
 
-// Parse JSON
-JsonValue value = Json.parse("{\"name\":\"Alice\",\"age\":30}");
-JsonObject obj = (JsonObject) value;
-
-// Access values
-String name = ((JsonString) obj.members().get("name")).value();
-int age = ((JsonNumber) obj.members().get("age")).toNumber().intValue();</code></pre>
-
-        <h2>Key Features</h2>
-        <ul>
-            <li><strong>Future-Compatible API:</strong> Write code today that will work with tomorrow's official <code>java.util.json</code></li>
-            <li><strong>Sealed Type Hierarchy:</strong> Type-safe JSON values using Java's sealed classes</li>
-            <li><strong>Record Integration:</strong> Seamless mapping between Java records and JSON</li>
-            <li><strong>Pattern Matching:</strong> Leverage modern Java features for elegant JSON handling</li>
-            <li><strong>Immutable Values:</strong> Thread-safe by design</li>
-        </ul>
-
-        <h2>Record Mapping Example</h2>
-        <pre><code>// Domain model
 record User(String name, String email, boolean active) {}
 record Team(String teamName, List&lt;User&gt; members) {}
 
-// Convert to JSON
 Team team = new Team("Engineering", List.of(
     new User("Alice", "alice@example.com", true),
     new User("Bob", "bob@example.com", false)
 ));
 
-JsonValue teamJson = Json.fromUntyped(Map.of(
-    "teamName", team.teamName(),
-    "members", team.members().stream()
-        .map(u -> Map.of(
-            "name", u.name(),
-            "email", u.email(),
-            "active", u.active()
-        ))
-        .toList()
+JsonValue teamJson = JsonObject.of(Map.of(
+    "teamName", JsonString.of(team.teamName()),
+    "members", JsonArray.of(team.members().stream()
+        .map(u -&gt; JsonObject.of(Map.of(
+            "name", JsonString.of(u.name()),
+            "email", JsonString.of(u.email()),
+            "active", JsonBoolean.of(u.active())
+        )))
+        .toList())
 ));</code></pre>
 
-        <h2>Resources</h2>
-        <a href="https://github.com/simbo1905/java.util.json.Java21" class="button">View on GitHub</a>
-        <a href="Towards%20a%20JSON%20API%20for%20the%20JDK.pdf" class="button secondary">Original Proposal</a>
-        <a href="https://github.com/openjdk/jdk-sandbox/tree/json" class="button secondary">OpenJDK Sandbox</a>
+        <h2>Run the README Examples</h2>
+        <pre><code>mvn package
+java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
+  jdk.sandbox.java.util.json.examples.ReadmeExamples</code></pre>
+        <p class="meta">Replace <code>*</code> with the actual version number from the JAR filename.</p>
+
+        <h2>JSON Test Suite Compatibility</h2>
+        <pre><code># Run human-readable report
+mvn exec:java -pl json-compatibility-suite
+
+# Run JSON output (dogfoods the API)
+mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"</code></pre>
+
+        <h2>JSON Type Definition (JTD) Validator</h2>
+        <p class="meta">This repo includes an incubating JTD validator (RFC 8927) in module <code>json-java21-jtd</code>. Per RFC 8927, the empty schema <code>{}</code> accepts all JSON instances.</p>
+        <pre><code>import json.java21.jtd.Jtd;
+import jdk.sandbox.java.util.json.*;
+
+JsonValue schema = Json.parse("""
+  {
+    "properties": {
+      "name": {"type": "string"},
+      "age": {"type": "int32"}
+    }
+  }
+""");
+
+JsonValue data = Json.parse("{\"name\":\"Alice\",\"age\":30}");
+
+Jtd.Result result = new Jtd().validate(schema, data);
+// result.isValid() == true</code></pre>
 
         <h2>Status</h2>
-        <p>
-            This code (as of 2025-09-04) is derived from the OpenJDK jdk-sandbox repository “json”
-            branch at commit
-            <a href="https://github.com/openjdk/jdk-sandbox/commit/a8e7de8b49e4e4178eb53c94ead2fa2846c30635">Produce path/col during path building</a>.
-            The API may evolve as the official specification develops.
-        </p>
+        <p class="meta">This code (as of 2026-01-25) is derived from the OpenJDK jdk-sandbox repository “json” branch. The API may evolve as the upstream design develops.</p>
 
         <h2>License</h2>
-        <p>Licensed under the GNU General Public License version 2 with Classpath exception,
-        same as the OpenJDK project.</p>
+        <p class="meta">GNU General Public License version 2 with Classpath exception (same as OpenJDK).</p>
     </div>
 </body>
 </html>

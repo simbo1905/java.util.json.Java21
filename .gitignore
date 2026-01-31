@@ -36,3 +36,7 @@ WISDOM.md
 .vscode/
 pom.xml.versionsBackup
 .tmp
+
+# Local JTD debug logs
+jtd*.log
+**/jtd*.log
