@@ -4,9 +4,11 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.Map;
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class DesignChoicesNumberExamplesTest {
     private static final Logger LOGGER = Logger.getLogger(DesignChoicesNumberExamplesTest.class.getName());
@@ -33,6 +35,24 @@ public class DesignChoicesNumberExamplesTest {
         var lossy = new BigDecimal(Double.toString(n.toDouble()));
 
         assertThat(lossy).isNotEqualByComparingTo(lossless);
+    }
+
+    @Test
+    void convertingNonIntegralNumberToLongThrows() {
+        LOGGER.info("Executing convertingNonIntegralNumberToLongThrows");
+
+        var n = (JsonNumber) Json.parse("5.5");
+        assertThatThrownBy(n::toLong)
+                .isInstanceOf(JsonAssertionException.class);
+    }
+
+    @Test
+    void convertingOutOfRangeNumberToDoubleThrows() {
+        LOGGER.info("Executing convertingOutOfRangeNumberToDoubleThrows");
+
+        var n = (JsonNumber) Json.parse("1e309");
+        assertThatThrownBy(n::toDouble)
+                .isInstanceOf(JsonAssertionException.class);
     }
 
     @Test
@@ -74,6 +94,28 @@ public class DesignChoicesNumberExamplesTest {
 
         // but numeric values compare equal when canonicalized explicitly
         assertThat(new BigDecimal(a.toString())).isEqualByComparingTo(new BigDecimal(b.toString()));
+    }
+
+    @Test
+    void mappingToNativeTypesUsesPatternMatchingAndExplicitNumberPolicy() {
+        LOGGER.info("Executing mappingToNativeTypesUsesPatternMatchingAndExplicitNumberPolicy");
+
+        JsonValue json = Json.parse("""
+            {
+              "smallInt": 42,
+              "decimal": 5.5
+            }
+            """);
+
+        Object nativeValue = jdk.sandbox.java.util.json.examples.DesignChoicesExamples.toNative(json);
+        assertThat(nativeValue).isInstanceOf(Map.class);
+
+        @SuppressWarnings("unchecked")
+        var map = (Map<String, Object>) nativeValue;
+
+        assertThat(map.get("smallInt")).isEqualTo(42L);
+        assertThat(map.get("decimal")).isInstanceOf(BigDecimal.class);
+        assertThat((BigDecimal) map.get("decimal")).isEqualByComparingTo(new BigDecimal("5.5"));
     }
 }
 
