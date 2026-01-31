@@ -11,7 +11,7 @@ record JsonPathAst(List<Segment> segments) {
 
     sealed interface Segment permits Segment.Child, Segment.Wildcard {
         record Child(String name) implements Segment {
-            Child {
+            public Child {
                 Objects.requireNonNull(name, "name must not be null");
             }
         }
