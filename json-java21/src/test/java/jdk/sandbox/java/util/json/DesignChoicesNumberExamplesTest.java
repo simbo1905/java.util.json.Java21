@@ -49,12 +49,15 @@ public class DesignChoicesNumberExamplesTest {
     void bigDecimalToJsonNumberRequiresChoosingATextPolicy() {
         LOGGER.info("Executing bigDecimalToJsonNumberRequiresChoosingATextPolicy");
 
-        var thousand = new BigDecimal("1000");
+        // Using toPlainString() for a plain number representation
+        var bdPlain = new BigDecimal("1000");
 
-        var plain = JsonNumber.of(thousand.toPlainString());
+        var plain = JsonNumber.of(bdPlain.toPlainString());
         assertThat(plain.toString()).isEqualTo("1000");
 
-        var scientific = JsonNumber.of(new BigDecimal("1E+3").toString());
+        // Using toString(), which may produce scientific notation
+        var bdScientific = new BigDecimal("1E+3");
+        var scientific = JsonNumber.of(bdScientific.toString());
         assertThat(scientific.toString()).isEqualTo("1E+3");
     }
 

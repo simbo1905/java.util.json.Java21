@@ -40,12 +40,15 @@ public final class DesignChoicesExamples {
     }
 
     public static JsonNumber bigDecimalToJsonNumberChooseTextPolicy() {
-        var bd = new BigDecimal("1000");
+        // Example with toPlainString() to avoid scientific notation.
+        var bdPlain = new BigDecimal("1000");
 
-        var plain = JsonNumber.of(bd.toPlainString());
+        var plain = JsonNumber.of(bdPlain.toPlainString());
         System.out.println("BigDecimal.toPlainString() -> JsonNumber: " + plain);
 
-        var scientific = JsonNumber.of(new BigDecimal("1E+3").toString());
+        // Example with toString(), which may use scientific notation.
+        var bdScientific = new BigDecimal("1E+3");
+        var scientific = JsonNumber.of(bdScientific.toString());
         System.out.println("BigDecimal.toString()      -> JsonNumber: " + scientific);
 
         return plain;
