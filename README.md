@@ -27,9 +27,14 @@ java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-cla
 
 *Replace `*` with the actual version number from the JAR filename.*
 
-## Design notes
+## Numeric handling (JsonNumber and native Java numbers)
 
-- **Numeric handling (JsonNumber, BigDecimal/BigInteger)**: see `DESIGN_CHOICES.md`
+Prior versions of this backport included convenience entry points for building JSON numbers from `BigDecimal` / `BigInteger`. Upstream has moved away from that shape: `JsonNumber` preserves the JSON number text and you convert explicitly to native Java numeric types depending on your policy (lossless via `toString()` + `BigDecimal`, or range/precision-limited via `toLong()` / `toDouble()`).
+
+For runnable examples (including counter-examples where conversions throw or lose precision, plus a pattern-matching “map to native types” helper), see:
+
+- `json-java21/src/test/java/jdk/sandbox/java/util/json/examples/DesignChoicesExamples.java`
+- `json-java21/src/test/java/jdk/sandbox/java/util/json/DesignChoicesNumberExamplesTest.java`
 
 ## API Overview
 

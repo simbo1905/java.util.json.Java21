@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
  * Standalone examples demonstrating numeric design choices.
  *
  * <p>
- * This file mirrors the examples in {@code DESIGN_CHOICES.md}.
+ * See the repository README for context and pointers.
  */
 public final class DesignChoicesExamples {
 
