@@ -27,6 +27,10 @@ java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-cla
 
 *Replace `*` with the actual version number from the JAR filename.*
 
+## Design notes
+
+- **Numeric handling (JsonNumber, BigDecimal/BigInteger)**: see `DESIGN_CHOICES.md`
+
 ## API Overview
 
 The API provides immutable JSON value types:
