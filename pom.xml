@@ -41,6 +41,7 @@
         <module>json-java21-api-tracker</module>
         <module>json-compatibility-suite</module>
         <module>json-java21-jtd</module>
+        <module>json-java21-jsonpath</module>
     </modules>
 
     <properties>
