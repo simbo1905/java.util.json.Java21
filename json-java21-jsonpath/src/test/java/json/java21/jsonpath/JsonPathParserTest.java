@@ -1,5 +1,7 @@
 package json.java21.jsonpath;
 
+import jdk.sandbox.java.util.json.Json;
+import jdk.sandbox.java.util.json.JsonValue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -314,5 +316,50 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         LOG.info(() -> "TEST: testParseIncompletePathThrows - " + path);
         assertThatThrownBy(() -> JsonPathParser.parse(path))
             .isInstanceOf(JsonPathParseException.class);
+    }
+
+    public static void main(String[] args) {
+        final var storeDoc = """
+        { "store": {
+            "book": [
+              { "category": "reference",
+                "author": "Nigel Rees",
+                "title": "Sayings of the Century",
+                "price": 8.95
+              },
+              { "category": "fiction",
+                "author": "Evelyn Waugh",
+                "title": "Sword of Honour",
+                "price": 12.99
+              },
+              { "category": "fiction",
+                "author": "Herman Melville",
+                "title": "Moby Dick",
+                "isbn": "0-553-21311-3",
+                "price": 8.99
+              },
+              { "category": "fiction",
+                "author": "J. R. R. Tolkien",
+                "title": "The Lord of the Rings",
+                "isbn": "0-395-19395-8",
+                "price": 22.99
+              }
+            ],
+            "bicycle": {
+              "color": "red",
+              "price": 19.95
+            }
+          }
+        }
+        """;
+
+        final JsonValue doc = Json.parse(storeDoc);
+
+        final var path = args.length > 0 ? args[0] : "$.store.book";
+        final var matches = JsonPath.query(path, doc);
+
+        System.out.println("path: " + path);
+        System.out.println("matches: " + matches.size());
+        matches.forEach(v -> System.out.println(Json.toDisplayString(v, 2)));
     }
 }
