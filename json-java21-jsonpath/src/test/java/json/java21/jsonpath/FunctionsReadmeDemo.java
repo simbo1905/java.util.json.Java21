@@ -15,13 +15,6 @@ public class FunctionsReadmeDemo extends JsonPathLoggingConfig {
 
     private static final Logger LOG = Logger.getLogger(FunctionsReadmeDemo.class.getName());
 
-    public static void main(String[] args) {
-        final var demo = new FunctionsReadmeDemo();
-        demo.testSummingNumbersLax();
-        demo.testAverageStrict();
-        demo.testFilteringByType();
-    }
-
     @Test
     void testSummingNumbersLax() {
         LOG.info(() -> "FunctionsReadmeDemo#testSummingNumbersLax");
@@ -40,11 +33,10 @@ public class FunctionsReadmeDemo extends JsonPathLoggingConfig {
 
         JsonPath path = JsonPath.parse("$.store.book[*].price");
 
-        // Calculate sum of all 'price' fields, ignoring non-numbers
         double total = path.query(doc).stream()
-            .map(JsonPathStreams::asDoubleOrNull) // Convert to Double or null
-            .filter(Objects::nonNull)             // Remove non-numbers
-            .mapToDouble(Double::doubleValue)     // Unbox
+            .map(JsonPathStreams::asDoubleOrNull)
+            .filter(Objects::nonNull)
+            .mapToDouble(Double::doubleValue)
             .sum();
 
         assertThat(total).isCloseTo(8.95 + 12.99 + 22.99, within(0.001));
@@ -61,9 +53,8 @@ public class FunctionsReadmeDemo extends JsonPathLoggingConfig {
 
         JsonPath path = JsonPath.parse("$.temperatures[*]");
 
-        // Calculate average, fails if any value is not a number
         OptionalDouble avg = path.query(doc).stream()
-            .map(JsonPathStreams::asDouble)       // Throws if not a number
+            .map(JsonPathStreams::asDouble)
             .mapToDouble(Double::doubleValue)
             .average();
 

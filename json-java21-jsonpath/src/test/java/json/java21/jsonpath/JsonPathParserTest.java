@@ -17,8 +17,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
 
     private static final Logger LOG = Logger.getLogger(JsonPathParserTest.class.getName());
 
-    // ========== Basic path parsing ==========
-
     @Test
     void testParseRootOnly() {
         LOG.info(() -> "TEST: testParseRootOnly - parse $");
@@ -62,8 +60,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(((JsonPathAst.PropertyAccess) ast.segments().getFirst()).name()).isEqualTo("store");
     }
 
-    // ========== Array index parsing ==========
-
     @Test
     void testParseArrayIndex() {
         LOG.info(() -> "TEST: testParseArrayIndex - parse $.store.book[0]");
@@ -89,14 +85,10 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         LOG.info(() -> "TEST: testParseThirdBook - parse $..book[2] (third book)");
         final var ast = JsonPathParser.parse("$..book[2]");
         assertThat(ast.segments()).hasSize(2);
-        // First segment is recursive descent for book
         assertThat(ast.segments().get(0)).isInstanceOf(JsonPathAst.RecursiveDescent.class);
-        // Second segment is index 2
         assertThat(ast.segments().get(1)).isInstanceOf(JsonPathAst.ArrayIndex.class);
         assertThat(((JsonPathAst.ArrayIndex) ast.segments().get(1)).index()).isEqualTo(2);
     }
-
-    // ========== Wildcard parsing ==========
 
     @Test
     void testParseWildcard() {
@@ -124,8 +116,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(ast.segments().get(2)).isInstanceOf(JsonPathAst.Wildcard.class);
         assertThat(((JsonPathAst.PropertyAccess) ast.segments().get(3)).name()).isEqualTo("author");
     }
-
-    // ========== Recursive descent parsing ==========
 
     @Test
     void testParseRecursiveDescent() {
@@ -158,8 +148,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         final var descent = (JsonPathAst.RecursiveDescent) ast.segments().get(1);
         assertThat(((JsonPathAst.PropertyAccess) descent.target()).name()).isEqualTo("price");
     }
-
-    // ========== Slice parsing ==========
 
     @Test
     void testParseSlice() {
@@ -197,8 +185,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(slice.step()).isEqualTo(2);
     }
 
-    // ========== Union parsing ==========
-
     @Test
     void testParseUnionIndices() {
         LOG.info(() -> "TEST: testParseUnionIndices - parse $..book[0,1] (first two books)");
@@ -222,8 +208,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(((JsonPathAst.PropertyAccess) union.selectors().get(0)).name()).isEqualTo("book");
         assertThat(((JsonPathAst.PropertyAccess) union.selectors().get(1)).name()).isEqualTo("bicycle");
     }
-
-    // ========== Filter parsing ==========
 
     @Test
     void testParseFilterExists() {
@@ -302,8 +286,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(orExpr.right()).isInstanceOf(JsonPathAst.ComparisonFilter.class);
     }
 
-    // ========== Script expression parsing ==========
-
     @Test
     void testParseScriptExpression() {
         LOG.info(() -> "TEST: testParseScriptExpression - parse $..book[(@.length-1)] (last book)");
@@ -313,8 +295,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         final var script = (JsonPathAst.ScriptExpression) ast.segments().get(1);
         assertThat(script.script()).isEqualTo("@.length-1");
     }
-
-    // ========== Complex paths ==========
 
     @Test
     void testParsePropertyAfterArrayIndex() {
@@ -326,8 +306,6 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(((JsonPathAst.ArrayIndex) ast.segments().get(2)).index()).isEqualTo(0);
         assertThat(((JsonPathAst.PropertyAccess) ast.segments().get(3)).name()).isEqualTo("title");
     }
-
-    // ========== Error cases ==========
 
     @Test
     void testParseEmptyStringThrows() {
@@ -360,49 +338,4 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
             .isInstanceOf(JsonPathParseException.class);
     }
 
-    public static void main(String[] args) {
-        final var storeDoc = """
-        { "store": {
-            "book": [
-              { "category": "reference",
-                "author": "Nigel Rees",
-                "title": "Sayings of the Century",
-                "price": 8.95
-              },
-              { "category": "fiction",
-                "author": "Evelyn Waugh",
-                "title": "Sword of Honour",
-                "price": 12.99
-              },
-              { "category": "fiction",
-                "author": "Herman Melville",
-                "title": "Moby Dick",
-                "ISBN": "0-553-21311-3",
-                "price": 8.99
-              },
-              { "category": "fiction",
-                "author": "J. R. R. Tolkien",
-                "title": "The Lord of the Rings",
-                "ISBN": "0-395-19395-8",
-                "price": 22.99
-              }
-            ],
-            "bicycle": {
-              "color": "red",
-              "price": 19.95
-            }
-          }
-        }
-        """;
-
-        final JsonValue doc = Json.parse(storeDoc);
-
-        final var path = args.length > 0 ? args[0] : "$.store.book";
-        final var compiled = JsonPath.parse(path);
-        final var matches = compiled.query(doc);
-
-        System.out.println("path: " + path);
-        System.out.println("matches: " + matches.size());
-        matches.forEach(v -> System.out.println(Json.toDisplayString(v, 2)));
-    }
 }

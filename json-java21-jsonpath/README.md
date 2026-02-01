@@ -5,28 +5,47 @@ This module provides a JSONPath-style query engine for JSON documents parsed wit
 It is based on the original Stefan Goessner JSONPath article:
 https://goessner.net/articles/JsonPath/
 
-## Usage
-
-Parse JSON once with `Json.parse(...)`, compile the JsonPath once with `JsonPath.parse(...)`, then query multiple documents:
+## Quick Start
 
 ```java
 import jdk.sandbox.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 
 JsonValue doc = Json.parse("""
-  {"store": {"book": [{"author": "A"}, {"author": "B"}]}}
+  {"store": {"book": [{"title": "A", "price": 8.95}, {"title": "B", "price": 12.99}]}}
   """);
 
-JsonPath path = JsonPath.parse("$.store.book[*].author");
-var authors = path.query(doc);
-
-// If you want a static call site:
-var sameAuthors = JsonPath.query(path, doc);
+var titles = JsonPath.parse("$.store.book[*].title").query(doc);
+var cheap = JsonPath.parse("$.store.book[?(@.price < 10)].title").query(doc);
 ```
 
-Notes:
-- Prefer `JsonPath.parse(String)` + `query(JsonValue)` to avoid repeatedly parsing the same path.
-- `JsonPath.query(String, JsonValue)` is intended for one-off usage.
+## Syntax At A Glance
+
+Operator | Example | What it selects
+---|---|---
+root | `$` | the whole document
+property | `$.store.book` | a nested object property
+bracket property | `$['store']['book']` | same as dot notation, but allows escaping
+wildcard | `$.store.*` | all direct children
+recursive descent | `$..price` | any matching member anywhere under the document
+array index | `$.store.book[0]` / `[-1]` | element by index (negative from end)
+slice | `$.store.book[:2]` / `[0:4:2]` / `[::-1]` | slice by start:end:step
+union | `$.store['book','bicycle']` / `[0,1]` | select multiple names/indices
+filter exists | `$.store.book[?(@.isbn)]` | elements where a member exists
+filter compare | `$.store.book[?(@.price < 10)]` | elements matching a comparison
+filter logic | `$.store.book[?(@.isbn && (@.price < 10 || @.price > 20))]` | compound boolean logic
+script (limited) | `$.store.book[(@.length-1)]` | last element via `length-1`
+
+## Examples
+
+Expression | What it selects
+---|---
+`$.store.book[*].title` | all book titles
+`$.store.book[?(@.price < 10)].title` | titles of books cheaper than 10
+`$.store.book[?(@.isbn && (@.price < 10 || @.price > 20))].title` | books with an ISBN and price outside the mid-range
+`$..price` | every `price` anywhere under the document
+`$.store.book[-1]` | the last book
+`$.store.book[0:4:2]` | every other book from the first four
 
 ## Supported Syntax
 
@@ -43,7 +62,7 @@ This implementation follows Goessner-style JSONPath operators, including:
 
 ## Stream-Based Functions (Aggregations)
 
-Some JsonPath implementations for older versions of Java provided aggregation functions such as `$.numbers.avg()`.
+Some JsonPath implementations include aggregation functions such as `$.numbers.avg()`.
 In this implementation we provide first class stream support so you can use standard JDK aggregation functions on `JsonPath.query(...)` results.
 
 The `query()` method returns a standard `List<JsonValue>`. You can stream, filter, map, and reduce these results using standard Java APIs. To make this easier, we provide the `JsonPathStreams` utility class with predicate and conversion methods.

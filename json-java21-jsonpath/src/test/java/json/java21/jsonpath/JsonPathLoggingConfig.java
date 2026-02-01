@@ -9,6 +9,7 @@ import java.util.logging.*;
 public class JsonPathLoggingConfig {
     @BeforeAll
     static void enableJulDebug() {
+        final var log = Logger.getLogger(JsonPathLoggingConfig.class.getName());
         Logger root = Logger.getLogger("");
         String levelProp = System.getProperty("java.util.logging.ConsoleHandler.level");
         Level targetLevel = Level.INFO;
@@ -19,7 +20,7 @@ public class JsonPathLoggingConfig {
                 try {
                     targetLevel = Level.parse(levelProp.trim().toUpperCase(Locale.ROOT));
                 } catch (IllegalArgumentException ignored) {
-                    System.err.println("Unrecognized logging level from 'java.util.logging.ConsoleHandler.level': " + levelProp);
+                    log.warning(() -> "Unrecognized logging level from 'java.util.logging.ConsoleHandler.level': " + levelProp);
                 }
             }
         }
@@ -39,8 +40,7 @@ public class JsonPathLoggingConfig {
         if (prop == null || prop.isBlank()) {
             java.nio.file.Path base = java.nio.file.Paths.get("src", "test", "resources").toAbsolutePath();
             System.setProperty("jsonpath.test.resources", base.toString());
-            Logger.getLogger(JsonPathLoggingConfig.class.getName()).config(
-                () -> "jsonpath.test.resources set to " + base);
+            log.config(() -> "jsonpath.test.resources set to " + base);
         }
     }
 }

@@ -524,6 +524,8 @@ final class JsonPathParser {
             // After initial ':', check if there's a number for end
             if (pos < path.length() && (Character.isDigit(path.charAt(pos)) || path.charAt(pos) == '-')) {
                 elements.add(parseInteger());
+            } else {
+                elements.add(null);
             }
         } else {
             elements.add(parseInteger());

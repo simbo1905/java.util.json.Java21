@@ -12,7 +12,7 @@ import java.util.logging.Logger;
 ///
 /// Usage examples:
 /// ```java
-/// // Fluent API (preferred)
+/// // Fluent API
 /// JsonValue json = Json.parse(jsonString);
 /// List<JsonValue> results = JsonPath.parse("$.store.book[*].author").query(json);
 ///
@@ -46,8 +46,8 @@ public final class JsonPath {
 
     /// Queries matching values from a JSON document.
     ///
-    /// This is the preferred instance API: compile once via `parse(String)`, then call `query(JsonValue)`
-    /// for each already-parsed JSON document.
+    /// Instance API: compile once via `parse(String)`, then call `query(JsonValue)` for each already-parsed
+    /// JSON document.
     ///
     /// @param json the JSON document to query
     /// @return a list of matching JsonValue instances (maybe empty)
@@ -72,6 +72,21 @@ public final class JsonPath {
     public static List<JsonValue> query(JsonPath path, JsonValue json) {
         Objects.requireNonNull(path, "path must not be null");
         return path.query(json);
+    }
+
+    /// Evaluates a JsonPath expression against a JSON document.
+    ///
+    /// Intended for one-off usage; for hot paths, prefer caching the compiled `JsonPath` via `parse(String)`.
+    ///
+    /// @param path the JsonPath expression to parse
+    /// @param json the JSON document to query
+    /// @return a list of matching JsonValue instances (maybe empty)
+    /// @throws NullPointerException if path or JSON is null
+    /// @throws JsonPathParseException if the path is invalid
+    public static List<JsonValue> query(String path, JsonValue json) {
+        Objects.requireNonNull(path, "path must not be null");
+        Objects.requireNonNull(json, "json must not be null");
+        return parse(path).query(json);
     }
 
     /// Evaluates a pre-parsed JsonPath AST against a JSON document.
@@ -166,24 +181,28 @@ public final class JsonPath {
             final var elements = array.elements();
             final int size = elements.size();
 
-            // Resolve start, end, step with defaults
-            int start = slice.start() != null ? normalizeIndex(slice.start(), size) : 0;
-            int end = slice.end() != null ? normalizeIndex(slice.end(), size) : size;
-            int step = slice.step() != null ? slice.step() : 1;
+            final int step = slice.step() != null ? slice.step() : 1;
 
             if (step == 0) {
                 return; // Invalid step
             }
 
-            // Clamp values
-            start = Math.max(0, Math.min(start, size));
-            end = Math.max(0, Math.min(end, size));
-
             if (step > 0) {
+                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : 0;
+                int end = slice.end() != null ? normalizeIndex(slice.end(), size) : size;
+
+                start = Math.max(0, Math.min(start, size));
+                end = Math.max(0, Math.min(end, size));
+
                 for (int i = start; i < end; i += step) {
                     evaluateSegments(segments, index + 1, elements.get(i), root, results);
                 }
             } else {
+                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : size - 1;
+                final int end = slice.end() != null ? normalizeIndex(slice.end(), size) : -1;
+
+                start = Math.max(0, Math.min(start, size - 1));
+
                 for (int i = start; i > end; i += step) {
                     evaluateSegments(segments, index + 1, elements.get(i), root, results);
                 }

@@ -62,7 +62,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         LOG.info(() -> "Parsed store JSON for Goessner tests");
     }
 
-    // ========== Basic path queries ==========
+    // Basic path queries
 
     @Test
     void testRootOnly() {
@@ -91,7 +91,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         assertThat(bicycle.members().get("color").string()).isEqualTo("red");
     }
 
-    // ========== Goessner Article Examples ==========
+    // Goessner Article Examples
 
     @Test
     void testAuthorsOfAllBooks() {
@@ -227,12 +227,11 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     void testAllMembersRecursive() {
         LOG.info(() -> "TEST: testAllMembersRecursive - $..*");
         final var results = JsonPath.parse("$..*").query(storeJson);
-        // This should return all nodes in the tree
         assertThat(results).isNotEmpty();
         LOG.fine(() -> "Found " + results.size() + " members recursively");
     }
 
-    // ========== Additional edge cases ==========
+    // Additional edge cases
 
     @Test
     void testArrayIndexFirst() {
@@ -291,6 +290,22 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
             .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactly("Sayings of the Century", "Moby Dick");
+    }
+
+    @Test
+    void testSliceReverse() {
+        LOG.info(() -> "TEST: testSliceReverse - $.store.book[::-1]");
+        final var results = JsonPath.parse("$.store.book[::-1]").query(storeJson);
+        assertThat(results).hasSize(4);
+        final var titles = results.stream()
+            .map(v -> v.members().get("title").string())
+            .toList();
+        assertThat(titles).containsExactly(
+            "The Lord of the Rings",
+            "Moby Dick",
+            "Sword of Honour",
+            "Sayings of the Century"
+        );
     }
 
     @Test
@@ -361,7 +376,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         assertThat(((JsonObject) results.getFirst()).members().get("title").string()).isEqualTo("The Lord of the Rings");
     }
 
-    // ========== Fluent API tests ==========
+    // Fluent API tests
 
     @Test
     void testFluentApiParseAndSelect() {
