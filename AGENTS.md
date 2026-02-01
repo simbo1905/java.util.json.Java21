@@ -41,13 +41,13 @@ When making changes, always update documentation files before modifying code.
 
 ### Non-Negotiable Rules
 - You MUST NOT ever filter test output; debugging relies on observing the unknown.
-- You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER, and FINEST. Focus runs on the narrowest model/test/method that exposes the issue.
+- You MUST keep debug output actionable by using JUL levels (INFO/FINE/FINER/FINEST) and running the narrowest test/class/module that reproduces the issue.
 - You MUST NOT add ad-hoc "temporary logging"; only the defined JUL levels above are acceptable.
 - You SHOULD NOT delete logging. Adjust levels downward (finer granularity) instead of removing statements.
 - You MUST add a JUL log statement at INFO level at the top of every test method announcing execution.
 - You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 - You MUST NOT guess root causes; add targeted logging or additional tests. Treat observability as the path to the fix.
-- YOU MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
+- Use a single shared logger per subsystem/package and use appropriate JUL levels to debug.
 - YOU MUST honour official JUL logging levels:
   -	SEVERE (1000): Critical errors—application will likely abort.
   -	WARNING (900): Indications of potential problems or recoverable issues.
@@ -59,7 +59,8 @@ When making changes, always update documentation files before modifying code.
 
 ### Run Tests With Valid Logging
 
-- You MUST prefer the `$(command -v mvnd || command -v mvn || command -v ./mvnw)` wrapper for every Maven invocation.
+- For agent/local development, prefer `$(command -v mvnd || command -v mvn || command -v ./mvnw)` to automatically pick the fastest available tool.
+- User-facing documentation MUST only use the top-level `./mvnw` command.
 - You MUST pass in a `java.util.logging.ConsoleHandler.level` of INFO or more low-level.
 - You SHOULD run all tests in all models or a given `-pl mvn_moduue` passing `-Djava.util.logging.ConsoleHandler.level=INFO` to see which tests run and which tests might hang 
 - You SHOULD run a single test class using `-Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE` as fine will show you basic debug info
@@ -81,21 +82,21 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) -Dtest=BlahTest#testSo
 $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
-IMPORTANT: Fix the method with FINEST logging, then fix the test class with FINER logging, then fix the module with FINE logging, then run the whole suite with INFO logging. THERE IS NO TRIVIAL LOGIC LEFT IN THIS PROJECT TO BE SYSTEMATIC. 
+IMPORTANT: Fix the method with FINEST logging, then fix the test class with FINER logging, then fix the module with FINE logging, then run the whole suite with INFO logging.
 
 ### Output Visibility Requirements
 
 - You MUST NEVER pipe build or test output to tools (head, tail, grep, etc.) that reduce visibility. Logging uncovers the unexpected; piping hides it. Use the instructions above to zoom in on what you want to see using `-Dtest=BlahTest` and `-Dtest=BlahTest#testSomething` passing the appropriate `Djava.util.logging.ConsoleHandler.level=XXX` to avoid too much outputs
 - You MAY log full data structures at FINEST for deep tracing. Run a single test method at that granularity.
 - If output volume becomes unbounded (for example, due to inadvertent infinite loops), this is the only time head/tail is allowed. Even then, you MUST inspect a sufficiently large sample (thousands of lines) to capture the real issue and avoid focusing on Maven startup noise.
-- My time is far more precious than yours do not error on the side of less information and thrash around guessing. You MUST add more logging and look harder! 
+- Avoid guessing. Add targeted logging or additional tests until the failing case is fully observable.
 - Deep debugging employs the same FINE/FINEST discipline: log data structures at FINEST for one test method at a time and expand coverage with additional logging or tests instead of guessing.
 
 ### Logging Practices
 - JUL logging is used for safety and performance. Many consumers rely on SLF4J bridges and search for the literal `ERROR`, not `SEVERE`. When logging at `SEVERE`, prefix the message with `ERROR` to keep cloud log filters effective:
 
 ```java
-LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
+LOG.severe(() -> "ERROR: " + message);
 ```
 
 - Only tag true errors (pre-exception logging, validation failures, and similar) with the `ERROR` prefix. Do not downgrade log semantics.
