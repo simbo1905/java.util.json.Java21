@@ -48,7 +48,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>21</maven.compiler.release>
         <junit.jupiter.version>5.10.2</junit.jupiter.version>
-        <assertj.version>3.25.3</assertj.version>
+        <assertj.version>3.27.7</assertj.version>
         
         <!-- Plugin Versions -->
         <maven-clean-plugin.version>3.4.0</maven-clean-plugin.version>

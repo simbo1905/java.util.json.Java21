@@ -41,6 +41,78 @@ This implementation follows Goessner-style JSONPath operators, including:
 - `[?(@.prop)]` and `[?(@.prop op value)]` basic filters
 - `[(@.length-1)]` limited script support
 
+## Stream-Based Functions (Aggregations)
+
+Some JsonPath implementations for older versions of Java provided aggregation functions such as `$.numbers.avg()`.
+In this implementation we provide first class stream support so you can use standard JDK aggregation functions on `JsonPath.query(...)` results.
+
+The `query()` method returns a standard `List<JsonValue>`. You can stream, filter, map, and reduce these results using standard Java APIs. To make this easier, we provide the `JsonPathStreams` utility class with predicate and conversion methods.
+
+### Strict vs. Lax Conversions
+
+We follow a pattern of "Strict" (`asX`) vs "Lax" (`asXOrNull`) converters:
+- **Strict (`asX`)**: Throws `ClassCastException` (or similar) if the value is not the expected type. Use this when you are certain of the schema.
+- **Lax (`asXOrNull`)**: Returns `null` if the value is not the expected type. Use this with `.filter(Objects::nonNull)` for robust processing of messy data.
+
+### Examples
+
+**Summing Numbers (Lax - safe against bad data)**
+```java
+import json.java21.jsonpath.JsonPathStreams;
+import java.util.Objects;
+
+// Calculate sum of all 'price' fields, ignoring non-numbers
+double total = path.query(doc).stream()
+    .map(JsonPathStreams::asDoubleOrNull) // Convert to Double or null
+    .filter(Objects::nonNull)             // Remove non-numbers
+    .mapToDouble(Double::doubleValue)     // Unbox
+    .sum();
+```
+
+**Average (Strict - expects valid data)**
+```java
+import java.util.OptionalDouble;
+
+// Calculate average, fails if any value is not a number
+OptionalDouble avg = path.query(doc).stream()
+    .map(JsonPathStreams::asDouble)       // Throws if not a number
+    .mapToDouble(Double::doubleValue)
+    .average();
+```
+
+**Filtering by Type**
+```java
+import java.util.List;
+
+// Get all strings
+List<String> strings = path.query(doc).stream()
+    .filter(JsonPathStreams::isString)
+    .map(JsonPathStreams::asString)
+    .toList();
+```
+
+### Available Helpers (`JsonPathStreams`)
+
+**Predicates:**
+- `isNumber(JsonValue)`
+- `isString(JsonValue)`
+- `isBoolean(JsonValue)`
+- `isArray(JsonValue)`
+- `isObject(JsonValue)`
+- `isNull(JsonValue)`
+
+**Converters (Strict):**
+- `asDouble(JsonValue)` -> `double`
+- `asLong(JsonValue)` -> `long`
+- `asString(JsonValue)` -> `String`
+- `asBoolean(JsonValue)` -> `boolean`
+
+**Converters (Lax):**
+- `asDoubleOrNull(JsonValue)` -> `Double`
+- `asLongOrNull(JsonValue)` -> `Long`
+- `asStringOrNull(JsonValue)` -> `String`
+- `asBooleanOrNull(JsonValue)` -> `Boolean`
+
 ## Testing
 
 ```bash
