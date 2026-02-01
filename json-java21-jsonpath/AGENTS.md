@@ -63,5 +63,15 @@ import jdk.sandbox.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 
 JsonValue json = Json.parse(jsonString);
-List<JsonValue> results = JsonPath.query("$.store.book[*].author", json);
+
+// Preferred: parse once (cache) and reuse
+JsonPath path = JsonPath.parse("$.store.book[*].author");
+List<JsonValue> results = path.query(json);
+
+// If you want a static call site, pass the compiled JsonPath
+List<JsonValue> sameResults = JsonPath.query(path, json);
 ```
+
+Notes:
+- Parsing a JsonPath expression is relatively expensive compared to evaluation; cache compiled `JsonPath` instances in hot code paths.
+- `JsonPath.query(String, JsonValue)` is intended for one-off usage only.

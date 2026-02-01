@@ -44,10 +44,10 @@ sealed interface JsonPathAst {
         }
     }
 
-    /// Access array element by index: [n] where n can be negative for reverse indexing
+    /// Access array element by index: \[n\] where n can be negative for reverse indexing
     record ArrayIndex(int index) implements Segment {}
 
-    /// Slice array: [start:end:step]
+    /// Slice array: \[start:end:step\]
     /// All fields are optional (null means not specified)
     record ArraySlice(Integer start, Integer end, Integer step) implements Segment {}
 

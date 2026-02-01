@@ -355,7 +355,8 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         final JsonValue doc = Json.parse(storeDoc);
 
         final var path = args.length > 0 ? args[0] : "$.store.book";
-        final var matches = JsonPath.query(path, doc);
+        final var compiled = JsonPath.parse(path);
+        final var matches = compiled.query(doc);
 
         System.out.println("path: " + path);
         System.out.println("matches: " + matches.size());

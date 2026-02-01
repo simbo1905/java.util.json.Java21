@@ -21,7 +21,7 @@ import java.util.logging.Logger;
 /// - \[?(@.prop)\] : filter expression for existence
 /// - \[?(@.prop op value)\] : filter expression with comparison
 /// - \[(@.length-1)\] : script expression
-public final class JsonPathParser {
+final class JsonPathParser {
 
     private static final Logger LOG = Logger.getLogger(JsonPathParser.class.getName());
 

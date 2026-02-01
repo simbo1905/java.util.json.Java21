@@ -35,14 +35,14 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
                 "category": "fiction",
                 "author": "Herman Melville",
                 "title": "Moby Dick",
-                "ISBN": "0-553-21311-3",
+                "isbn": "0-553-21311-3",
                 "price": 8.99
               },
               {
                 "category": "fiction",
                 "author": "J. R. R. Tolkien",
                 "title": "The Lord of the Rings",
-                "ISBN": "0-395-19395-8",
+                "isbn": "0-395-19395-8",
                 "price": 22.99
               }
             ],
@@ -67,7 +67,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testRootOnly() {
         LOG.info(() -> "TEST: testRootOnly - $ returns the root document");
-        final var results = JsonPath.query("$", storeJson);
+        final var results = JsonPath.parse("$").query(storeJson);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst()).isEqualTo(storeJson);
     }
@@ -75,7 +75,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testSingleProperty() {
         LOG.info(() -> "TEST: testSingleProperty - $.store returns the store object");
-        final var results = JsonPath.query("$.store", storeJson);
+        final var results = JsonPath.parse("$.store").query(storeJson);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst()).isInstanceOf(JsonObject.class);
     }
@@ -83,7 +83,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testNestedProperty() {
         LOG.info(() -> "TEST: testNestedProperty - $.store.bicycle returns the bicycle object");
-        final var results = JsonPath.query("$.store.bicycle", storeJson);
+        final var results = JsonPath.parse("$.store.bicycle").query(storeJson);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst()).isInstanceOf(JsonObject.class);
         final var bicycle = (JsonObject) results.getFirst();
@@ -96,7 +96,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testAuthorsOfAllBooks() {
         LOG.info(() -> "TEST: testAuthorsOfAllBooks - $.store.book[*].author");
-        final var results = JsonPath.query("$.store.book[*].author", storeJson);
+        final var results = JsonPath.parse("$.store.book[*].author").query(storeJson);
         assertThat(results).hasSize(4);
         final var authors = results.stream()
             .map(JsonValue::string)
@@ -110,9 +110,18 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     }
 
     @Test
+    void testAllBooks() {
+        LOG.info(() -> "TEST: testAllBooks - $.store.book");
+        final var results = JsonPath.parse("$.store.book").query(storeJson);
+        assertThat(results).hasSize(1);
+        assertThat(results.getFirst()).isInstanceOf(JsonArray.class);
+        assertThat(((JsonArray) results.getFirst()).elements()).hasSize(4);
+    }
+
+    @Test
     void testAllAuthorsRecursive() {
         LOG.info(() -> "TEST: testAllAuthorsRecursive - $..author");
-        final var results = JsonPath.query("$..author", storeJson);
+        final var results = JsonPath.parse("$..author").query(storeJson);
         assertThat(results).hasSize(4);
         final var authors = results.stream()
             .map(JsonValue::string)
@@ -128,14 +137,14 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testAllThingsInStore() {
         LOG.info(() -> "TEST: testAllThingsInStore - $.store.*");
-        final var results = JsonPath.query("$.store.*", storeJson);
+        final var results = JsonPath.parse("$.store.*").query(storeJson);
         assertThat(results).hasSize(2); // book array and bicycle object
     }
 
     @Test
     void testAllPricesInStore() {
         LOG.info(() -> "TEST: testAllPricesInStore - $.store..price");
-        final var results = JsonPath.query("$.store..price", storeJson);
+        final var results = JsonPath.parse("$.store..price").query(storeJson);
         assertThat(results).hasSize(5); // 4 book prices + 1 bicycle price
         final var prices = results.stream()
             .map(JsonValue::toDouble)
@@ -146,7 +155,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testThirdBook() {
         LOG.info(() -> "TEST: testThirdBook - $..book[2]");
-        final var results = JsonPath.query("$..book[2]", storeJson);
+        final var results = JsonPath.parse("$..book[2]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("title").string()).isEqualTo("Moby Dick");
@@ -155,7 +164,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testLastBookScriptExpression() {
         LOG.info(() -> "TEST: testLastBookScriptExpression - $..book[(@.length-1)]");
-        final var results = JsonPath.query("$..book[(@.length-1)]", storeJson);
+        final var results = JsonPath.parse("$..book[(@.length-1)]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
@@ -164,7 +173,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testLastBookSlice() {
         LOG.info(() -> "TEST: testLastBookSlice - $..book[-1:]");
-        final var results = JsonPath.query("$..book[-1:]", storeJson);
+        final var results = JsonPath.parse("$..book[-1:]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
@@ -173,7 +182,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testFirstTwoBooksUnion() {
         LOG.info(() -> "TEST: testFirstTwoBooksUnion - $..book[0,1]");
-        final var results = JsonPath.query("$..book[0,1]", storeJson);
+        final var results = JsonPath.parse("$..book[0,1]").query(storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
             .map(v -> v.members().get("title").string())
@@ -184,7 +193,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testFirstTwoBooksSlice() {
         LOG.info(() -> "TEST: testFirstTwoBooksSlice - $..book[:2]");
-        final var results = JsonPath.query("$..book[:2]", storeJson);
+        final var results = JsonPath.parse("$..book[:2]").query(storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
             .map(v -> v.members().get("title").string())
@@ -195,7 +204,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testBooksWithIsbn() {
         LOG.info(() -> "TEST: testBooksWithIsbn - $..book[?(@.isbn)]");
-        final var results = JsonPath.query("$..book[?(@.isbn)]", storeJson);
+        final var results = JsonPath.parse("$..book[?(@.isbn)]").query(storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
             .map(v -> v.members().get("title").string())
@@ -206,7 +215,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testBooksCheaperThan10() {
         LOG.info(() -> "TEST: testBooksCheaperThan10 - $..book[?(@.price<10)]");
-        final var results = JsonPath.query("$..book[?(@.price<10)]", storeJson);
+        final var results = JsonPath.parse("$..book[?(@.price<10)]").query(storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
             .map(v -> v.members().get("title").string())
@@ -217,7 +226,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testAllMembersRecursive() {
         LOG.info(() -> "TEST: testAllMembersRecursive - $..*");
-        final var results = JsonPath.query("$..*", storeJson);
+        final var results = JsonPath.parse("$..*").query(storeJson);
         // This should return all nodes in the tree
         assertThat(results).isNotEmpty();
         LOG.fine(() -> "Found " + results.size() + " members recursively");
@@ -228,7 +237,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testArrayIndexFirst() {
         LOG.info(() -> "TEST: testArrayIndexFirst - $.store.book[0]");
-        final var results = JsonPath.query("$.store.book[0]", storeJson);
+        final var results = JsonPath.parse("$.store.book[0]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("author").string()).isEqualTo("Nigel Rees");
@@ -237,7 +246,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testArrayIndexNegative() {
         LOG.info(() -> "TEST: testArrayIndexNegative - $.store.book[-1]");
-        final var results = JsonPath.query("$.store.book[-1]", storeJson);
+        final var results = JsonPath.parse("$.store.book[-1]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("author").string()).isEqualTo("J. R. R. Tolkien");
@@ -246,7 +255,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testBracketNotationProperty() {
         LOG.info(() -> "TEST: testBracketNotationProperty - $['store']['book'][0]");
-        final var results = JsonPath.query("$['store']['book'][0]", storeJson);
+        final var results = JsonPath.parse("$['store']['book'][0]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("author").string()).isEqualTo("Nigel Rees");
@@ -255,28 +264,28 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testFilterEquality() {
         LOG.info(() -> "TEST: testFilterEquality - $..book[?(@.category=='fiction')]");
-        final var results = JsonPath.query("$..book[?(@.category=='fiction')]", storeJson);
+        final var results = JsonPath.parse("$..book[?(@.category=='fiction')]").query(storeJson);
         assertThat(results).hasSize(3); // 3 fiction books
     }
 
     @Test
     void testPropertyNotFound() {
         LOG.info(() -> "TEST: testPropertyNotFound - $.nonexistent");
-        final var results = JsonPath.query("$.nonexistent", storeJson);
+        final var results = JsonPath.parse("$.nonexistent").query(storeJson);
         assertThat(results).isEmpty();
     }
 
     @Test
     void testArrayIndexOutOfBounds() {
         LOG.info(() -> "TEST: testArrayIndexOutOfBounds - $.store.book[100]");
-        final var results = JsonPath.query("$.store.book[100]", storeJson);
+        final var results = JsonPath.parse("$.store.book[100]").query(storeJson);
         assertThat(results).isEmpty();
     }
 
     @Test
     void testSliceWithStep() {
         LOG.info(() -> "TEST: testSliceWithStep - $.store.book[0:4:2] (every other book)");
-        final var results = JsonPath.query("$.store.book[0:4:2]", storeJson);
+        final var results = JsonPath.parse("$.store.book[0:4:2]").query(storeJson);
         assertThat(results).hasSize(2); // books at index 0 and 2
         final var titles = results.stream()
             .map(v -> v.members().get("title").string())
@@ -287,7 +296,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testDeepNestedAccess() {
         LOG.info(() -> "TEST: testDeepNestedAccess - $.store.book[0].title");
-        final var results = JsonPath.query("$.store.book[0].title", storeJson);
+        final var results = JsonPath.parse("$.store.book[0].title").query(storeJson);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst().string()).isEqualTo("Sayings of the Century");
     }
@@ -295,7 +304,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testRecursiveDescentOnArray() {
         LOG.info(() -> "TEST: testRecursiveDescentOnArray - $..book");
-        final var results = JsonPath.query("$..book", storeJson);
+        final var results = JsonPath.parse("$..book").query(storeJson);
         assertThat(results).hasSize(1);
         assertThat(results.getFirst()).isInstanceOf(JsonArray.class);
     }
@@ -303,14 +312,14 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testPropertyUnion() {
         LOG.info(() -> "TEST: testPropertyUnion - $.store['book','bicycle']");
-        final var results = JsonPath.query("$.store['book','bicycle']", storeJson);
+        final var results = JsonPath.parse("$.store['book','bicycle']").query(storeJson);
         assertThat(results).hasSize(2);
     }
 
     @Test
     void testFilterGreaterThan() {
         LOG.info(() -> "TEST: testFilterGreaterThan - $..book[?(@.price>20)]");
-        final var results = JsonPath.query("$..book[?(@.price>20)]", storeJson);
+        final var results = JsonPath.parse("$..book[?(@.price>20)]").query(storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
         assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
@@ -319,7 +328,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     @Test
     void testFilterLessOrEqual() {
         LOG.info(() -> "TEST: testFilterLessOrEqual - $..book[?(@.price<=8.99)]");
-        final var results = JsonPath.query("$..book[?(@.price<=8.99)]", storeJson);
+        final var results = JsonPath.parse("$..book[?(@.price<=8.99)]").query(storeJson);
         assertThat(results).hasSize(2);
     }
 
@@ -327,12 +336,26 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
 
     @Test
     void testFluentApiParseAndSelect() {
-        LOG.info(() -> "TEST: testFluentApiParseAndSelect - JsonPath.parse(...).select(...)");
-        final var matches = JsonPath.parse("$.store.book").select(storeJson);
+        LOG.info(() -> "TEST: testFluentApiParseAndSelect - JsonPath.parse(...).query(...)");
+        final var matches = JsonPath.parse("$.store.book").query(storeJson);
         assertThat(matches).hasSize(1);
         assertThat(matches.getFirst()).isInstanceOf(JsonArray.class);
         final var bookArray = (JsonArray) matches.getFirst();
         assertThat(bookArray.elements()).hasSize(4); // 4 books in the array
+    }
+
+    @Test
+    void testStaticQueryWithCompiledPath() {
+        LOG.info(() -> "TEST: testStaticQueryWithCompiledPath - JsonPath.query(JsonPath, JsonValue) does not re-parse");
+        final var compiled = JsonPath.parse("$.store.book[*].author");
+        final var results = JsonPath.query(compiled, storeJson);
+        assertThat(results).hasSize(4);
+        assertThat(results.stream().map(JsonValue::string).toList()).containsExactly(
+            "Nigel Rees",
+            "Evelyn Waugh",
+            "Herman Melville",
+            "J. R. R. Tolkien"
+        );
     }
 
     @Test
@@ -341,14 +364,14 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var compiledPath = JsonPath.parse("$..price");
         
         // Use on store doc
-        final var storeResults = compiledPath.select(storeJson);
+        final var storeResults = compiledPath.query(storeJson);
         assertThat(storeResults).hasSize(5); // 4 book prices + 1 bicycle price
         
         // Use on a different doc
         final var simpleDoc = Json.parse("""
             {"item": {"price": 99.99}}
             """);
-        final var simpleResults = compiledPath.select(simpleDoc);
+        final var simpleResults = compiledPath.query(simpleDoc);
         assertThat(simpleResults).hasSize(1);
         assertThat(simpleResults.getFirst().toDouble()).isEqualTo(99.99);
     }
