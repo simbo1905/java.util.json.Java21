@@ -176,7 +176,9 @@ IMPORTANT: This API **MUST NOT** deviate from the upstream jdk.sandbox repo whic
 - `Json*Impl`: Immutable implementations of `Json*` types.
 - `Utils`: Internal utilities and factory methods.
 
-IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **MUST** be fixed upstream. Only bugs in any backporting machinery such as the double-check-locking class that is a polyfill for a future JDK `@StableValue` feature may be fixed in this repo. 
+IMPORTANT: Bugs in upstream-derived core logic MUST be fixed upstream. Do not patch `jdk.sandbox.*` sources in this repo unless the user explicitly agrees (for example, to carry a temporary local backport while the upstream fix is in progress).
+
+Only bugs in local, non-upstream code (for example, backporting shims/polyfills or other modules in this repo) should be fixed here using normal TDD.
 
 ### Design Patterns
 - Algebraic Data Types: Sealed interfaces enable exhaustive pattern matching.
