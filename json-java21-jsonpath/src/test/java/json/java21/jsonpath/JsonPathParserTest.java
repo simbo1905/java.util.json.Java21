@@ -259,6 +259,49 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
         assertThat(comparison.op()).isEqualTo(JsonPathAst.ComparisonOp.EQ);
     }
 
+    @Test
+    void testParseFilterCurrentNode() {
+        LOG.info(() -> "TEST: testParseFilterCurrentNode - parse $..book[?(@)]");
+        final var ast = JsonPathParser.parse("$..book[?(@)]");
+        assertThat(ast.segments()).hasSize(2);
+        assertThat(ast.segments().get(1)).isInstanceOf(JsonPathAst.Filter.class);
+        final var filter = (JsonPathAst.Filter) ast.segments().get(1);
+        assertThat(filter.expression()).isInstanceOf(JsonPathAst.CurrentNode.class);
+    }
+
+    @Test
+    void testParseFilterLogicalNot() {
+        LOG.info(() -> "TEST: testParseFilterLogicalNot - parse $..book[?(!@.isbn)]");
+        final var ast = JsonPathParser.parse("$..book[?(!@.isbn)]");
+        assertThat(ast.segments()).hasSize(2);
+        assertThat(ast.segments().get(1)).isInstanceOf(JsonPathAst.Filter.class);
+        final var filter = (JsonPathAst.Filter) ast.segments().get(1);
+        assertThat(filter.expression()).isInstanceOf(JsonPathAst.LogicalFilter.class);
+        final var logical = (JsonPathAst.LogicalFilter) filter.expression();
+        assertThat(logical.op()).isEqualTo(JsonPathAst.LogicalOp.NOT);
+        assertThat(logical.left()).isInstanceOf(JsonPathAst.ExistsFilter.class);
+    }
+
+    @Test
+    void testParseFilterLogicalAndOrWithParentheses() {
+        LOG.info(() -> "TEST: testParseFilterLogicalAndOrWithParentheses - parse $..book[?(@.isbn && (@.price<10 || @.price>20))]");
+        final var ast = JsonPathParser.parse("$..book[?(@.isbn && (@.price<10 || @.price>20))]");
+        assertThat(ast.segments()).hasSize(2);
+        assertThat(ast.segments().get(1)).isInstanceOf(JsonPathAst.Filter.class);
+        final var filter = (JsonPathAst.Filter) ast.segments().get(1);
+
+        assertThat(filter.expression()).isInstanceOf(JsonPathAst.LogicalFilter.class);
+        final var andExpr = (JsonPathAst.LogicalFilter) filter.expression();
+        assertThat(andExpr.op()).isEqualTo(JsonPathAst.LogicalOp.AND);
+        assertThat(andExpr.left()).isInstanceOf(JsonPathAst.ExistsFilter.class);
+        assertThat(andExpr.right()).isInstanceOf(JsonPathAst.LogicalFilter.class);
+
+        final var orExpr = (JsonPathAst.LogicalFilter) andExpr.right();
+        assertThat(orExpr.op()).isEqualTo(JsonPathAst.LogicalOp.OR);
+        assertThat(orExpr.left()).isInstanceOf(JsonPathAst.ComparisonFilter.class);
+        assertThat(orExpr.right()).isInstanceOf(JsonPathAst.ComparisonFilter.class);
+    }
+
     // ========== Script expression parsing ==========
 
     @Test

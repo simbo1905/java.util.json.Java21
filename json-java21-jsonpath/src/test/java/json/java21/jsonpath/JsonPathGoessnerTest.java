@@ -332,6 +332,35 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         assertThat(results).hasSize(2);
     }
 
+    @Test
+    void testFilterCurrentNodeAlwaysTrue() {
+        LOG.info(() -> "TEST: testFilterCurrentNodeAlwaysTrue - $.store.book[?(@)]");
+        final var results = JsonPath.parse("$.store.book[?(@)]").query(storeJson);
+        assertThat(results).hasSize(4);
+    }
+
+    @Test
+    void testFilterLogicalNot() {
+        LOG.info(() -> "TEST: testFilterLogicalNot - $.store.book[?(!@.isbn)]");
+        final var results = JsonPath.parse("$.store.book[?(!@.isbn)]").query(storeJson);
+        assertThat(results).hasSize(2);
+    }
+
+    @Test
+    void testFilterLogicalAndOr() {
+        LOG.info(() -> "TEST: testFilterLogicalAndOr - $.store.book[?(@.isbn && (@.price<10 || @.price>20))]");
+        final var results = JsonPath.parse("$.store.book[?(@.isbn && (@.price<10 || @.price>20))]").query(storeJson);
+        assertThat(results).hasSize(2);
+    }
+
+    @Test
+    void testFilterLogicalAnd() {
+        LOG.info(() -> "TEST: testFilterLogicalAnd - $.store.book[?(@.isbn && @.price>20)]");
+        final var results = JsonPath.parse("$.store.book[?(@.isbn && @.price>20)]").query(storeJson);
+        assertThat(results).hasSize(1);
+        assertThat(((JsonObject) results.getFirst()).members().get("title").string()).isEqualTo("The Lord of the Rings");
+    }
+
     // ========== Fluent API tests ==========
 
     @Test

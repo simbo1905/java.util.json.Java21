@@ -200,29 +200,83 @@ final class JsonPathParser {
     }
 
     private JsonPathAst.FilterExpression parseFilterContent() {
+        return parseLogicalOr();
+    }
+
+    private JsonPathAst.FilterExpression parseLogicalOr() {
+        var left = parseLogicalAnd();
+        skipWhitespace();
+
+        while (pos + 1 < path.length() && path.substring(pos).startsWith("||")) {
+            pos += 2;
+            final var right = parseLogicalAnd();
+            skipWhitespace();
+            left = new JsonPathAst.LogicalFilter(left, JsonPathAst.LogicalOp.OR, right);
+        }
+
+        return left;
+    }
+
+    private JsonPathAst.FilterExpression parseLogicalAnd() {
+        var left = parseLogicalUnary();
+        skipWhitespace();
+
+        while (pos + 1 < path.length() && path.substring(pos).startsWith("&&")) {
+            pos += 2;
+            final var right = parseLogicalUnary();
+            skipWhitespace();
+            left = new JsonPathAst.LogicalFilter(left, JsonPathAst.LogicalOp.AND, right);
+        }
+
+        return left;
+    }
+
+    private JsonPathAst.FilterExpression parseLogicalUnary() {
+        skipWhitespace();
+
+        if (pos < path.length() && path.charAt(pos) == '!') {
+            pos++;
+            final var operand = parseLogicalUnary();
+            return new JsonPathAst.LogicalFilter(operand, JsonPathAst.LogicalOp.NOT, null);
+        }
+
+        return parseLogicalPrimary();
+    }
+
+    private JsonPathAst.FilterExpression parseLogicalPrimary() {
+        skipWhitespace();
         if (pos >= path.length()) {
             throw new JsonPathParseException("Unexpected end of filter expression", path, pos);
         }
 
-        // Parse the left side (usually @.property)
-        final var left = parseFilterAtom();
+        if (path.charAt(pos) == '(') {
+            pos++;
+            final var expr = parseLogicalOr();
+            skipWhitespace();
+            expectChar(')');
+            return expr;
+        }
 
+        // Atom (maybe part of a comparison)
+        final var left = parseFilterAtom();
         skipWhitespace();
 
-        // Check if there's a comparison operator
-        if (pos < path.length() && path.charAt(pos) != ')') {
+        if (pos < path.length() && isComparisonOpStart(path.charAt(pos))) {
             final var op = parseComparisonOp();
             skipWhitespace();
             final var right = parseFilterAtom();
             return new JsonPathAst.ComparisonFilter(left, op, right);
         }
 
-        // No operator means existence check
         if (left instanceof JsonPathAst.PropertyPath pp) {
             return new JsonPathAst.ExistsFilter(pp);
         }
 
-        throw new JsonPathParseException("Invalid filter expression - expected property path", path, pos);
+        return left;
+    }
+
+    private boolean isComparisonOpStart(char c) {
+        return c == '=' || c == '!' || c == '<' || c == '>';
     }
 
     private JsonPathAst.FilterExpression parseFilterAtom() {
@@ -268,7 +322,7 @@ final class JsonPathParser {
         throw new JsonPathParseException("Unexpected token in filter expression", path, pos);
     }
 
-    private JsonPathAst.PropertyPath parseCurrentNodePath() {
+    private JsonPathAst.FilterExpression parseCurrentNodePath() {
         pos++; // skip @
 
         final var properties = new ArrayList<String>();
@@ -294,7 +348,7 @@ final class JsonPathParser {
 
         if (properties.isEmpty()) {
             // Just @ with no properties
-            return new JsonPathAst.PropertyPath(List.of("@"));
+            return new JsonPathAst.CurrentNode();
         }
 
         return new JsonPathAst.PropertyPath(properties);
