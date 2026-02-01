@@ -210,11 +210,11 @@ Prefer linking to `README.md` for stable, user-facing workflows and module descr
 
 #### Debugging Exhaustive Property Tests
 
-The `JtdExhaustiveTest` uses jqwik property-based testing to generate comprehensive schema/document permutations. When debugging failures:
+The `JtdPropertyTest` uses jqwik property-based testing to generate comprehensive schema/document permutations. When debugging failures:
 
 1. **Enable FINEST logging** to capture exact schema and document inputs:
    ```bash
-   $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-jtd test -Dtest=JtdExhaustiveTest -Djava.util.logging.ConsoleHandler.level=FINEST > test_debug.log 2>&1
+   $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-jtd test -Dtest=JtdPropertyTest -Djava.util.logging.ConsoleHandler.level=FINEST > test_debug.log 2>&1
    ```
 
 2. **Search for failing cases** in the log file:
