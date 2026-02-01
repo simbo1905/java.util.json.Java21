@@ -151,6 +151,11 @@ See `README.md` for user-facing commands. When running locally as an agent, use 
 - `json-java21-api-tracker`: API evolution tracking utilities.
 - `json-compatibility-suite`: JSON Test Suite compatibility validation.
 - `json-java21-jtd`: JSON Type Definition (JTD) validator based on RFC 8927.
+- `json-java21-jsonpath`: JsonPath query engine over `jdk.sandbox.java.util.json` values.
+
+Only when you are asked to work on a specific module, start by reading that module's `README.md`, then its `AGENTS.md`.
+
+These modules are treated as separate subsystems; do not read their docs unless you are actively working on them. They are not interlinked and each depends only on the core `json-java21` API.
 
 ### Core Components
 
