@@ -440,15 +440,9 @@ System.out.println("Avg price: " + priceStats.getAverage());
 
 See `json-java21-jsonpath/README.md` for JsonPath operators and more examples.
 
-## Augmented Intelligence (AI) Welcomed
+## Contributing
 
-AI as **Augmented Intelligence** is most welcome here. Contributions that enhance *human + agent collaboration* are encouraged. If you want to suggest new agent‑workflows, prompt patterns, or improvements in tooling / validation / introspection, please submit amendments to **AGENTS.md** via standalone PRs. Your ideas make the difference.
-
-When submitting Issues or PRs, please use a "deep research" tool to sanity check your proposal. Then **before** submission un your submission through a strong model with a prompt such as:
-
-> "Please review the AGENTS.md and README.md along with this draft PR/Issue and check that it does not have any gaps and why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
-
-Please attach the output of that model’s review to your Issue or PR.
+If you use an AI assistant while contributing, ensure it follows the contributor/agent workflow rules in `AGENTS.md`.
 
 ## License
 
