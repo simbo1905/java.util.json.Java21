@@ -137,7 +137,9 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
     @Test
     void testComplexNestedLogic() {
         LOG.info(() -> "TEST: testComplexNestedLogic");
-        // (Price < 10 OR (Category == 'fiction' AND Not Published))
+        // (Price < 10 OR (Category == 'fiction' AND Published is false))
+        // Note: !@.published would mean "published does not exist". 
+        // To check for false value, use @.published == false.
         var json = Json.parse("""
             [
               {"id": 1, "price": 5, "category": "ref", "published": true},
@@ -147,7 +149,7 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
             ]
             """);
 
-        var results = JsonPath.parse("$[?(@.price < 10 || (@.category == 'fiction' && !@.published))]").query(json);
+        var results = JsonPath.parse("$[?(@.price < 10 || (@.category == 'fiction' && @.published == false))]").query(json);
 
         assertThat(results).hasSize(2);
         assertThat(results.stream().map(v -> asInt(v, "id")).toList())
