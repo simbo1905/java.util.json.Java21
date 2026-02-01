@@ -9,7 +9,9 @@ assignees: ''
 
 (Optional) When submitting a bug report, please consider using an AI assistant to help create a minimal test case that demonstrates the issue. Then **before** submission, run your bug description through a strong model with a prompt such as:
 
-> "Please review the AGENTS.md and README.md along with this bug report and check that it includes: a clear description of the problem, steps to reproduce, expected vs actual behavior, and a minimal test case that demonstrates the bug."
+> "Please review README.md along with this bug report and check that it includes: a clear description of the problem, steps to reproduce, expected vs actual behavior, and a minimal test case that demonstrates the bug."
+
+If you used an AI assistant while preparing this report, ensure it followed the contributor/agent workflow rules in `AGENTS.md`.
 
 (Optional) Please then attach both the prompt and the model's review to the bottom of this template under "Augmented Intelligence Review".
 

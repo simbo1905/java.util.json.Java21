@@ -3,11 +3,13 @@
 ## Purpose & Scope
 - Operational guidance for human and AI agents working in this repository. This revision preserves all existing expectations while improving structure and wording in line with agents.md best practices.
 
+User-facing documentation lives in `README.md`. Keep this file focused on contributor/agent workflow, debugging, and coding standards.
+
 ## Operating Principles
 - Follow the sequence plan → implement → verify; do not pivot without restating the plan.
 - Stop immediately on unexpected failures and ask before changing approach.
 - Keep edits atomic and avoid leaving mixed partial states.
-- Propose jsonSchemaOptions with trade-offs before invasive changes.
+- You SHOULD discuss trade-offs before making invasive changes to existing code.
 - Prefer mechanical, reversible transforms (especially when syncing upstream sources).
 - Validate that outputs are non-empty before overwriting files.
 - Minimal shims are acceptable only when needed to keep backports compiling.
@@ -39,13 +41,13 @@ When making changes, always update documentation files before modifying code.
 
 ### Non-Negotiable Rules
 - You MUST NOT ever filter test output; debugging relies on observing the unknown.
-- You MUST restrict the amount of tokens by adding logging at INFO, FINE, FINER, and FINEST. Focus runs on the narrowest model/test/method that exposes the issue.
+- You MUST keep debug output actionable by using JUL levels (INFO/FINE/FINER/FINEST) and running the narrowest test/class/module that reproduces the issue.
 - You MUST NOT add ad-hoc "temporary logging"; only the defined JUL levels above are acceptable.
 - You SHOULD NOT delete logging. Adjust levels downward (finer granularity) instead of removing statements.
 - You MUST add a JUL log statement at INFO level at the top of every test method announcing execution.
 - You MUST have all new tests extend a helper such as `JsonSchemaLoggingConfig` so environment variables configure JUL levels compatibly with `$(command -v mvnd || command -v mvn || command -v ./mvnw)`.
 - You MUST NOT guess root causes; add targeted logging or additional tests. Treat observability as the path to the fix.
-- YOU MUST Use exactly one logger for the JSON Schema subsystem and use appropriate logging to debug as below.
+- Use a single shared logger per subsystem/package and use appropriate JUL levels to debug.
 - YOU MUST honour official JUL logging levels:
   -	SEVERE (1000): Critical errors—application will likely abort.
   -	WARNING (900): Indications of potential problems or recoverable issues.
@@ -57,7 +59,8 @@ When making changes, always update documentation files before modifying code.
 
 ### Run Tests With Valid Logging
 
-- You MUST prefer the `$(command -v mvnd || command -v mvn || command -v ./mvnw)` wrapper for every Maven invocation.
+- For agent/local development, prefer `$(command -v mvnd || command -v mvn || command -v ./mvnw)` to automatically pick the fastest available tool.
+- User-facing documentation MUST only use the top-level `./mvnw` command.
 - You MUST pass in a `java.util.logging.ConsoleHandler.level` of INFO or more low-level.
 - You SHOULD run all tests in all models or a given `-pl mvn_moduue` passing `-Djava.util.logging.ConsoleHandler.level=INFO` to see which tests run and which tests might hang 
 - You SHOULD run a single test class using `-Dtest=BlahTest -Djava.util.logging.ConsoleHandler.level=FINE` as fine will show you basic debug info
@@ -79,21 +82,21 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) -Dtest=BlahTest#testSo
 $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker -Dtest=ApiTrackerTest -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
-IMPORTANT: Fix the method with FINEST logging, then fix the test class with FINER logging, then fix the module with FINE logging, then run the whole suite with INFO logging. THERE IS NO TRIVIAL LOGIC LEFT IN THIS PROJECT TO BE SYSTEMATIC. 
+IMPORTANT: Fix the method with FINEST logging, then fix the test class with FINER logging, then fix the module with FINE logging, then run the whole suite with INFO logging.
 
 ### Output Visibility Requirements
 
 - You MUST NEVER pipe build or test output to tools (head, tail, grep, etc.) that reduce visibility. Logging uncovers the unexpected; piping hides it. Use the instructions above to zoom in on what you want to see using `-Dtest=BlahTest` and `-Dtest=BlahTest#testSomething` passing the appropriate `Djava.util.logging.ConsoleHandler.level=XXX` to avoid too much outputs
 - You MAY log full data structures at FINEST for deep tracing. Run a single test method at that granularity.
 - If output volume becomes unbounded (for example, due to inadvertent infinite loops), this is the only time head/tail is allowed. Even then, you MUST inspect a sufficiently large sample (thousands of lines) to capture the real issue and avoid focusing on Maven startup noise.
-- My time is far more precious than yours do not error on the side of less information and thrash around guessing. You MUST add more logging and look harder! 
+- Avoid guessing. Add targeted logging or additional tests until the failing case is fully observable.
 - Deep debugging employs the same FINE/FINEST discipline: log data structures at FINEST for one test method at a time and expand coverage with additional logging or tests instead of guessing.
 
 ### Logging Practices
 - JUL logging is used for safety and performance. Many consumers rely on SLF4J bridges and search for the literal `ERROR`, not `SEVERE`. When logging at `SEVERE`, prefix the message with `ERROR` to keep cloud log filters effective:
 
 ```java
-LOG.severe(() -> "ERROR: Remote references disabled but computeIfAbsent called for: " + key);
+LOG.severe(() -> "ERROR: " + message);
 ```
 
 - Only tag true errors (pre-exception logging, validation failures, and similar) with the `ERROR` prefix. Do not downgrade log semantics.
@@ -138,14 +141,8 @@ throw new IllegalArgumentException("bad value"); // No specifics
 Use `Json.toDisplayString(value, depth)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
 
 ## JSON Compatibility Suite
-```bash
-# Build and run compatibility report
-mvn clean compile generate-test-resources -pl json-compatibility-suite
-mvn exec:java -pl json-compatibility-suite
 
-# Run JSON output (dogfoods the API)
-mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
-```
+See `README.md` for user-facing commands. When running locally as an agent, use the Maven wrapper described in this file.
 
 ## Architecture Overview
 
@@ -154,6 +151,11 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
 - `json-java21-api-tracker`: API evolution tracking utilities.
 - `json-compatibility-suite`: JSON Test Suite compatibility validation.
 - `json-java21-jtd`: JSON Type Definition (JTD) validator based on RFC 8927.
+- `json-java21-jsonpath`: JsonPath query engine over `jdk.sandbox.java.util.json` values.
+
+Only when you are asked to work on a specific module, start by reading that module's `README.md`, then its `AGENTS.md`.
+
+These modules are treated as separate subsystems; do not read their docs unless you are actively working on them. They are not interlinked and each depends only on the core `json-java21` API.
 
 ### Core Components
 
@@ -174,7 +176,9 @@ IMPORTANT: This API **MUST NOT** deviate from the upstream jdk.sandbox repo whic
 - `Json*Impl`: Immutable implementations of `Json*` types.
 - `Utils`: Internal utilities and factory methods.
 
-IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **MUST** be fixed upstream. Only bugs in any backporting machinery such as the double-check-locking class that is a polyfill for a future JDK `@StableValue` feature may be fixed in this repo. 
+IMPORTANT: Bugs in upstream-derived core logic MUST be fixed upstream. Do not patch `jdk.sandbox.*` sources in this repo unless the user explicitly agrees (for example, to carry a temporary local backport while the upstream fix is in progress).
+
+Only bugs in local, non-upstream code (for example, backporting shims/polyfills or other modules in this repo) should be fixed here using normal TDD.
 
 ### Design Patterns
 - Algebraic Data Types: Sealed interfaces enable exhaustive pattern matching.
@@ -202,35 +206,7 @@ IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **
 
 ## Common Workflows
 
-### API Compatibility Testing
-1. Run the compatibility suite: `mvn exec:java -pl json-compatibility-suite`.
-2. Inspect reports for regressions relative to upstream expectations.
-3. Validate outcomes against the official JSON Test Suite.
-
-## Module Reference
-
-### json-java21
-- Main library delivering the core JSON API.
-- Maven coordinates: `io.github.simbo1905.json:json-java21:0.X.Y`.
-- Requires Java 21 or newer.
-
-### json-compatibility-suite
-- Automatically downloads the JSON Test Suite from GitHub.
-- Surfaces known vulnerabilities (for example, StackOverflowError under deep nesting).
-- Intended for education and testing, not production deployment.
-
-### json-java21-api-tracker
-- Tracks API evolution and compatibility changes.
-- Uses Java 24 preview features (`--enable-preview`).
-- Runner: `io.github.simbo1905.tracker.ApiTrackerRunner` compares the public JSON API (`jdk.sandbox.java.util.json`) with upstream `java.util.json`.
-- Workflow fetches upstream sources, parses both codebases with the Java compiler API, and reports matching/different/missing elements across modifiers, inheritance, methods, fields, and constructors.
-- Continuous integration prints the report daily. It does not fail or open issues on differences; to trigger notifications, either make the runner exit non-zero when `differentApi > 0` or parse the report and call `core.setFailed()` within CI.
-
-### json-java21-jtd (JTD Validator)
-- JSON Type Definition validator implementing RFC 8927 specification.
-- Provides eight mutually-exclusive schema forms for simple, predictable validation.
-- Uses stack-based validation with comprehensive error reporting.
-- Includes full RFC 8927 compliance test suite.
+Prefer linking to `README.md` for stable, user-facing workflows and module descriptions. Keep this file focused on agent execution details.
 
 #### Debugging Exhaustive Property Tests
 

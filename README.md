@@ -20,7 +20,7 @@ We welcome contributions to the JTD Validator incubating within this repo.
 To try the examples from this README, build the project and run the standalone example class:
 
 ```bash
-mvn package
+./mvnw package
 java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
   jdk.sandbox.java.util.json.examples.ReadmeExamples
 ```
@@ -257,10 +257,10 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ```bash
 # Run human-readable report
-mvn exec:java -pl json-compatibility-suite
+./mvnw exec:java -pl json-compatibility-suite
 
 # Run JSON output (dogfoods the API)
-mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
+./mvnw exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ```
 
 
@@ -368,10 +368,10 @@ The validator provides full RFC 8927 compliance with comprehensive test coverage
 
 ```bash
 # Run all JTD compliance tests
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
+./mvnw test -pl json-java21-jtd -Dtest=JtdSpecIT
 
 # Run with detailed logging
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
+./mvnw test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
 Features:
@@ -388,20 +388,61 @@ Features:
 Requires JDK 21 or later. Build with Maven:
 
 ```bash
-mvn clean package
+./mvnw clean package
 ```
 
-See AGENTS.md for detailed guidance including logging configuration. 
+## JsonPath
 
-## Augmented Intelligence (AI) Welcomed
+This repo also includes a JsonPath query engine (module `json-java21-jsonpath`), based on the original Goessner JSONPath article:
+https://goessner.net/articles/JsonPath/
 
-AI as **Augmented Intelligence** is most welcome here. Contributions that enhance *human + agent collaboration* are encouraged. If you want to suggest new agent‑workflows, prompt patterns, or improvements in tooling / validation / introspection, please submit amendments to **AGENTS.md** via standalone PRs. Your ideas make the difference.
+```java
+import jdk.sandbox.java.util.json.*;
+import json.java21.jsonpath.JsonPath;
+import json.java21.jsonpath.JsonPathStreams;
 
-When submitting Issues or PRs, please use a "deep research" tool to sanity check your proposal. Then **before** submission un your submission through a strong model with a prompt such as:
+JsonValue doc = Json.parse("""
+  {"store": {"book": [
+    {"author": "Nora Quill", "title": "Signal Lake", "price": 8.95},
+    {"author": "Jae Moreno", "title": "Copper Atlas", "price": 12.99},
+    {"author": "Marek Ilyin", "title": "Paper Comet", "price": 22.99}
+  ]}}
+  """);
 
-> "Please review the AGENTS.md and README.md along with this draft PR/Issue and check that it does not have any gaps and why it might be insufficient, incomplete, lacking a concrete example, duplicating prior issues or PRs, or not be aligned with the project goals or non‑goals."
+var authors = JsonPath.parse("$.store.book[*].author")
+    .query(doc)
+    .stream()
+    .map(JsonValue::string)
+    .toList();
 
-Please attach the output of that model’s review to your Issue or PR.
+System.out.println("Authors count: " + authors.size());     // prints '3'
+System.out.println("First author: " + authors.getFirst());  // prints 'Nora Quill'
+System.out.println("Last author: " + authors.getLast());    // prints 'Marek Ilyin'
+
+var cheapTitles = JsonPath.parse("$.store.book[?(@.price < 10)].title")
+    .query(doc)
+    .stream()
+    .map(JsonValue::string)
+    .toList();
+
+var priceStats = JsonPath.parse("$.store.book[*].price")
+    .query(doc)
+    .stream()
+    .filter(JsonPathStreams::isNumber)
+    .mapToDouble(JsonPathStreams::asDouble)
+    .summaryStatistics();
+
+System.out.println("Total price: " + priceStats.getSum());
+System.out.println("Min price: " + priceStats.getMin());
+System.out.println("Max price: " + priceStats.getMax());
+System.out.println("Avg price: " + priceStats.getAverage());
+```
+
+See `json-java21-jsonpath/README.md` for JsonPath operators and more examples.
+
+## Contributing
+
+If you use an AI assistant while contributing, ensure it follows the contributor/agent workflow rules in `AGENTS.md`.
 
 ## License
 
