@@ -3,6 +3,8 @@
 ## Purpose & Scope
 - Operational guidance for human and AI agents working in this repository. This revision preserves all existing expectations while improving structure and wording in line with agents.md best practices.
 
+User-facing documentation lives in `README.md`. Keep this file focused on contributor/agent workflow, debugging, and coding standards.
+
 ## Operating Principles
 - Follow the sequence plan → implement → verify; do not pivot without restating the plan.
 - Stop immediately on unexpected failures and ask before changing approach.
@@ -138,14 +140,8 @@ throw new IllegalArgumentException("bad value"); // No specifics
 Use `Json.toDisplayString(value, depth)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
 
 ## JSON Compatibility Suite
-```bash
-# Build and run compatibility report
-mvn clean compile generate-test-resources -pl json-compatibility-suite
-mvn exec:java -pl json-compatibility-suite
 
-# Run JSON output (dogfoods the API)
-mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
-```
+See `README.md` for user-facing commands. When running locally as an agent, use the Maven wrapper described in this file.
 
 ## Architecture Overview
 
@@ -202,35 +198,7 @@ IMPORTANT: Bugs in the main logic this code cannot be fixed in this repo they **
 
 ## Common Workflows
 
-### API Compatibility Testing
-1. Run the compatibility suite: `mvn exec:java -pl json-compatibility-suite`.
-2. Inspect reports for regressions relative to upstream expectations.
-3. Validate outcomes against the official JSON Test Suite.
-
-## Module Reference
-
-### json-java21
-- Main library delivering the core JSON API.
-- Maven coordinates: `io.github.simbo1905.json:json-java21:0.X.Y`.
-- Requires Java 21 or newer.
-
-### json-compatibility-suite
-- Automatically downloads the JSON Test Suite from GitHub.
-- Surfaces known vulnerabilities (for example, StackOverflowError under deep nesting).
-- Intended for education and testing, not production deployment.
-
-### json-java21-api-tracker
-- Tracks API evolution and compatibility changes.
-- Uses Java 24 preview features (`--enable-preview`).
-- Runner: `io.github.simbo1905.tracker.ApiTrackerRunner` compares the public JSON API (`jdk.sandbox.java.util.json`) with upstream `java.util.json`.
-- Workflow fetches upstream sources, parses both codebases with the Java compiler API, and reports matching/different/missing elements across modifiers, inheritance, methods, fields, and constructors.
-- Continuous integration prints the report daily. It does not fail or open issues on differences; to trigger notifications, either make the runner exit non-zero when `differentApi > 0` or parse the report and call `core.setFailed()` within CI.
-
-### json-java21-jtd (JTD Validator)
-- JSON Type Definition validator implementing RFC 8927 specification.
-- Provides eight mutually-exclusive schema forms for simple, predictable validation.
-- Uses stack-based validation with comprehensive error reporting.
-- Includes full RFC 8927 compliance test suite.
+Prefer linking to `README.md` for stable, user-facing workflows and module descriptions. Keep this file focused on agent execution details.
 
 #### Debugging Exhaustive Property Tests
 

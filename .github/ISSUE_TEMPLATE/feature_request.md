@@ -9,7 +9,9 @@ assignees: ''
 
 (Optional) When submitting a feature request, please consider using an AI assistant to validate your implementation approach. Then **before** submission, run your feature description through a strong model with a prompt such as:
 
-> "Please review the AGENTS.md and README.md along with this feature request and check that it: aligns with project goals, doesn't duplicate existing functionality, includes concrete use cases, and suggests a reasonable implementation approach."
+> "Please review README.md along with this feature request and check that it: aligns with project goals, doesn't duplicate existing functionality, includes concrete use cases, and suggests a reasonable implementation approach."
+
+If you used an AI assistant while preparing this request, ensure it followed the contributor/agent workflow rules in `AGENTS.md`.
 
 (Optional) Please then attach both the prompt and the model's review to the bottom of this template under "Augmented Intelligence Review".
 
