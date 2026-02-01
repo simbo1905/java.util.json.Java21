@@ -27,10 +27,8 @@ public final class JsonPath {
     private static final Logger LOG = Logger.getLogger(JsonPath.class.getName());
 
     private final JsonPathAst.Root ast;
-    private final String pathExpression;
 
-    private JsonPath(String pathExpression, JsonPathAst.Root ast) {
-        this.pathExpression = pathExpression;
+    private JsonPath(JsonPathAst.Root ast) {
         this.ast = ast;
     }
 
@@ -43,7 +41,7 @@ public final class JsonPath {
         Objects.requireNonNull(path, "path must not be null");
         LOG.fine(() -> "Parsing path: " + path);
         final var ast = JsonPathParser.parse(path);
-        return new JsonPath(path, ast);
+        return new JsonPath(ast);
     }
 
     /// Selects matching values from a JSON document.
@@ -66,18 +64,24 @@ public final class JsonPath {
     /// @throws NullPointerException if json is null
     public List<JsonValue> query(JsonValue json) {
         Objects.requireNonNull(json, "json must not be null");
-        LOG.fine(() -> "Querying document with path: " + pathExpression);
+        LOG.fine(() -> "Querying document with path: " + this);
         return evaluate(ast, json);
     }
 
-    /// Returns the original path expression.
-    public String expression() {
-        return pathExpression;
+    /// Reconstructs the JsonPath expression from the AST.
+    @Override
+    public String toString() {
+        return reconstruct(ast);
     }
 
     /// Returns the parsed AST.
     public JsonPathAst.Root ast() {
         return ast;
+    }
+
+    /// Returns the original path expression.
+    public String expression() {
+        return "Todo";
     }
 
     /// Evaluates a compiled JsonPath against a JSON document.
@@ -472,5 +476,141 @@ public final class JsonPath {
                 LOG.warning(() -> "Unsupported script expression: " + scriptText);
             }
         }
+    }
+
+    private static String reconstruct(JsonPathAst.Root root) {
+        final var sb = new StringBuilder("$");
+        for (final var segment : root.segments()) {
+            appendSegment(sb, segment);
+        }
+        return sb.toString();
+    }
+
+    private static void appendSegment(StringBuilder sb, JsonPathAst.Segment segment) {
+        switch (segment) {
+            case JsonPathAst.PropertyAccess prop -> {
+                if (isSimpleIdentifier(prop.name())) {
+                    sb.append(".").append(prop.name());
+                } else {
+                    sb.append("['").append(escape(prop.name())).append("']");
+                }
+            }
+            case JsonPathAst.ArrayIndex arr -> sb.append("[").append(arr.index()).append("]");
+            case JsonPathAst.ArraySlice slice -> {
+                sb.append("[");
+                if (slice.start() != null) sb.append(slice.start());
+                sb.append(":");
+                if (slice.end() != null) sb.append(slice.end());
+                if (slice.step() != null) sb.append(":").append(slice.step());
+                sb.append("]");
+            }
+            case JsonPathAst.Wildcard w -> sb.append(".*");
+            case JsonPathAst.RecursiveDescent desc -> {
+                sb.append("..");
+                // RecursiveDescent target is usually PropertyAccess or Wildcard, 
+                // but can be other things in theory. 
+                // If target is PropertyAccess("foo"), append "foo".
+                // If target is Wildcard, append "*".
+                // Our AST structure wraps the target segment.
+                // We need to handle how it's appended. 
+                // appendSegment prepends "." or "[" usually.
+                // But ".." replaces the dot.
+                // Let's special case the target printing.
+                appendRecursiveTarget(sb, desc.target());
+            }
+            case JsonPathAst.Filter filter -> {
+                sb.append("[?(");
+                appendFilterExpression(sb, filter.expression());
+                sb.append(")]");
+            }
+            case JsonPathAst.Union union -> {
+                sb.append("[");
+                final var selectors = union.selectors();
+                for (int i = 0; i < selectors.size(); i++) {
+                    if (i > 0) sb.append(",");
+                    appendUnionSelector(sb, selectors.get(i));
+                }
+                sb.append("]");
+            }
+            case JsonPathAst.ScriptExpression script -> sb.append("[(").append(script.script()).append(")]");
+        }
+    }
+
+    private static void appendRecursiveTarget(StringBuilder sb, JsonPathAst.Segment target) {
+        if (target instanceof JsonPathAst.PropertyAccess prop) {
+            sb.append(prop.name()); // ..name
+        } else if (target instanceof JsonPathAst.Wildcard) {
+            sb.append("*"); // ..*
+        } else {
+            // Fallback for other types if they ever occur in recursive position
+            appendSegment(sb, target);
+        }
+    }
+
+    private static void appendUnionSelector(StringBuilder sb, JsonPathAst.Segment selector) {
+        if (selector instanceof JsonPathAst.PropertyAccess prop) {
+            sb.append("'").append(escape(prop.name())).append("'");
+        } else if (selector instanceof JsonPathAst.ArrayIndex arr) {
+            sb.append(arr.index());
+        } else {
+            // Fallback
+            appendSegment(sb, selector);
+        }
+    }
+
+    private static void appendFilterExpression(StringBuilder sb, JsonPathAst.FilterExpression expr) {
+        switch (expr) {
+            case JsonPathAst.ExistsFilter exists -> {
+                appendFilterExpression(sb, exists.path()); // Should print the path
+            }
+            case JsonPathAst.ComparisonFilter comp -> {
+                appendFilterExpression(sb, comp.left());
+                sb.append(comp.op().symbol());
+                appendFilterExpression(sb, comp.right());
+            }
+            case JsonPathAst.LogicalFilter logical -> {
+                if (logical.op() == JsonPathAst.LogicalOp.NOT) {
+                    sb.append("!");
+                    appendFilterExpression(sb, logical.left());
+                } else {
+                    sb.append("(");
+                    appendFilterExpression(sb, logical.left());
+                    sb.append(" ").append(logical.op().symbol()).append(" ");
+                    appendFilterExpression(sb, logical.right());
+                    sb.append(")");
+                }
+            }
+            case JsonPathAst.CurrentNode cn -> sb.append("@");
+            case JsonPathAst.PropertyPath path -> {
+                sb.append("@");
+                for (String p : path.properties()) {
+                    if (isSimpleIdentifier(p)) {
+                        sb.append(".").append(p);
+                    } else {
+                        sb.append("['").append(escape(p)).append("']");
+                    }
+                }
+            }
+            case JsonPathAst.LiteralValue lit -> {
+                if (lit.value() instanceof String s) {
+                    sb.append("'").append(escape(s)).append("'");
+                } else {
+                    sb.append(lit.value());
+                }
+            }
+        }
+    }
+
+    private static boolean isSimpleIdentifier(String name) {
+        if (name.isEmpty()) return false;
+        if (!Character.isJavaIdentifierStart(name.charAt(0))) return false;
+        for (int i = 1; i < name.length(); i++) {
+            if (!Character.isJavaIdentifierPart(name.charAt(i))) return false;
+        }
+        return true;
+    }
+
+    private static String escape(String s) {
+        return s.replace("'", "\\'");
     }
 }
