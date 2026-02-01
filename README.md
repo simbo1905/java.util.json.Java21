@@ -399,16 +399,46 @@ https://goessner.net/articles/JsonPath/
 ```java
 import jdk.sandbox.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
+import json.java21.jsonpath.JsonPathStreams;
 
 JsonValue doc = Json.parse("""
-  {"store": {"book": [{"author": "A"}, {"author": "B"}]}}
+  {"store": {"book": [
+    {"author": "Nora Quill", "title": "Signal Lake", "price": 8.95},
+    {"author": "Jae Moreno", "title": "Copper Atlas", "price": 12.99},
+    {"author": "Marek Ilyin", "title": "Paper Comet", "price": 22.99}
+  ]}}
   """);
 
-JsonPath path = JsonPath.parse("$.store.book[*].author");
-var authors = path.query(doc);
+var authors = JsonPath.parse("$.store.book[*].author")
+    .query(doc)
+    .stream()
+    .map(JsonValue::string)
+    .toList();
+
+System.out.println("Authors count: " + authors.size());     // prints '3'
+System.out.println("First author: " + authors.getFirst());  // prints 'Nora Quill'
+System.out.println("Last author: " + authors.getLast());    // prints 'Marek Ilyin'
+
+var cheapTitles = JsonPath.parse("$.store.book[?(@.price < 10)].title")
+    .query(doc)
+    .stream()
+    .map(JsonValue::string)
+    .toList();
+
+var priceStats = JsonPath.parse("$.store.book[*].price")
+    .query(doc)
+    .stream()
+    .filter(JsonPathStreams::isNumber)
+    .mapToDouble(JsonPathStreams::asDouble)
+    .summaryStatistics();
+
+System.out.println("Total price: " + priceStats.getSum());
+System.out.println("Min price: " + priceStats.getMin());
+System.out.println("Max price: " + priceStats.getMax());
+System.out.println("Avg price: " + priceStats.getAverage());
 ```
 
-See AGENTS.md for detailed guidance including logging configuration. 
+See `json-java21-jsonpath/README.md` for JsonPath operators and more examples.
 
 ## Augmented Intelligence (AI) Welcomed
 
