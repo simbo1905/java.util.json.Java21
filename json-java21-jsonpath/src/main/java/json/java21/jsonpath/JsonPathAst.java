@@ -4,18 +4,18 @@ import java.util.List;
 import java.util.Objects;
 
 /// AST representation for JsonPath expressions.
-/// Based on the JSONPath specification from https://goessner.net/articles/JsonPath/
+/// Based on the JSONPath specification from [...](https://goessner.net/articles/JsonPath/)
 ///
 /// A JsonPath expression is a sequence of path segments starting from root ($).
 /// Each segment can be:
-/// - PropertyAccess: access a named property (e.g., .store or ['store'])
-/// - ArrayIndex: access array element by index (e.g., [0] or [-1])
-/// - ArraySlice: slice array with start:end:step (e.g., [0:2] or [::2])
-/// - Wildcard: match all children (e.g., .* or [*])
+/// - PropertyAccess: access a named property (e.g., .store or \['store'\])
+/// - ArrayIndex: access array element by index (e.g., \[0\] or \[-1\])
+/// - ArraySlice: slice array with start:end:step (e.g., \[0:2\] or \[::2\])
+/// - Wildcard: match all children (e.g., .* or \[*\])
 /// - RecursiveDescent: search all descendants (e.g., ..author)
-/// - Filter: filter by predicate (e.g., [?(@.isbn)] or [?(@.price<10)])
-/// - Union: multiple indices or names (e.g., [0,1] or ['a','b'])
-/// - ScriptExpression: computed index (e.g., [(@.length-1)])
+/// - Filter: filter by predicate (e.g., \[?(@.isbn)\] or \[?(@.price<10)\])
+/// - Union: multiple indices or names (e.g., \[0,1\] or \['a','b'\])
+/// - ScriptExpression: computed index (e.g., \[(@.length-1)\])
 sealed interface JsonPathAst {
 
     /// Root element ($) - the starting point of all JsonPath expressions
@@ -80,7 +80,7 @@ sealed interface JsonPathAst {
         }
     }
 
-    /// Script expression for computed index: [(@.length-1)]
+    /// Script expression for computed index: \[(@.length-1)\]
     record ScriptExpression(String script) implements Segment {
         public ScriptExpression {
             Objects.requireNonNull(script, "script must not be null");
@@ -116,7 +116,7 @@ sealed interface JsonPathAst {
         }
     }
 
-    /// Logical combination of filters: &&, ||, !
+    /// Logical combination of filters: "&&", "||", "!"
     record LogicalFilter(
             FilterExpression left,
             LogicalOp op,

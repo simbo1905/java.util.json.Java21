@@ -95,7 +95,7 @@ class JsonPathAstTest extends JsonPathLoggingConfig {
         LOG.info(() -> "TEST: testFilter");
         final var filter = new JsonPathAst.Filter(
             new JsonPathAst.ExistsFilter(
-                new JsonPathAst.PropertyPath(List.of("isbn"))
+                new JsonPathAst.PropertyPath(List.of("ISBN"))
             )
         );
         assertThat(filter.expression()).isInstanceOf(JsonPathAst.ExistsFilter.class);
