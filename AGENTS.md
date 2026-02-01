@@ -9,7 +9,7 @@ User-facing documentation lives in `README.md`. Keep this file focused on contri
 - Follow the sequence plan → implement → verify; do not pivot without restating the plan.
 - Stop immediately on unexpected failures and ask before changing approach.
 - Keep edits atomic and avoid leaving mixed partial states.
-- Propose jsonSchemaOptions with trade-offs before invasive changes.
+- You SHOULD discuss trade-offs before making invasive changes to existing code.
 - Prefer mechanical, reversible transforms (especially when syncing upstream sources).
 - Validate that outputs are non-empty before overwriting files.
 - Minimal shims are acceptable only when needed to keep backports compiling.
