@@ -6,14 +6,13 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
-import java.util.List;
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /// Unit tests for JsonPathParser - tests parsing of JsonPath strings to AST
-/// Based on examples from https://goessner.net/articles/JsonPath/
+/// Based on examples from [...](https://goessner.net/articles/JsonPath/)
 class JsonPathParserTest extends JsonPathLoggingConfig {
 
     private static final Logger LOG = Logger.getLogger(JsonPathParserTest.class.getName());
@@ -228,7 +227,7 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
 
     @Test
     void testParseFilterExists() {
-        LOG.info(() -> "TEST: testParseFilterExists - parse $..book[?(@.isbn)] (books with isbn)");
+        LOG.info(() -> "TEST: testParseFilterExists - parse $..book[?(@.isbn)] (books with ISBN)");
         final var ast = JsonPathParser.parse("$..book[?(@.isbn)]");
         assertThat(ast.segments()).hasSize(2);
         assertThat(ast.segments().get(1)).isInstanceOf(JsonPathAst.Filter.class);
@@ -335,13 +334,13 @@ class JsonPathParserTest extends JsonPathLoggingConfig {
               { "category": "fiction",
                 "author": "Herman Melville",
                 "title": "Moby Dick",
-                "isbn": "0-553-21311-3",
+                "ISBN": "0-553-21311-3",
                 "price": 8.99
               },
               { "category": "fiction",
                 "author": "J. R. R. Tolkien",
                 "title": "The Lord of the Rings",
-                "isbn": "0-395-19395-8",
+                "ISBN": "0-395-19395-8",
                 "price": 22.99
               }
             ],

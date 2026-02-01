@@ -4,12 +4,11 @@ import jdk.sandbox.java.util.json.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/// Tests for JsonPath based on examples from https://goessner.net/articles/JsonPath/
+/// Tests for JsonPath based on examples from [...](https://goessner.net/articles/JsonPath/)
 /// This test class uses the sample JSON document from the article.
 class JsonPathGoessnerTest extends JsonPathLoggingConfig {
 
@@ -36,14 +35,14 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
                 "category": "fiction",
                 "author": "Herman Melville",
                 "title": "Moby Dick",
-                "isbn": "0-553-21311-3",
+                "ISBN": "0-553-21311-3",
                 "price": 8.99
               },
               {
                 "category": "fiction",
                 "author": "J. R. R. Tolkien",
                 "title": "The Lord of the Rings",
-                "isbn": "0-395-19395-8",
+                "ISBN": "0-395-19395-8",
                 "price": 22.99
               }
             ],
@@ -89,7 +88,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         assertThat(results.getFirst()).isInstanceOf(JsonObject.class);
         final var bicycle = (JsonObject) results.getFirst();
         assertThat(bicycle.members().get("color")).isInstanceOf(JsonString.class);
-        assertThat(((JsonString) bicycle.members().get("color")).string()).isEqualTo("red");
+        assertThat(bicycle.members().get("color").string()).isEqualTo("red");
     }
 
     // ========== Goessner Article Examples ==========
@@ -100,7 +99,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$.store.book[*].author", storeJson);
         assertThat(results).hasSize(4);
         final var authors = results.stream()
-            .map(v -> ((JsonString) v).string())
+            .map(JsonValue::string)
             .toList();
         assertThat(authors).containsExactly(
             "Nigel Rees",
@@ -116,7 +115,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..author", storeJson);
         assertThat(results).hasSize(4);
         final var authors = results.stream()
-            .map(v -> ((JsonString) v).string())
+            .map(JsonValue::string)
             .toList();
         assertThat(authors).containsExactlyInAnyOrder(
             "Nigel Rees",
@@ -139,7 +138,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$.store..price", storeJson);
         assertThat(results).hasSize(5); // 4 book prices + 1 bicycle price
         final var prices = results.stream()
-            .map(v -> ((JsonNumber) v).toDouble())
+            .map(JsonValue::toDouble)
             .toList();
         assertThat(prices).containsExactlyInAnyOrder(8.95, 12.99, 8.99, 22.99, 19.95);
     }
@@ -150,7 +149,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[2]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("title")).string()).isEqualTo("Moby Dick");
+        assertThat(book.members().get("title").string()).isEqualTo("Moby Dick");
     }
 
     @Test
@@ -159,7 +158,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[(@.length-1)]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("title")).string()).isEqualTo("The Lord of the Rings");
+        assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
     }
 
     @Test
@@ -168,7 +167,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[-1:]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("title")).string()).isEqualTo("The Lord of the Rings");
+        assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
     }
 
     @Test
@@ -177,7 +176,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[0,1]", storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
-            .map(v -> ((JsonString) ((JsonObject) v).members().get("title")).string())
+            .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactly("Sayings of the Century", "Sword of Honour");
     }
@@ -188,7 +187,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[:2]", storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
-            .map(v -> ((JsonString) ((JsonObject) v).members().get("title")).string())
+            .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactly("Sayings of the Century", "Sword of Honour");
     }
@@ -199,7 +198,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[?(@.isbn)]", storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
-            .map(v -> ((JsonString) ((JsonObject) v).members().get("title")).string())
+            .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactlyInAnyOrder("Moby Dick", "The Lord of the Rings");
     }
@@ -210,7 +209,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[?(@.price<10)]", storeJson);
         assertThat(results).hasSize(2);
         final var titles = results.stream()
-            .map(v -> ((JsonString) ((JsonObject) v).members().get("title")).string())
+            .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactlyInAnyOrder("Sayings of the Century", "Moby Dick");
     }
@@ -232,7 +231,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$.store.book[0]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("author")).string()).isEqualTo("Nigel Rees");
+        assertThat(book.members().get("author").string()).isEqualTo("Nigel Rees");
     }
 
     @Test
@@ -241,7 +240,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$.store.book[-1]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("author")).string()).isEqualTo("J. R. R. Tolkien");
+        assertThat(book.members().get("author").string()).isEqualTo("J. R. R. Tolkien");
     }
 
     @Test
@@ -250,7 +249,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$['store']['book'][0]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("author")).string()).isEqualTo("Nigel Rees");
+        assertThat(book.members().get("author").string()).isEqualTo("Nigel Rees");
     }
 
     @Test
@@ -280,7 +279,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$.store.book[0:4:2]", storeJson);
         assertThat(results).hasSize(2); // books at index 0 and 2
         final var titles = results.stream()
-            .map(v -> ((JsonString) ((JsonObject) v).members().get("title")).string())
+            .map(v -> v.members().get("title").string())
             .toList();
         assertThat(titles).containsExactly("Sayings of the Century", "Moby Dick");
     }
@@ -290,7 +289,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         LOG.info(() -> "TEST: testDeepNestedAccess - $.store.book[0].title");
         final var results = JsonPath.query("$.store.book[0].title", storeJson);
         assertThat(results).hasSize(1);
-        assertThat(((JsonString) results.getFirst()).string()).isEqualTo("Sayings of the Century");
+        assertThat(results.getFirst().string()).isEqualTo("Sayings of the Century");
     }
 
     @Test
@@ -314,7 +313,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[?(@.price>20)]", storeJson);
         assertThat(results).hasSize(1);
         final var book = (JsonObject) results.getFirst();
-        assertThat(((JsonString) book.members().get("title")).string()).isEqualTo("The Lord of the Rings");
+        assertThat(book.members().get("title").string()).isEqualTo("The Lord of the Rings");
     }
 
     @Test
@@ -351,7 +350,7 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
             """);
         final var simpleResults = compiledPath.select(simpleDoc);
         assertThat(simpleResults).hasSize(1);
-        assertThat(((JsonNumber) simpleResults.getFirst()).toDouble()).isEqualTo(99.99);
+        assertThat(simpleResults.getFirst().toDouble()).isEqualTo(99.99);
     }
 
     @Test

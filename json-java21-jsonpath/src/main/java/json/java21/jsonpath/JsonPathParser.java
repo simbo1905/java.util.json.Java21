@@ -8,19 +8,19 @@ import java.util.logging.Logger;
 /// Parser for JsonPath expressions into AST.
 /// Implements a recursive descent parser for JsonPath syntax.
 ///
-/// Supported syntax based on https://goessner.net/articles/JsonPath/:
+/// Supported syntax based on [...](https://goessner.net/articles/JsonPath/):
 /// - $ : root element
 /// - .name : child property access
-/// - ['name'] or ["name"] : bracket notation property access
-/// - [n] : array index (supports negative indices)
-/// - [start:end:step] : array slice
-/// - [*] or .* : wildcard
+/// - \['name'\] or \["name"\] : bracket notation property access
+/// - \[n\] : array index (supports negative indices)
+/// - \[start:end:step\] : array slice
+/// - \[*\] or .* : wildcard
 /// - .. : recursive descent
-/// - [n,m] : union of indices
-/// - ['a','b'] : union of properties
-/// - [?(@.prop)] : filter expression for existence
-/// - [?(@.prop op value)] : filter expression with comparison
-/// - [(@.length-1)] : script expression
+/// - \[n,m\] : union of indices
+/// - \['a','b'\] : union of properties
+/// - \[?(@.prop)\] : filter expression for existence
+/// - \[?(@.prop op value)\] : filter expression with comparison
+/// - \[(@.length-1)\] : script expression
 public final class JsonPathParser {
 
     private static final Logger LOG = Logger.getLogger(JsonPathParser.class.getName());
@@ -335,10 +335,9 @@ public final class JsonPathParser {
 
         // Check for decimal point
         if (pos < path.length() && path.charAt(pos) == '.') {
-            pos++;
-            while (pos < path.length() && Character.isDigit(path.charAt(pos))) {
+            do {
                 pos++;
-            }
+            } while (pos < path.length() && Character.isDigit(path.charAt(pos)));
         }
 
         final var numStr = path.substring(start, pos);
@@ -464,7 +463,7 @@ public final class JsonPathParser {
         boolean hasColon = false;
         boolean hasComma = false;
 
-        // Parse first element (may be empty for [:end])
+        // Parse first element (maybe empty for [:end])
         if (path.charAt(pos) == ':') {
             elements.add(null); // empty start
             hasColon = true;
@@ -511,7 +510,7 @@ public final class JsonPathParser {
         // Determine what we parsed
         if (hasColon) {
             // It's a slice [start:end:step]
-            final Integer start = elements.size() > 0 ? elements.get(0) : null;
+            final Integer start = !elements.isEmpty() ? elements.get(0) : null;
             final Integer end = elements.size() > 1 ? elements.get(1) : null;
             final Integer step = elements.size() > 2 ? elements.get(2) : null;
             return new JsonPathAst.ArraySlice(start, end, step);

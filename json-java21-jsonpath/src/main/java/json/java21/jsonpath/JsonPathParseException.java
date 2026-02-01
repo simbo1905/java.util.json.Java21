@@ -2,8 +2,9 @@ package json.java21.jsonpath;
 
 /// Exception thrown when a JsonPath expression cannot be parsed.
 /// This is a runtime exception as JsonPath parsing failures are typically programming errors.
-@SuppressWarnings("serial")
 public class JsonPathParseException extends RuntimeException {
+
+    private static final long serialVersionUID = 1L;
 
     private final int position;
     private final String path;
