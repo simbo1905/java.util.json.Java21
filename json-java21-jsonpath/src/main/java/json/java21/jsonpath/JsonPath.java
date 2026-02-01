@@ -44,24 +44,14 @@ public final class JsonPath {
         return new JsonPath(ast);
     }
 
-    /// Selects matching values from a JSON document.
-    /// @param json the JSON document to query
-    /// @return a list of matching JsonValue instances (may be empty)
-    /// @throws NullPointerException if json is null
-    /// @deprecated Use `query(JsonValue)` (aligns with Goessner JSONPath terminology).
-    @Deprecated(forRemoval = false)
-    public List<JsonValue> select(JsonValue json) {
-        return query(json);
-    }
-
     /// Queries matching values from a JSON document.
     ///
     /// This is the preferred instance API: compile once via `parse(String)`, then call `query(JsonValue)`
     /// for each already-parsed JSON document.
     ///
     /// @param json the JSON document to query
-    /// @return a list of matching JsonValue instances (may be empty)
-    /// @throws NullPointerException if json is null
+    /// @return a list of matching JsonValue instances (maybe empty)
+    /// @throws NullPointerException if JSON is null
     public List<JsonValue> query(JsonValue json) {
         Objects.requireNonNull(json, "json must not be null");
         LOG.fine(() -> "Querying document with path: " + this);
@@ -74,21 +64,11 @@ public final class JsonPath {
         return reconstruct(ast);
     }
 
-    /// Returns the parsed AST.
-    public JsonPathAst.Root ast() {
-        return ast;
-    }
-
-    /// Returns the original path expression.
-    public String expression() {
-        return "Todo";
-    }
-
     /// Evaluates a compiled JsonPath against a JSON document.
     /// @param path a compiled JsonPath (typically cached)
     /// @param json the JSON document to query
-    /// @return a list of matching JsonValue instances (may be empty)
-    /// @throws NullPointerException if path or json is null
+    /// @return a list of matching JsonValue instances (maybe empty)
+    /// @throws NullPointerException if path or JSON is null
     public static List<JsonValue> query(JsonPath path, JsonValue json) {
         Objects.requireNonNull(path, "path must not be null");
         return path.query(json);
@@ -97,7 +77,7 @@ public final class JsonPath {
     /// Evaluates a pre-parsed JsonPath AST against a JSON document.
     /// @param ast the parsed JsonPath AST
     /// @param json the JSON document to query
-    /// @return a list of matching JsonValue instances (may be empty)
+    /// @return a list of matching JsonValue instances (maybe empty)
     static List<JsonValue> evaluate(JsonPathAst.Root ast, JsonValue json) {
         Objects.requireNonNull(ast, "ast must not be null");
         Objects.requireNonNull(json, "json must not be null");
@@ -127,7 +107,7 @@ public final class JsonPath {
             case JsonPathAst.PropertyAccess prop -> evaluatePropertyAccess(prop, segments, index, current, root, results);
             case JsonPathAst.ArrayIndex arr -> evaluateArrayIndex(arr, segments, index, current, root, results);
             case JsonPathAst.ArraySlice slice -> evaluateArraySlice(slice, segments, index, current, root, results);
-            case JsonPathAst.Wildcard wildcard -> evaluateWildcard(segments, index, current, root, results);
+            case JsonPathAst.Wildcard ignored -> evaluateWildcard(segments, index, current, root, results);
             case JsonPathAst.RecursiveDescent desc -> evaluateRecursiveDescent(desc, segments, index, current, root, results);
             case JsonPathAst.Filter filter -> evaluateFilter(filter, segments, index, current, root, results);
             case JsonPathAst.Union union -> evaluateUnion(union, segments, index, current, root, results);
@@ -276,7 +256,7 @@ public final class JsonPath {
                     }
                 }
             }
-            case JsonPathAst.Wildcard w -> {
+            case JsonPathAst.Wildcard ignored -> {
                 if (current instanceof JsonObject obj) {
                     for (final var value : obj.members().values()) {
                         evaluateSegments(segments, index + 1, value, root, results);
@@ -297,10 +277,8 @@ public final class JsonPath {
                     }
                 }
             }
-            default -> {
-                // Other segment types in recursive descent context
-                LOG.finer(() -> "Unsupported target in recursive descent: " + target);
-            }
+            default -> // Other segment types in recursive descent context
+                    LOG.finer(() -> "Unsupported target in recursive descent: " + target);
         }
     }
 
@@ -340,9 +318,9 @@ public final class JsonPath {
                     case NOT -> !leftMatch;
                 };
             }
-            case JsonPathAst.CurrentNode cn -> true;
+            case JsonPathAst.CurrentNode ignored1 -> true;
             case JsonPathAst.PropertyPath path -> resolvePropertyPath(path, current) != null;
-            case JsonPathAst.LiteralValue lv -> true;
+            case JsonPathAst.LiteralValue ignored -> true;
         };
     }
 
@@ -353,7 +331,7 @@ public final class JsonPath {
                 yield jsonValueToComparable(value);
             }
             case JsonPathAst.LiteralValue lit -> lit.value();
-            case JsonPathAst.CurrentNode cn2 -> jsonValueToComparable(current);
+            case JsonPathAst.CurrentNode ignored -> jsonValueToComparable(current);
             default -> null;
         };
     }
@@ -379,7 +357,7 @@ public final class JsonPath {
             case JsonString s -> s.string();
             case JsonNumber n -> n.toDouble();
             case JsonBoolean b -> b.bool();
-            case JsonNull jn -> null;
+            case JsonNull ignored -> null;
             default -> value;
         };
     }
@@ -395,40 +373,45 @@ public final class JsonPath {
         }
 
         // Try numeric comparison
-        if (left instanceof Number leftNum && right instanceof Number rightNum) {
-            final double l = leftNum.doubleValue();
-            final double r = rightNum.doubleValue();
-            return switch (op) {
-                case EQ -> l == r;
-                case NE -> l != r;
-                case LT -> l < r;
-                case LE -> l <= r;
-                case GT -> l > r;
-                case GE -> l >= r;
-            };
-        }
+        switch (left) {
+            case Number leftNum when right instanceof Number rightNum -> {
+                final double l = leftNum.doubleValue();
+                final double r = rightNum.doubleValue();
+                return switch (op) {
+                    case EQ -> l == r;
+                    case NE -> l != r;
+                    case LT -> l < r;
+                    case LE -> l <= r;
+                    case GT -> l > r;
+                    case GE -> l >= r;
+                };
+            }
 
-        // String comparison
-        if (left instanceof String && right instanceof String) {
-            @SuppressWarnings("rawtypes")
-            final int cmp = ((Comparable) left).compareTo(right);
-            return switch (op) {
-                case EQ -> cmp == 0;
-                case NE -> cmp != 0;
-                case LT -> cmp < 0;
-                case LE -> cmp <= 0;
-                case GT -> cmp > 0;
-                case GE -> cmp >= 0;
-            };
-        }
 
-        // Boolean comparison
-        if (left instanceof Boolean && right instanceof Boolean) {
-            return switch (op) {
-                case EQ -> left.equals(right);
-                case NE -> !left.equals(right);
-                default -> false;
-            };
+            // String comparison
+            case String ignored when right instanceof String -> {
+                @SuppressWarnings("rawtypes") final int cmp = ((Comparable) left).compareTo(right);
+                return switch (op) {
+                    case EQ -> cmp == 0;
+                    case NE -> cmp != 0;
+                    case LT -> cmp < 0;
+                    case LE -> cmp <= 0;
+                    case GT -> cmp > 0;
+                    case GE -> cmp >= 0;
+                };
+            }
+
+
+            // Boolean comparison
+            case Boolean ignored when right instanceof Boolean -> {
+                return switch (op) {
+                    case EQ -> left.equals(right);
+                    case NE -> !left.equals(right);
+                    default -> false;
+                };
+            }
+            default -> {
+            }
         }
 
         // Fallback equality
@@ -504,7 +487,7 @@ public final class JsonPath {
                 if (slice.step() != null) sb.append(":").append(slice.step());
                 sb.append("]");
             }
-            case JsonPathAst.Wildcard w -> sb.append(".*");
+            case JsonPathAst.Wildcard ignored -> sb.append(".*");
             case JsonPathAst.RecursiveDescent desc -> {
                 sb.append("..");
                 // RecursiveDescent target is usually PropertyAccess or Wildcard, 
@@ -515,7 +498,7 @@ public final class JsonPath {
                 // We need to handle how it's appended. 
                 // appendSegment prepends "." or "[" usually.
                 // But ".." replaces the dot.
-                // Let's special case the target printing.
+                // Let special case the target printing.
                 appendRecursiveTarget(sb, desc.target());
             }
             case JsonPathAst.Filter filter -> {
@@ -537,8 +520,8 @@ public final class JsonPath {
     }
 
     private static void appendRecursiveTarget(StringBuilder sb, JsonPathAst.Segment target) {
-        if (target instanceof JsonPathAst.PropertyAccess prop) {
-            sb.append(prop.name()); // ..name
+        if (target instanceof JsonPathAst.PropertyAccess(String name)) {
+            sb.append(name); // ..name
         } else if (target instanceof JsonPathAst.Wildcard) {
             sb.append("*"); // ..*
         } else {
@@ -548,10 +531,10 @@ public final class JsonPath {
     }
 
     private static void appendUnionSelector(StringBuilder sb, JsonPathAst.Segment selector) {
-        if (selector instanceof JsonPathAst.PropertyAccess prop) {
-            sb.append("'").append(escape(prop.name())).append("'");
-        } else if (selector instanceof JsonPathAst.ArrayIndex arr) {
-            sb.append(arr.index());
+        if (selector instanceof JsonPathAst.PropertyAccess(String name)) {
+            sb.append("'").append(escape(name)).append("'");
+        } else if (selector instanceof JsonPathAst.ArrayIndex(int index)) {
+            sb.append(index);
         } else {
             // Fallback
             appendSegment(sb, selector);
@@ -560,9 +543,7 @@ public final class JsonPath {
 
     private static void appendFilterExpression(StringBuilder sb, JsonPathAst.FilterExpression expr) {
         switch (expr) {
-            case JsonPathAst.ExistsFilter exists -> {
-                appendFilterExpression(sb, exists.path()); // Should print the path
-            }
+            case JsonPathAst.ExistsFilter exists -> appendFilterExpression(sb, exists.path()); // Should print the path
             case JsonPathAst.ComparisonFilter comp -> {
                 appendFilterExpression(sb, comp.left());
                 sb.append(comp.op().symbol());
@@ -580,7 +561,7 @@ public final class JsonPath {
                     sb.append(")");
                 }
             }
-            case JsonPathAst.CurrentNode cn -> sb.append("@");
+            case JsonPathAst.CurrentNode ignored -> sb.append("@");
             case JsonPathAst.PropertyPath path -> {
                 sb.append("@");
                 for (String p : path.properties()) {
