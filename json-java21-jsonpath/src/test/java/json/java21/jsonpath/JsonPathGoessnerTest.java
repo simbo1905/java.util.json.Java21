@@ -323,4 +323,41 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
         final var results = JsonPath.query("$..book[?(@.price<=8.99)]", storeJson);
         assertThat(results).hasSize(2);
     }
+
+    // ========== Fluent API tests ==========
+
+    @Test
+    void testFluentApiParseAndSelect() {
+        LOG.info(() -> "TEST: testFluentApiParseAndSelect - JsonPath.parse(...).select(...)");
+        final var matches = JsonPath.parse("$.store.book").select(storeJson);
+        assertThat(matches).hasSize(1);
+        assertThat(matches.getFirst()).isInstanceOf(JsonArray.class);
+        final var bookArray = (JsonArray) matches.getFirst();
+        assertThat(bookArray.elements()).hasSize(4); // 4 books in the array
+    }
+
+    @Test
+    void testFluentApiReusable() {
+        LOG.info(() -> "TEST: testFluentApiReusable - compiled path can be reused");
+        final var compiledPath = JsonPath.parse("$..price");
+        
+        // Use on store doc
+        final var storeResults = compiledPath.select(storeJson);
+        assertThat(storeResults).hasSize(5); // 4 book prices + 1 bicycle price
+        
+        // Use on a different doc
+        final var simpleDoc = Json.parse("""
+            {"item": {"price": 99.99}}
+            """);
+        final var simpleResults = compiledPath.select(simpleDoc);
+        assertThat(simpleResults).hasSize(1);
+        assertThat(((JsonNumber) simpleResults.getFirst()).toDouble()).isEqualTo(99.99);
+    }
+
+    @Test
+    void testFluentApiExpressionAccessor() {
+        LOG.info(() -> "TEST: testFluentApiExpressionAccessor - expression() returns original path");
+        final var path = JsonPath.parse("$.store.book[*].author");
+        assertThat(path.expression()).isEqualTo("$.store.book[*].author");
+    }
 }

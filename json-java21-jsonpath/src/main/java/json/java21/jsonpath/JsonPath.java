@@ -10,9 +10,13 @@ import java.util.logging.Logger;
 /// JsonPath query evaluator for JSON documents.
 /// Parses JsonPath expressions and evaluates them against JsonValue instances.
 ///
-/// Usage example:
+/// Usage examples:
 /// ```java
+/// // Fluent API (preferred)
 /// JsonValue json = Json.parse(jsonString);
+/// List<JsonValue> results = JsonPath.parse("$.store.book[*].author").select(json);
+///
+/// // Static query API
 /// List<JsonValue> results = JsonPath.query("$.store.book[*].author", json);
 /// ```
 ///
@@ -21,31 +25,61 @@ public final class JsonPath {
 
     private static final Logger LOG = Logger.getLogger(JsonPath.class.getName());
 
-    private JsonPath() {
-        // No instantiation
+    private final JsonPathAst.Root ast;
+    private final String pathExpression;
+
+    private JsonPath(String pathExpression, JsonPathAst.Root ast) {
+        this.pathExpression = pathExpression;
+        this.ast = ast;
     }
 
-    /// Evaluates a JsonPath expression against a JSON document.
+    /// Parses a JsonPath expression and returns a compiled JsonPath for reuse.
+    /// @param path the JsonPath expression
+    /// @return a compiled JsonPath that can be used to select from multiple documents
+    /// @throws NullPointerException if path is null
+    /// @throws JsonPathParseException if the path is invalid
+    public static JsonPath parse(String path) {
+        Objects.requireNonNull(path, "path must not be null");
+        LOG.fine(() -> "Parsing path: " + path);
+        final var ast = JsonPathParser.parse(path);
+        return new JsonPath(path, ast);
+    }
+
+    /// Selects matching values from a JSON document.
+    /// @param json the JSON document to query
+    /// @return a list of matching JsonValue instances (may be empty)
+    /// @throws NullPointerException if json is null
+    public List<JsonValue> select(JsonValue json) {
+        Objects.requireNonNull(json, "json must not be null");
+        LOG.fine(() -> "Selecting from document with path: " + pathExpression);
+        return evaluate(ast, json);
+    }
+
+    /// Returns the original path expression.
+    public String expression() {
+        return pathExpression;
+    }
+
+    /// Returns the parsed AST.
+    public JsonPathAst.Root ast() {
+        return ast;
+    }
+
+    /// Evaluates a JsonPath expression against a JSON document (convenience method).
     /// @param path the JsonPath expression
     /// @param json the JSON document to query
     /// @return a list of matching JsonValue instances (may be empty)
     /// @throws NullPointerException if path or json is null
     /// @throws JsonPathParseException if the path is invalid
     public static List<JsonValue> query(String path, JsonValue json) {
-        Objects.requireNonNull(path, "path must not be null");
-        Objects.requireNonNull(json, "json must not be null");
-
-        LOG.fine(() -> "Querying path: " + path);
-
-        final var ast = JsonPathParser.parse(path);
-        return evaluate(ast, json);
+        return parse(path).select(json);
     }
 
     /// Evaluates a pre-parsed JsonPath AST against a JSON document.
     /// @param ast the parsed JsonPath AST
     /// @param json the JSON document to query
     /// @return a list of matching JsonValue instances (may be empty)
-    public static List<JsonValue> evaluate(JsonPathAst.Root ast, JsonValue json) {
+    static List<JsonValue> evaluate(JsonPathAst.Root ast, JsonValue json) {
         Objects.requireNonNull(ast, "ast must not be null");
         Objects.requireNonNull(json, "json must not be null");
 
