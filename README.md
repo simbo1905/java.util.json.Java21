@@ -20,7 +20,7 @@ We welcome contributions to the JTD Validator incubating within this repo.
 To try the examples from this README, build the project and run the standalone example class:
 
 ```bash
-mvn package
+./mvnw package
 java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
   jdk.sandbox.java.util.json.examples.ReadmeExamples
 ```
@@ -257,10 +257,10 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ```bash
 # Run human-readable report
-mvn exec:java -pl json-compatibility-suite
+./mvnw exec:java -pl json-compatibility-suite
 
 # Run JSON output (dogfoods the API)
-mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"
+./mvnw exec:java -pl json-compatibility-suite -Dexec.args="--json"
 ```
 
 
@@ -368,10 +368,10 @@ The validator provides full RFC 8927 compliance with comprehensive test coverage
 
 ```bash
 # Run all JTD compliance tests
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
+./mvnw test -pl json-java21-jtd -Dtest=JtdSpecIT
 
 # Run with detailed logging
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
+./mvnw test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
 Features:
@@ -388,7 +388,24 @@ Features:
 Requires JDK 21 or later. Build with Maven:
 
 ```bash
-mvn clean package
+./mvnw clean package
+```
+
+## JsonPath
+
+This repo also includes a JsonPath query engine (module `json-java21-jsonpath`), based on the original Goessner JSONPath article:
+https://goessner.net/articles/JsonPath/
+
+```java
+import jdk.sandbox.java.util.json.*;
+import json.java21.jsonpath.JsonPath;
+
+JsonValue doc = Json.parse("""
+  {"store": {"book": [{"author": "A"}, {"author": "B"}]}}
+  """);
+
+JsonPath path = JsonPath.parse("$.store.book[*].author");
+var authors = path.query(doc);
 ```
 
 See AGENTS.md for detailed guidance including logging configuration. 

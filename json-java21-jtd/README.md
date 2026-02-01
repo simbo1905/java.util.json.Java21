@@ -174,16 +174,16 @@ Validation errors include standardized information:
 
 ```bash
 # Build the module
-$(command -v mvnd || command -v mvn || command -v ./mvnw) compile -pl json-java21-jtd
+./mvnw compile -pl json-java21-jtd -am
 
 # Run tests
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd
+./mvnw test -pl json-java21-jtd -am
 
 # Run RFC compliance tests
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Dtest=JtdSpecIT
+./mvnw test -pl json-java21-jtd -am -Dtest=JtdSpecIT
 
 # Run with detailed logging
-$(command -v mvnd || command -v mvn || command -v ./mvnw) test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
+./mvnw test -pl json-java21-jtd -am -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
 ## Architecture
