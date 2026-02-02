@@ -406,11 +406,11 @@ class JsonPathGoessnerTest extends JsonPathLoggingConfig {
     void testFluentApiReusable() {
         LOG.info(() -> "TEST: testFluentApiReusable - compiled path can be reused");
         final var compiledPath = JsonPath.parse("$..price");
-        
+
         // Use on store doc
         final var storeResults = compiledPath.query(storeJson);
         assertThat(storeResults).hasSize(5); // 4 book prices + 1 bicycle price
-        
+
         // Use on a different doc
         final var simpleDoc = Json.parse("""
             {"item": {"price": 99.99}}

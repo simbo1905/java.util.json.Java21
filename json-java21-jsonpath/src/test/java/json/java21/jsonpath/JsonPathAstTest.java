@@ -60,7 +60,7 @@ class JsonPathAstTest extends JsonPathLoggingConfig {
         LOG.info(() -> "TEST: testArrayIndex");
         final var index = new JsonPathAst.ArrayIndex(0);
         assertThat(index.index()).isEqualTo(0);
-        
+
         final var negIndex = new JsonPathAst.ArrayIndex(-1);
         assertThat(negIndex.index()).isEqualTo(-1);
     }
