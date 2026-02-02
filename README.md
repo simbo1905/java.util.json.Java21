@@ -440,6 +440,23 @@ System.out.println("Avg price: " + priceStats.getAverage());
 
 See `json-java21-jsonpath/README.md` for JsonPath operators and more examples.
 
+## json-transforms
+
+This repo includes **json-transforms** (module `json-transforms`): a Java 21 implementation of Microsoft’s *json-document-transforms* specification, which defines JSON-to-JSON transforms using `@jdt.*` verbs (`remove`, `replace`, `merge`, `rename`) plus JSONPath selectors.
+
+```java
+import jdk.sandbox.java.util.json.Json;
+import json.java21.transforms.JsonTransform;
+
+var source = Json.parse("{\"A\": 1, \"B\": 2}");
+var transform = Json.parse("{\"@jdt.remove\": \"A\"}");
+
+var program = JsonTransform.parse(transform); // parse/compile once
+var result = program.run(source);             // run many times
+```
+
+See `json-transforms/README.md` for the supported syntax and more examples.
+
 ## Contributing
 
 If you use an AI assistant while contributing, ensure it follows the contributor/agent workflow rules in `AGENTS.md`.
