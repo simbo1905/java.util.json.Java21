@@ -19,6 +19,19 @@ var titles = JsonPath.parse("$.store.book[*].title").query(doc);
 var cheap = JsonPath.parse("$.store.book[?(@.price < 10)].title").query(doc);
 ```
 
+## Runtime Compilation (Optional)
+
+`JsonPath.parse(...)` returns a reusable `JsonPath` instance. By default this evaluates by walking an internal AST.
+For hot paths, you can optionally request a JDK-compiled evaluator at runtime:
+
+```java
+JsonPath path = JsonPath.parse("$.store.book[*].title").compile();
+var titles = path.query(doc);
+```
+
+- If the runtime Java compiler is unavailable, `compile()` returns the original (AST-backed) implementation.
+- Calling `compile()` on an already-compiled `JsonPath` is a no-op (it returns itself).
+
 ## Syntax At A Glance
 
 Operator | Example | What it selects
