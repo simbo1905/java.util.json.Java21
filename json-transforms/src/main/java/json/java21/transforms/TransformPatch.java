@@ -8,8 +8,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Objects;
 
-sealed interface TransformPatch permits TransformPatch.Nothing {
-    enum Nothing implements TransformPatch { INSTANCE }
+final class TransformPatch {
+
+    private TransformPatch() {}
 
     static JsonValue removeAt(JsonValue root, List<JsonPathLocationStep> location) {
         Objects.requireNonNull(root, "root must not be null");

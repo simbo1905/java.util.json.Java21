@@ -12,8 +12,9 @@ import java.util.Set;
 
 import static json.java21.transforms.TransformSyntax.*;
 
-sealed interface TransformCompiler permits TransformCompiler.Nothing {
-    enum Nothing implements TransformCompiler { INSTANCE }
+final class TransformCompiler {
+
+    private TransformCompiler() {}
 
     static TransformAst.ObjectTransform compileObject(JsonObject transformObject) {
         Objects.requireNonNull(transformObject, "transformObject must not be null");

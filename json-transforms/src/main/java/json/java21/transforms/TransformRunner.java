@@ -9,10 +9,11 @@ import java.util.logging.Logger;
 
 import static json.java21.transforms.TransformPatch.*;
 
-sealed interface TransformRunner permits TransformRunner.Nothing {
-    enum Nothing implements TransformRunner { INSTANCE }
+final class TransformRunner {
 
-    Logger LOG = Logger.getLogger(TransformRunner.class.getName());
+    private static final Logger LOG = Logger.getLogger(TransformRunner.class.getName());
+
+    private TransformRunner() {}
 
     static JsonValue applyAtDocumentRoot(JsonObject source, TransformAst.ObjectTransform transform) {
         Objects.requireNonNull(source, "source must not be null");

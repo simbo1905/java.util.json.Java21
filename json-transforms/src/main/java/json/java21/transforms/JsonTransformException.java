@@ -2,6 +2,8 @@ package json.java21.transforms;
 
 /// Exception thrown for invalid transform syntax or runtime failures applying a transform.
 public final class JsonTransformException extends RuntimeException {
+    private static final long serialVersionUID = 1L;
+
     public JsonTransformException(String message) {
         super(message);
     }

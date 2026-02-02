@@ -2,18 +2,19 @@ package json.java21.transforms;
 
 import java.util.Objects;
 
-sealed interface TransformSyntax permits TransformSyntax.Nothing {
-    enum Nothing implements TransformSyntax { INSTANCE }
+final class TransformSyntax {
 
-    String SYNTAX_PREFIX = "@jdt.";
+    private TransformSyntax() {}
 
-    String VERB_REMOVE = "@jdt.remove";
-    String VERB_REPLACE = "@jdt.replace";
-    String VERB_MERGE = "@jdt.merge";
-    String VERB_RENAME = "@jdt.rename";
+    static final String SYNTAX_PREFIX = "@jdt.";
 
-    String ATTR_PATH = "@jdt.path";
-    String ATTR_VALUE = "@jdt.value";
+    static final String VERB_REMOVE = "@jdt.remove";
+    static final String VERB_REPLACE = "@jdt.replace";
+    static final String VERB_MERGE = "@jdt.merge";
+    static final String VERB_RENAME = "@jdt.rename";
+
+    static final String ATTR_PATH = "@jdt.path";
+    static final String ATTR_VALUE = "@jdt.value";
 
     static boolean isSyntaxKey(String key) {
         return key != null && key.startsWith(SYNTAX_PREFIX);
