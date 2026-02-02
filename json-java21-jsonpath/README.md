@@ -99,8 +99,8 @@ JsonPath compiled = JsonPath.compile(interpreted);
 JsonPath sameCompiled = JsonPath.compile(compiled); // Returns same instance
 
 // Check if a path is compiled
-boolean isCompiled = path.isCompiled();
-boolean isInterpreted = path.isInterpreted();
+boolean isCompiled = compiled.isCompiled();
+boolean isInterpreted = interpreted.isInterpreted();
 ```
 
 ### Supported Features in Compiled Mode
@@ -109,7 +109,7 @@ All JsonPath features are supported in compiled mode:
 - Property access, array indices, slices, wildcards
 - Recursive descent (`$..property`)
 - Filters with comparisons and logical operators
-- Unions and script expressions
+- Unions and limited script expressions (e.g., `[(@.length-1)]`)
 
 ## Stream-Based Functions (Aggregations)
 

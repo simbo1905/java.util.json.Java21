@@ -151,30 +151,6 @@ public final class JsonPathHelpers {
         }
     }
 
-    /// Evaluates recursive descent and then applies subsequent segments.
-    /// This is a more general version that delegates back to the interpreter for complex cases.
-    /// @param path the original JsonPath being evaluated
-    /// @param segmentIndex the index of the recursive descent segment
-    /// @param current the current value
-    /// @param root the root document
-    /// @param results the results list
-    public static void evaluateRecursiveDescentFull(
-            JsonPath path,
-            int segmentIndex,
-            JsonValue current,
-            JsonValue root,
-            List<JsonValue> results) {
-
-        // For full recursive descent support, we delegate to the interpreter
-        // This handles the case where there are segments after the recursive descent
-        if (path instanceof JsonPathInterpreted interpreted) {
-            final var ast = interpreted.ast();
-            JsonPathInterpreted.evaluateSegments(ast.segments(), segmentIndex, current, root, results);
-        } else if (path.ast() != null) {
-            JsonPathInterpreted.evaluateSegments(path.ast().segments(), segmentIndex, current, root, results);
-        }
-    }
-
     /// Collects all arrays recursively from a JSON value.
     /// Used for recursive descent with array index targets like $..book[2].
     /// @param current the current JSON value to search
@@ -196,24 +172,4 @@ public final class JsonPathHelpers {
         }
     }
 
-    /// Collects values at a specific property path recursively.
-    /// Used for recursive descent patterns like $..book.
-    /// @param propertyName the property name to search for
-    /// @param current the current JSON value to search
-    /// @param results the list to collect results into
-    public static void collectAtPath(String propertyName, JsonValue current, List<JsonValue> results) {
-        if (current instanceof JsonObject obj) {
-            final var value = obj.members().get(propertyName);
-            if (value != null) {
-                results.add(value);
-            }
-            for (final var child : obj.members().values()) {
-                collectAtPath(propertyName, child, results);
-            }
-        } else if (current instanceof JsonArray array) {
-            for (final var element : array.elements()) {
-                collectAtPath(propertyName, element, results);
-            }
-        }
-    }
 }

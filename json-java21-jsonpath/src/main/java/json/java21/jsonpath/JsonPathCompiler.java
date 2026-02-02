@@ -469,11 +469,10 @@ final class JsonPathCompiler {
             sb.append("            }\n");
             sb.append("        }\n");
         } else {
-            // Unsupported script - log warning and skip
+            // Unsupported script - throw exception at runtime for clarity
             // Only @.length-1 is supported in compiled mode
-            sb.append("        // WARNING: Unsupported script expression '%s' - skipped in compiled mode\n"
+            sb.append("        throw new UnsupportedOperationException(\"Unsupported script expression in compiled mode: '%s'. Consider using slice notation instead (e.g., [-1:] for last element).\");\n"
                     .formatted(escapeJavaString(script.script())));
-            sb.append("        // Consider using slice notation instead: [-1:] for last element\n");
         }
     }
 
