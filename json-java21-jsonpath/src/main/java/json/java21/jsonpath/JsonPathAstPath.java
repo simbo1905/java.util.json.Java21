@@ -32,7 +32,7 @@ final class JsonPathAstPath implements JsonPath, JsonPathAstBacked {
     }
 
     @Override
-    JsonPathAst.Root ast() {
+    public JsonPathAst.Root ast() {
         return ast;
     }
 }
