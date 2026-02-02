@@ -228,7 +228,8 @@ final class TransformRunner {
                     final var applied = processTransform(obj, tov.compiled(), isDocumentRootForMatch);
                     yield applied.value();
                 }
-                yield matched;
+                // Merge-with-attributes replaces mismatched types (including primitive -> object).
+                yield tov.rawObject();
             }
         };
     }
@@ -240,7 +241,9 @@ final class TransformRunner {
             final var key = entry.getKey();
             final var tVal = entry.getValue();
 
-            if (recursedKeys.contains(key) && current.members().get(key) instanceof JsonObject && tVal instanceof JsonObject) {
+            // Mirror the reference implementation: nodes already recursed into are removed from the transform
+            // before default processing, so default must never re-process them.
+            if (recursedKeys.contains(key)) {
                 continue;
             }
 

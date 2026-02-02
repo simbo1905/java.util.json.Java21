@@ -31,7 +31,14 @@ final class TransformSyntax {
         if (trimmed.startsWith("@")) {
             return "$" + trimmed.substring(1);
         }
-        return trimmed;
+        if (trimmed.startsWith("$")) {
+            return trimmed;
+        }
+        if (trimmed.startsWith(".") || trimmed.startsWith("[")) {
+            return "$" + trimmed;
+        }
+        // Json.NET SelectTokens accepts bare property names; treat them as relative paths.
+        return "$." + trimmed;
     }
 }
 
