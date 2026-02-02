@@ -59,7 +59,9 @@ final class JsonPathRuntime {
             s = Math.max(0, Math.min(s, size));
             e = Math.max(0, Math.min(e, size));
 
-            return IntStream.iterate(s, i -> i < e, i -> i + actualStep)
+            final int sFinal = s;
+            final int eFinal = e;
+            return IntStream.iterate(sFinal, i -> i < eFinal, i -> i + actualStep)
                     .mapToObj(elements::get);
         }
 
@@ -67,7 +69,8 @@ final class JsonPathRuntime {
         final int e = end != null ? normalizeIndex(end, size) : -1;
         s = Math.max(0, Math.min(s, size - 1));
 
-        return IntStream.iterate(s, i -> i > e, i -> i + actualStep)
+        final int sFinal = s;
+        return IntStream.iterate(sFinal, i -> i > e, i -> i + actualStep)
                 .mapToObj(elements::get);
     }
 
