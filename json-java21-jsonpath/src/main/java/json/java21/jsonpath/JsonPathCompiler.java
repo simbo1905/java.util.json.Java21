@@ -318,9 +318,10 @@ final class JsonPathCompiler {
                 sb.append("        }\n");
             }
             default -> {
-                // Unsupported target - add results of current
-                sb.append("        // Unsupported recursive descent target - adding current\n");
-                sb.append("        %s.add(%s);\n".formatted(resultsVar, currentVar));
+                // Unsupported recursive descent target - no-op to match interpreter behavior
+                // The interpreter logs and returns no matches for unsupported targets like
+                // $..[0:2], $..[?(@.x)], or $..['a','b']
+                sb.append("        // Unsupported recursive descent target (no matches per interpreter semantics)\n");
             }
         }
     }
