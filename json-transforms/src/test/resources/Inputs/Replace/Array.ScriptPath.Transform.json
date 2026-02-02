@@ -1,0 +1,6 @@
+{
+  "@jdt.replace": {
+    "@jdt.path": "$.B[?(@.Replace == true)]",
+    "@jdt.value": {"Replaced":  "Yes"}
+  }
+}

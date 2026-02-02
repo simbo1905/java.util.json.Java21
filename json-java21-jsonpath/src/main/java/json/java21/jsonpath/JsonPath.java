@@ -5,6 +5,7 @@ import jdk.sandbox.java.util.json.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Consumer;
 import java.util.logging.Logger;
 
 /// JsonPath query evaluator for JSON documents.
@@ -58,6 +59,19 @@ public final class JsonPath {
         return evaluate(ast, json);
     }
 
+    /// Queries matching values from a JSON document, including their locations.
+    ///
+    /// This is intended for transform engines that must remove/replace/rename nodes, where the match location matters.
+    ///
+    /// @param json the JSON document to query
+    /// @return a list of matches including match location and value (maybe empty)
+    /// @throws NullPointerException if JSON is null
+    public List<JsonPathMatch> queryMatches(JsonValue json) {
+        Objects.requireNonNull(json, "json must not be null");
+        LOG.fine(() -> "Querying document with path (matches): " + this);
+        return evaluateMatches(ast, json);
+    }
+
     /// Reconstructs the JsonPath expression from the AST.
     @Override
     public String toString() {
@@ -72,6 +86,16 @@ public final class JsonPath {
     public static List<JsonValue> query(JsonPath path, JsonValue json) {
         Objects.requireNonNull(path, "path must not be null");
         return path.query(json);
+    }
+
+    /// Evaluates a compiled JsonPath against a JSON document, returning match locations.
+    /// @param path a compiled JsonPath (typically cached)
+    /// @param json the JSON document to query
+    /// @return a list of matches including match location and value (maybe empty)
+    /// @throws NullPointerException if path or JSON is null
+    public static List<JsonPathMatch> queryMatches(JsonPath path, JsonValue json) {
+        Objects.requireNonNull(path, "path must not be null");
+        return path.queryMatches(json);
     }
 
     /// Evaluates a JsonPath expression against a JSON document.
@@ -99,6 +123,16 @@ public final class JsonPath {
 
         final var results = new ArrayList<JsonValue>();
         evaluateSegments(ast.segments(), 0, json, json, results);
+        return results;
+    }
+
+    static List<JsonPathMatch> evaluateMatches(JsonPathAst.Root ast, JsonValue json) {
+        Objects.requireNonNull(ast, "ast must not be null");
+        Objects.requireNonNull(json, "json must not be null");
+
+        final var results = new ArrayList<JsonPathMatch>();
+        final var location = new ArrayList<JsonPathLocationStep>();
+        evaluateSegmentsMatches(ast.segments(), 0, json, json, location, results::add);
         return results;
     }
 
@@ -130,6 +164,42 @@ public final class JsonPath {
         }
     }
 
+    private static void evaluateSegmentsMatches(
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (index >= segments.size()) {
+            sink.accept(new JsonPathMatch(location, current));
+            return;
+        }
+
+        final var segment = segments.get(index);
+        LOG.finer(() -> "Evaluating segment (matches) " + index + ": " + segment);
+
+        switch (segment) {
+            case JsonPathAst.PropertyAccess prop ->
+                    evaluatePropertyAccessMatches(prop, segments, index, current, root, location, sink);
+            case JsonPathAst.ArrayIndex arr ->
+                    evaluateArrayIndexMatches(arr, segments, index, current, root, location, sink);
+            case JsonPathAst.ArraySlice slice ->
+                    evaluateArraySliceMatches(slice, segments, index, current, root, location, sink);
+            case JsonPathAst.Wildcard ignored ->
+                    evaluateWildcardMatches(segments, index, current, root, location, sink);
+            case JsonPathAst.RecursiveDescent desc ->
+                    evaluateRecursiveDescentMatches(desc, segments, index, current, root, location, sink);
+            case JsonPathAst.Filter filter ->
+                    evaluateFilterMatches(filter, segments, index, current, root, location, sink);
+            case JsonPathAst.Union union ->
+                    evaluateUnionMatches(union, segments, index, current, root, location, sink);
+            case JsonPathAst.ScriptExpression script ->
+                    evaluateScriptExpressionMatches(script, segments, index, current, root, location, sink);
+        }
+    }
+
     private static void evaluatePropertyAccess(
             JsonPathAst.PropertyAccess prop,
             List<JsonPathAst.Segment> segments,
@@ -142,6 +212,25 @@ public final class JsonPath {
             final var value = obj.members().get(prop.name());
             if (value != null) {
                 evaluateSegments(segments, index + 1, value, root, results);
+            }
+        }
+    }
+
+    private static void evaluatePropertyAccessMatches(
+            JsonPathAst.PropertyAccess prop,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonObject obj) {
+            final var value = obj.members().get(prop.name());
+            if (value != null) {
+                location.add(new JsonPathLocationStep.Property(prop.name()));
+                evaluateSegmentsMatches(segments, index + 1, value, root, location, sink);
+                location.removeLast();
             }
         }
     }
@@ -165,6 +254,31 @@ public final class JsonPath {
 
             if (idx >= 0 && idx < elements.size()) {
                 evaluateSegments(segments, index + 1, elements.get(idx), root, results);
+            }
+        }
+    }
+
+    private static void evaluateArrayIndexMatches(
+            JsonPathAst.ArrayIndex arr,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonArray array) {
+            final var elements = array.elements();
+            int idx = arr.index();
+
+            if (idx < 0) {
+                idx = elements.size() + idx;
+            }
+
+            if (idx >= 0 && idx < elements.size()) {
+                location.add(new JsonPathLocationStep.Index(idx));
+                evaluateSegmentsMatches(segments, index + 1, elements.get(idx), root, location, sink);
+                location.removeLast();
             }
         }
     }
@@ -210,6 +324,49 @@ public final class JsonPath {
         }
     }
 
+    private static void evaluateArraySliceMatches(
+            JsonPathAst.ArraySlice slice,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonArray array) {
+            final var elements = array.elements();
+            final int size = elements.size();
+
+            final int step = slice.step() != null ? slice.step() : 1;
+            if (step == 0) return;
+
+            if (step > 0) {
+                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : 0;
+                int end = slice.end() != null ? normalizeIndex(slice.end(), size) : size;
+
+                start = Math.max(0, Math.min(start, size));
+                end = Math.max(0, Math.min(end, size));
+
+                for (int i = start; i < end; i += step) {
+                    location.add(new JsonPathLocationStep.Index(i));
+                    evaluateSegmentsMatches(segments, index + 1, elements.get(i), root, location, sink);
+                    location.removeLast();
+                }
+            } else {
+                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : size - 1;
+                final int end = slice.end() != null ? normalizeIndex(slice.end(), size) : -1;
+
+                start = Math.max(0, Math.min(start, size - 1));
+
+                for (int i = start; i > end; i += step) {
+                    location.add(new JsonPathLocationStep.Index(i));
+                    evaluateSegmentsMatches(segments, index + 1, elements.get(i), root, location, sink);
+                    location.removeLast();
+                }
+            }
+        }
+    }
+
     private static int normalizeIndex(int index, int size) {
         if (index < 0) {
             return size + index;
@@ -235,6 +392,30 @@ public final class JsonPath {
         }
     }
 
+    private static void evaluateWildcardMatches(
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonObject obj) {
+            for (final var entry : obj.members().entrySet()) {
+                location.add(new JsonPathLocationStep.Property(entry.getKey()));
+                evaluateSegmentsMatches(segments, index + 1, entry.getValue(), root, location, sink);
+                location.removeLast();
+            }
+        } else if (current instanceof JsonArray array) {
+            final var elements = array.elements();
+            for (int i = 0; i < elements.size(); i++) {
+                location.add(new JsonPathLocationStep.Index(i));
+                evaluateSegmentsMatches(segments, index + 1, elements.get(i), root, location, sink);
+                location.removeLast();
+            }
+        }
+    }
+
     private static void evaluateRecursiveDescent(
             JsonPathAst.RecursiveDescent desc,
             List<JsonPathAst.Segment> segments,
@@ -255,6 +436,70 @@ public final class JsonPath {
             for (final var element : array.elements()) {
                 evaluateRecursiveDescent(desc, segments, index, element, root, results);
             }
+        }
+    }
+
+    private static void evaluateRecursiveDescentMatches(
+            JsonPathAst.RecursiveDescent desc,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        evaluateTargetSegmentMatches(desc.target(), segments, index, current, root, location, sink);
+
+        if (current instanceof JsonObject obj) {
+            for (final var entry : obj.members().entrySet()) {
+                location.add(new JsonPathLocationStep.Property(entry.getKey()));
+                evaluateRecursiveDescentMatches(desc, segments, index, entry.getValue(), root, location, sink);
+                location.removeLast();
+            }
+        } else if (current instanceof JsonArray array) {
+            final var elements = array.elements();
+            for (int i = 0; i < elements.size(); i++) {
+                location.add(new JsonPathLocationStep.Index(i));
+                evaluateRecursiveDescentMatches(desc, segments, index, elements.get(i), root, location, sink);
+                location.removeLast();
+            }
+        }
+    }
+
+    private static void evaluateTargetSegmentMatches(
+            JsonPathAst.Segment target,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        switch (target) {
+            case JsonPathAst.PropertyAccess prop -> {
+                if (current instanceof JsonObject obj) {
+                    final var value = obj.members().get(prop.name());
+                    if (value != null) {
+                        location.add(new JsonPathLocationStep.Property(prop.name()));
+                        evaluateSegmentsMatches(segments, index + 1, value, root, location, sink);
+                        location.removeLast();
+                    }
+                }
+            }
+            case JsonPathAst.Wildcard ignored -> evaluateWildcardMatches(segments, index, current, root, location, sink);
+            case JsonPathAst.ArrayIndex arr -> {
+                if (current instanceof JsonArray array) {
+                    final var elements = array.elements();
+                    int idx = arr.index();
+                    if (idx < 0) idx = elements.size() + idx;
+                    if (idx >= 0 && idx < elements.size()) {
+                        location.add(new JsonPathLocationStep.Index(idx));
+                        evaluateSegmentsMatches(segments, index + 1, elements.get(idx), root, location, sink);
+                        location.removeLast();
+                    }
+                }
+            }
+            default -> LOG.finer(() -> "Unsupported target in recursive descent (matches): " + target);
         }
     }
 
@@ -313,6 +558,28 @@ public final class JsonPath {
             for (final var element : array.elements()) {
                 if (matchesFilter(filter.expression(), element)) {
                     evaluateSegments(segments, index + 1, element, root, results);
+                }
+            }
+        }
+    }
+
+    private static void evaluateFilterMatches(
+            JsonPathAst.Filter filter,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonArray array) {
+            final var elements = array.elements();
+            for (int i = 0; i < elements.size(); i++) {
+                final var element = elements.get(i);
+                if (matchesFilter(filter.expression(), element)) {
+                    location.add(new JsonPathLocationStep.Index(i));
+                    evaluateSegmentsMatches(segments, index + 1, element, root, location, sink);
+                    location.removeLast();
                 }
             }
         }
@@ -458,6 +725,24 @@ public final class JsonPath {
         }
     }
 
+    private static void evaluateUnionMatches(
+            JsonPathAst.Union union,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        for (final var selector : union.selectors()) {
+            switch (selector) {
+                case JsonPathAst.ArrayIndex arr -> evaluateArrayIndexMatches(arr, segments, index, current, root, location, sink);
+                case JsonPathAst.PropertyAccess prop -> evaluatePropertyAccessMatches(prop, segments, index, current, root, location, sink);
+                default -> LOG.finer(() -> "Unsupported selector in union (matches): " + selector);
+            }
+        }
+    }
+
     private static void evaluateScriptExpression(
             JsonPathAst.ScriptExpression script,
             List<JsonPathAst.Segment> segments,
@@ -473,6 +758,30 @@ public final class JsonPath {
                 final int lastIndex = array.elements().size() - 1;
                 if (lastIndex >= 0) {
                     evaluateSegments(segments, index + 1, array.elements().get(lastIndex), root, results);
+                }
+            } else {
+                LOG.warning(() -> "Unsupported script expression: " + scriptText);
+            }
+        }
+    }
+
+    private static void evaluateScriptExpressionMatches(
+            JsonPathAst.ScriptExpression script,
+            List<JsonPathAst.Segment> segments,
+            int index,
+            JsonValue current,
+            JsonValue root,
+            ArrayList<JsonPathLocationStep> location,
+            Consumer<JsonPathMatch> sink) {
+
+        if (current instanceof JsonArray array) {
+            final var scriptText = script.script().trim();
+            if (scriptText.equals("@.length-1")) {
+                final int lastIndex = array.elements().size() - 1;
+                if (lastIndex >= 0) {
+                    location.add(new JsonPathLocationStep.Index(lastIndex));
+                    evaluateSegmentsMatches(segments, index + 1, array.elements().get(lastIndex), root, location, sink);
+                    location.removeLast();
                 }
             } else {
                 LOG.warning(() -> "Unsupported script expression: " + scriptText);
