@@ -51,13 +51,13 @@ public final class JsonTransformGoldenFilesTest extends JsonTransformsLoggingCon
         for (final var category : categories) {
             final var dir = inputsBase.resolve(category);
             try (var stream = Files.list(dir)) {
-                final var args = stream
+                final var testNames = stream
                         .filter(p -> p.getFileName().toString().endsWith(".Transform.json"))
                         .map(p -> p.getFileName().toString())
                         .map(name -> name.substring(0, name.length() - ".Transform.json".length()))
                         .sorted()
-                        .map(testName -> Arguments.of(category, testName));
-                all = Stream.concat(all, args);
+                        .toList();
+                all = Stream.concat(all, testNames.stream().map(testName -> Arguments.of(category, testName)));
             }
         }
         return all;
