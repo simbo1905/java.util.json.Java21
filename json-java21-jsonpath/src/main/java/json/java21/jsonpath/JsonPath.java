@@ -77,11 +77,13 @@ public interface JsonPath {
     ///
     /// This method is idempotent: if the receiver is already compiled, it returns itself.
     /// Implementations that do not support runtime compilation may return themselves.
-    JsonPath compile();
+    default JsonPath compile() {
+        return JsonPathCompiler.compile(this);
+    }
 
     /// Returns a (potentially) runtime-compiled version of the provided JsonPath.
     static JsonPath compile(JsonPath path) {
         Objects.requireNonNull(path, "path must not be null");
-        return path.compile();
+        return JsonPathCompiler.compile(path);
     }
 }

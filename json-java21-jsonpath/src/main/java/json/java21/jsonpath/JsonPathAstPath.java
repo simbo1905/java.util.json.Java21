@@ -9,7 +9,7 @@ import java.util.logging.Logger;
 /// Package-private AST-backed `JsonPath` implementation.
 ///
 /// This is the behavior-preserving interpreter that walks `JsonPathAst` at runtime.
-final class JsonPathAstPath implements JsonPath {
+final class JsonPathAstPath implements JsonPath, JsonPathAstBacked {
 
     private static final Logger LOG = Logger.getLogger(JsonPathAstPath.class.getName());
 
@@ -27,16 +27,11 @@ final class JsonPathAstPath implements JsonPath {
     }
 
     @Override
-    public JsonPath compile() {
-        // Compiler-backed implementation is added later; keep behavior-preserving no-op for now.
-        return this;
-    }
-
-    @Override
     public String toString() {
         return JsonPathAstInterpreter.reconstruct(ast);
     }
 
+    @Override
     JsonPathAst.Root ast() {
         return ast;
     }
