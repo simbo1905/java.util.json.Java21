@@ -60,6 +60,57 @@ This implementation follows Goessner-style JSONPath operators, including:
 - `[?(@.prop)]` and `[?(@.prop op value)]` basic filters
 - `[(@.length-1)]` limited script support
 
+## Runtime Compilation (Performance Optimization)
+
+For performance-critical code paths, you can compile a parsed JsonPath to bytecode:
+
+```java
+// Parse once, compile for best performance
+JsonPath compiled = JsonPath.compile(JsonPath.parse("$.store.book[*].author"));
+
+// Reuse the compiled path for many documents
+for (JsonValue doc : documents) {
+    List<JsonValue> results = compiled.query(doc);
+    // process results...
+}
+```
+
+### How It Works
+
+The `JsonPath.compile()` method:
+1. Takes a parsed (interpreted) JsonPath
+2. Generates optimized Java source code
+3. Compiles it to bytecode using the JDK compiler API (`javax.tools.ToolProvider`)
+4. Returns a compiled JsonPath that executes as native bytecode
+
+### When to Use Compilation
+
+- **Hot paths**: Use `compile()` when the same path will be executed many times
+- **One-off queries**: Use `parse()` directly for single-use paths (compilation overhead isn't worth it)
+- **JRE environments**: Compilation requires a JDK; if unavailable, use interpreted paths
+
+### Compilation is Idempotent
+
+Calling `compile()` on an already-compiled path returns the same instance:
+
+```java
+JsonPath interpreted = JsonPath.parse("$.store");
+JsonPath compiled = JsonPath.compile(interpreted);
+JsonPath sameCompiled = JsonPath.compile(compiled); // Returns same instance
+
+// Check if a path is compiled
+boolean isCompiled = path.isCompiled();
+boolean isInterpreted = path.isInterpreted();
+```
+
+### Supported Features in Compiled Mode
+
+All JsonPath features are supported in compiled mode:
+- Property access, array indices, slices, wildcards
+- Recursive descent (`$..property`)
+- Filters with comparisons and logical operators
+- Unions and script expressions
+
 ## Stream-Based Functions (Aggregations)
 
 Some JsonPath implementations include aggregation functions such as `$.numbers.avg()`.
