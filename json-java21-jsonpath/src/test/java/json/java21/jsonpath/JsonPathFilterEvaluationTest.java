@@ -80,12 +80,12 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
         // If @.active exists and is true -> false.
         // If @.active exists and is false -> true.
         // If @.active is missing -> ExistsFilter returns false -> !false -> true.
-        
-        // However, "ExistsFilter" checks for existence. 
-        // @.active matches id 1 (true) and 2 (false). 
+
+        // However, "ExistsFilter" checks for existence.
+        // @.active matches id 1 (true) and 2 (false).
         // Wait, ExistsFilter checks if the path *exists* and is non-null.
         // Let's verify specific behavior for boolean value comparison vs existence.
-        
+
         // Case A: Existence check negation
         // [?(!@.active)] -> Match items where "active" does NOT exist.
         var missingResults = JsonPath.parse("$[?(!@.active)]").query(json);
@@ -110,11 +110,11 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
         // A=true, B=false, C=true
         // A && (B || C) -> T && (F || T) -> T && T -> MATCH
         // (A && B) || C -> (T && F) || T -> F || T -> MATCH (Wait, bad example, both match)
-        
+
         // Let's try: A=false, B=true, C=true
         // A && (B || C) -> F && T -> NO MATCH
         // (A && B) || C -> F || T -> MATCH
-        
+
         var json = Json.parse("""
             [
               {"id": 1, "A": false, "B": true, "C": true}
@@ -138,7 +138,7 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
     void testComplexNestedLogic() {
         LOG.info(() -> "TEST: testComplexNestedLogic");
         // (Price < 10 OR (Category == 'fiction' AND Published is false))
-        // Note: !@.published would mean "published does not exist". 
+        // Note: !@.published would mean "published does not exist".
         // To check for false value, use @.published == false.
         var json = Json.parse("""
             [

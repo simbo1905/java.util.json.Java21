@@ -38,14 +38,4 @@ final class JsonPathCompiled implements JsonPath {
     public String toString() {
         return originalPath;
     }
-
-    /// Functional interface for compiled JsonPath executors.
-    @FunctionalInterface
-    interface JsonPathExecutor {
-        /// Executes the compiled JsonPath query against a JSON document.
-        /// @param current the current node being evaluated
-        /// @param root the root document (for $ references in filters)
-        /// @return a list of matching JsonValue instances
-        List<JsonValue> execute(JsonValue current, JsonValue root);
-    }
 }

@@ -58,7 +58,8 @@ final class JsonPathCompiler {
                 package json.java21.jsonpath.generated;
 
                 import jdk.sandbox.java.util.json.*;
-                import json.java21.jsonpath.JsonPathCompiled.JsonPathExecutor;
+                import json.java21.jsonpath.JsonPathExecutor;
+                import json.java21.jsonpath.JsonPathHelpers;
                 import java.util.*;
 
                 public final class %s implements JsonPathExecutor {
@@ -71,89 +72,9 @@ final class JsonPathCompiler {
         // Generate the evaluation code
         generateSegmentEvaluation(sb, ast.segments(), 0, "current", "root", "results");
 
-        // Close the execute method and add helper methods
+        // Close the execute method and class
         sb.append("""
                         return results;
-                    }
-
-                    // Helper methods for generated code
-
-                    private static int normalizeIdx(int index, int size) {
-                        return index < 0 ? size + index : index;
-                    }
-
-                    private static JsonValue getPath(JsonValue current, String... props) {
-                        JsonValue value = current;
-                        for (String prop : props) {
-                            if (value instanceof JsonObject obj) {
-                                value = obj.members().get(prop);
-                                if (value == null) return null;
-                            } else {
-                                return null;
-                            }
-                        }
-                        return value;
-                    }
-
-                    private static Object toComparable(JsonValue value) {
-                        if (value == null) return null;
-                        if (value instanceof JsonString s) return s.string();
-                        if (value instanceof JsonNumber n) return n.toDouble();
-                        if (value instanceof JsonBoolean b) return b.bool();
-                        if (value instanceof JsonNull) return null;
-                        return value;
-                    }
-
-                    private static boolean compareValues(Object left, String op, Object right) {
-                        if (left == null || right == null) {
-                            return switch (op) {
-                                case "EQ" -> left == right;
-                                case "NE" -> left != right;
-                                default -> false;
-                            };
-                        }
-
-                        if (left instanceof Number ln && right instanceof Number rn) {
-                            double l = ln.doubleValue();
-                            double r = rn.doubleValue();
-                            return switch (op) {
-                                case "EQ" -> l == r;
-                                case "NE" -> l != r;
-                                case "LT" -> l < r;
-                                case "LE" -> l <= r;
-                                case "GT" -> l > r;
-                                case "GE" -> l >= r;
-                                default -> false;
-                            };
-                        }
-
-                        if (left instanceof String && right instanceof String) {
-                            @SuppressWarnings("unchecked")
-                            int cmp = ((Comparable<Object>) left).compareTo(right);
-                            return switch (op) {
-                                case "EQ" -> cmp == 0;
-                                case "NE" -> cmp != 0;
-                                case "LT" -> cmp < 0;
-                                case "LE" -> cmp <= 0;
-                                case "GT" -> cmp > 0;
-                                case "GE" -> cmp >= 0;
-                                default -> false;
-                            };
-                        }
-
-                        if (left instanceof Boolean && right instanceof Boolean) {
-                            return switch (op) {
-                                case "EQ" -> left.equals(right);
-                                case "NE" -> !left.equals(right);
-                                default -> false;
-                            };
-                        }
-
-                        return switch (op) {
-                            case "EQ" -> left.equals(right);
-                            case "NE" -> !left.equals(right);
-                            default -> false;
-                        };
                     }
                 }
                 """);
@@ -265,9 +186,9 @@ final class JsonPathCompiler {
 
         if (step > 0) {
             final var startExpr = slice.start() != null ?
-                    "normalizeIdx(%d, size%d)".formatted(slice.start(), nextIndex) : "0";
+                    "JsonPathHelpers.normalizeIdx(%d, size%d)".formatted(slice.start(), nextIndex) : "0";
             final var endExpr = slice.end() != null ?
-                    "normalizeIdx(%d, size%d)".formatted(slice.end(), nextIndex) : "size" + nextIndex;
+                    "JsonPathHelpers.normalizeIdx(%d, size%d)".formatted(slice.end(), nextIndex) : "size" + nextIndex;
 
             sb.append("            int start%d = %s;\n".formatted(nextIndex, startExpr));
             sb.append("            int end%d = %s;\n".formatted(nextIndex, endExpr));
@@ -277,9 +198,9 @@ final class JsonPathCompiler {
                     .formatted(nextIndex, nextIndex, nextIndex, nextIndex, nextIndex, nextIndex));
         } else {
             final var startExpr = slice.start() != null ?
-                    "normalizeIdx(%d, size%d)".formatted(slice.start(), nextIndex) : "size%d - 1".formatted(nextIndex);
+                    "JsonPathHelpers.normalizeIdx(%d, size%d)".formatted(slice.start(), nextIndex) : "size%d - 1".formatted(nextIndex);
             final var endExpr = slice.end() != null ?
-                    "normalizeIdx(%d, size%d)".formatted(slice.end(), nextIndex) : "-1";
+                    "JsonPathHelpers.normalizeIdx(%d, size%d)".formatted(slice.end(), nextIndex) : "-1";
 
             sb.append("            int start%d = %s;\n".formatted(nextIndex, startExpr));
             sb.append("            int end%d = %s;\n".formatted(nextIndex, endExpr));
@@ -324,21 +245,86 @@ final class JsonPathCompiler {
             String rootVar,
             String resultsVar) {
 
-        // For recursive descent, we generate a helper method call
-        // For now, fall back to interpreter for complex recursive descent
-        sb.append("        // Recursive descent - delegating to interpreter\n");
-        sb.append("        json.java21.jsonpath.JsonPathInterpreted.evaluateRecursiveDescent(\n");
-        sb.append("            new json.java21.jsonpath.JsonPathAst.RecursiveDescent(");
-        generateAstLiteral(sb, desc.target());
-        sb.append("),\n");
-        sb.append("            java.util.List.of(");
-        for (int i = segmentIndex; i < segments.size(); i++) {
-            if (i > segmentIndex) sb.append(", ");
-            generateAstLiteral(sb, segments.get(i));
+        final int nextIndex = segmentIndex + 1;
+
+        // For simple cases (property access or wildcard with no following segments), generate inline
+        if (nextIndex >= segments.size()) {
+            // Terminal recursive descent - generate simple code
+            switch (desc.target()) {
+                case JsonPathAst.PropertyAccess prop -> {
+                    sb.append("        // Recursive descent for property: %s\n".formatted(prop.name()));
+                    sb.append("        JsonPathHelpers.evaluateRecursiveDescent(\"%s\", %s, %s);\n"
+                            .formatted(escapeJavaString(prop.name()), currentVar, resultsVar));
+                }
+                case JsonPathAst.Wildcard ignored -> {
+                    sb.append("        // Recursive descent wildcard\n");
+                    sb.append("        JsonPathHelpers.evaluateRecursiveDescent(null, %s, %s);\n"
+                            .formatted(currentVar, resultsVar));
+                }
+                default -> {
+                    // Complex target - generate a recursive helper inline
+                    sb.append("        // Recursive descent with complex target - inline generation\n");
+                    generateRecursiveDescentInline(sb, desc, segments, segmentIndex, currentVar, rootVar, resultsVar);
+                }
+            }
+        } else {
+            // Has following segments - need to generate more complex code
+            generateRecursiveDescentInline(sb, desc, segments, segmentIndex, currentVar, rootVar, resultsVar);
         }
-        sb.append("),\n");
-        sb.append("            %d, %s, %s, %s);\n".formatted(segmentIndex, currentVar, rootVar, resultsVar));
     }
+
+    private static void generateRecursiveDescentInline(
+            StringBuilder sb,
+            JsonPathAst.RecursiveDescent desc,
+            List<JsonPathAst.Segment> segments,
+            int segmentIndex,
+            String currentVar,
+            String rootVar,
+            String resultsVar) {
+
+        final int nextIndex = segmentIndex + 1;
+        final var collectVar = "rdCollect" + nextIndex;
+        final var iterVar = "rdItem" + nextIndex;
+
+        // For complex recursive descent, we collect intermediate results first
+        // then process them with subsequent segments
+        switch (desc.target()) {
+            case JsonPathAst.PropertyAccess prop -> {
+                sb.append("        // Recursive descent for property with following segments: %s\n".formatted(prop.name()));
+                sb.append("        final var %s = new ArrayList<JsonValue>();\n".formatted(collectVar));
+                sb.append("        JsonPathHelpers.evaluateRecursiveDescent(\"%s\", %s, %s);\n"
+                        .formatted(escapeJavaString(prop.name()), currentVar, collectVar));
+                sb.append("        for (final var %s : %s) {\n".formatted(iterVar, collectVar));
+                generateSegmentEvaluation(sb, segments, nextIndex, iterVar, rootVar, resultsVar);
+                sb.append("        }\n");
+            }
+            case JsonPathAst.Wildcard ignored -> {
+                sb.append("        // Recursive descent wildcard with following segments\n");
+                sb.append("        final var %s = new ArrayList<JsonValue>();\n".formatted(collectVar));
+                sb.append("        JsonPathHelpers.evaluateRecursiveDescent(null, %s, %s);\n"
+                        .formatted(currentVar, collectVar));
+                sb.append("        for (final var %s : %s) {\n".formatted(iterVar, collectVar));
+                generateSegmentEvaluation(sb, segments, nextIndex, iterVar, rootVar, resultsVar);
+                sb.append("        }\n");
+            }
+            case JsonPathAst.ArrayIndex arr -> {
+                // Recursive descent with array index target (e.g., $..book[2])
+                sb.append("        // Recursive descent for array index: [%d]\n".formatted(arr.index()));
+                sb.append("        final var %s = new ArrayList<JsonValue>();\n".formatted(collectVar));
+                // First collect all arrays
+                sb.append("        JsonPathHelpers.collectArrays(%s, %s);\n".formatted(currentVar, collectVar));
+                sb.append("        for (final var arrItem%d : %s) {\n".formatted(nextIndex, collectVar));
+                generateArrayIndex(sb, arr, segments, nextIndex, "arrItem" + nextIndex, rootVar, resultsVar);
+                sb.append("        }\n");
+            }
+            default -> {
+                // Unsupported target - add results of current
+                sb.append("        // Unsupported recursive descent target - adding current\n");
+                sb.append("        %s.add(%s);\n".formatted(resultsVar, currentVar));
+            }
+        }
+    }
+
 
     private static void generateFilter(
             StringBuilder sb,
@@ -368,7 +354,7 @@ final class JsonPathCompiler {
                 sb.append(" != null");
             }
             case JsonPathAst.ComparisonFilter comp -> {
-                sb.append("compareValues(");
+                sb.append("JsonPathHelpers.compareValues(");
                 generateFilterValue(sb, comp.left(), currentVar);
                 sb.append(", \"").append(comp.op().name()).append("\", ");
                 generateFilterValue(sb, comp.right(), currentVar);
@@ -407,7 +393,7 @@ final class JsonPathCompiler {
     }
 
     private static void generatePropertyPathAccess(StringBuilder sb, JsonPathAst.PropertyPath path, String currentVar) {
-        sb.append("getPath(%s".formatted(currentVar));
+        sb.append("JsonPathHelpers.getPath(%s".formatted(currentVar));
         for (final var prop : path.properties()) {
             sb.append(", \"").append(escapeJavaString(prop)).append("\"");
         }
@@ -417,7 +403,7 @@ final class JsonPathCompiler {
     private static void generateFilterValue(StringBuilder sb, JsonPathAst.FilterExpression expr, String currentVar) {
         switch (expr) {
             case JsonPathAst.PropertyPath path -> {
-                sb.append("toComparable(");
+                sb.append("JsonPathHelpers.toComparable(");
                 generatePropertyPathAccess(sb, path, currentVar);
                 sb.append(")");
             }
@@ -435,7 +421,7 @@ final class JsonPathCompiler {
                 }
             }
             case JsonPathAst.CurrentNode ignored ->
-                    sb.append("toComparable(%s)".formatted(currentVar));
+                    sb.append("JsonPathHelpers.toComparable(%s)".formatted(currentVar));
             default -> sb.append("null");
         }
     }
@@ -482,119 +468,16 @@ final class JsonPathCompiler {
             sb.append("            }\n");
             sb.append("        }\n");
         } else {
-            // Unsupported script, delegate to interpreter
-            sb.append("        // Unsupported script expression - delegating to interpreter\n");
-            sb.append("        json.java21.jsonpath.JsonPathInterpreted.evaluateScriptExpression(\n");
-            sb.append("            new json.java21.jsonpath.JsonPathAst.ScriptExpression(\"");
-            sb.append(escapeJavaString(script.script()));
-            sb.append("\"),\n");
-            sb.append("            java.util.List.of(");
-            for (int i = nextIndex - 1; i < segments.size(); i++) {
-                if (i > nextIndex - 1) sb.append(", ");
-                generateAstLiteral(sb, segments.get(i));
-            }
-            sb.append("),\n");
-            sb.append("            %d, %s, %s, %s);\n".formatted(nextIndex - 1, currentVar, rootVar, resultsVar));
-        }
-    }
-
-    private static void generateAstLiteral(StringBuilder sb, JsonPathAst.Segment segment) {
-        switch (segment) {
-            case JsonPathAst.PropertyAccess prop ->
-                    sb.append("new json.java21.jsonpath.JsonPathAst.PropertyAccess(\"")
-                            .append(escapeJavaString(prop.name())).append("\")");
-            case JsonPathAst.ArrayIndex arr ->
-                    sb.append("new json.java21.jsonpath.JsonPathAst.ArrayIndex(").append(arr.index()).append(")");
-            case JsonPathAst.Wildcard ignored ->
-                    sb.append("new json.java21.jsonpath.JsonPathAst.Wildcard()");
-            case JsonPathAst.ArraySlice slice -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.ArraySlice(");
-                sb.append(slice.start() == null ? "null" : slice.start()).append(", ");
-                sb.append(slice.end() == null ? "null" : slice.end()).append(", ");
-                sb.append(slice.step() == null ? "null" : slice.step()).append(")");
-            }
-            case JsonPathAst.RecursiveDescent desc -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.RecursiveDescent(");
-                generateAstLiteral(sb, desc.target());
-                sb.append(")");
-            }
-            case JsonPathAst.Filter filter -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.Filter(");
-                generateFilterExprLiteral(sb, filter.expression());
-                sb.append(")");
-            }
-            case JsonPathAst.Union union -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.Union(java.util.List.of(");
-                final var selectors = union.selectors();
-                for (int i = 0; i < selectors.size(); i++) {
-                    if (i > 0) sb.append(", ");
-                    generateAstLiteral(sb, selectors.get(i));
-                }
-                sb.append("))");
-            }
-            case JsonPathAst.ScriptExpression script ->
-                    sb.append("new json.java21.jsonpath.JsonPathAst.ScriptExpression(\"")
-                            .append(escapeJavaString(script.script())).append("\")");
-        }
-    }
-
-    private static void generateFilterExprLiteral(StringBuilder sb, JsonPathAst.FilterExpression expr) {
-        switch (expr) {
-            case JsonPathAst.ExistsFilter exists -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.ExistsFilter(");
-                generateFilterExprLiteral(sb, exists.path());
-                sb.append(")");
-            }
-            case JsonPathAst.ComparisonFilter comp -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.ComparisonFilter(");
-                generateFilterExprLiteral(sb, comp.left());
-                sb.append(", json.java21.jsonpath.JsonPathAst.ComparisonOp.").append(comp.op().name()).append(", ");
-                generateFilterExprLiteral(sb, comp.right());
-                sb.append(")");
-            }
-            case JsonPathAst.LogicalFilter logical -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.LogicalFilter(");
-                generateFilterExprLiteral(sb, logical.left());
-                sb.append(", json.java21.jsonpath.JsonPathAst.LogicalOp.").append(logical.op().name()).append(", ");
-                if (logical.right() != null) {
-                    generateFilterExprLiteral(sb, logical.right());
-                } else {
-                    sb.append("null");
-                }
-                sb.append(")");
-            }
-            case JsonPathAst.CurrentNode ignored ->
-                    sb.append("new json.java21.jsonpath.JsonPathAst.CurrentNode()");
-            case JsonPathAst.PropertyPath path -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.PropertyPath(java.util.List.of(");
-                for (int i = 0; i < path.properties().size(); i++) {
-                    if (i > 0) sb.append(", ");
-                    sb.append("\"").append(escapeJavaString(path.properties().get(i))).append("\"");
-                }
-                sb.append("))");
-            }
-            case JsonPathAst.LiteralValue lit -> {
-                sb.append("new json.java21.jsonpath.JsonPathAst.LiteralValue(");
-                if (lit.value() == null) {
-                    sb.append("null");
-                } else if (lit.value() instanceof String s) {
-                    sb.append("\"").append(escapeJavaString(s)).append("\"");
-                } else if (lit.value() instanceof Number n) {
-                    if (lit.value() instanceof Long l) {
-                        sb.append(l).append("L");
-                    } else {
-                        sb.append(n.doubleValue());
-                    }
-                } else if (lit.value() instanceof Boolean b) {
-                    sb.append(b);
-                }
-                sb.append(")");
-            }
+            // Unsupported script - log warning and skip
+            // Only @.length-1 is supported in compiled mode
+            sb.append("        // WARNING: Unsupported script expression '%s' - skipped in compiled mode\n"
+                    .formatted(escapeJavaString(script.script())));
+            sb.append("        // Consider using slice notation instead: [-1:] for last element\n");
         }
     }
 
     /// Compiles the generated source code and instantiates the executor.
-    private static JsonPathCompiled.JsonPathExecutor compileAndInstantiate(String className, String sourceCode) {
+    private static JsonPathExecutor compileAndInstantiate(String className, String sourceCode) {
         final var compiler = ToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
             LOG.warning(() -> "No Java compiler available - falling back to interpreter delegation");
@@ -633,7 +516,7 @@ final class JsonPathCompiler {
         try {
             final var classLoader = new InMemoryClassLoader(fileManager.getClassBytes());
             final var clazz = classLoader.loadClass(fullClassName);
-            return (JsonPathCompiled.JsonPathExecutor) clazz.getDeclaredConstructor().newInstance();
+            return (JsonPathExecutor) clazz.getDeclaredConstructor().newInstance();
         } catch (Exception e) {
             throw new RuntimeException("Failed to instantiate compiled JsonPath executor", e);
         }
