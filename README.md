@@ -440,6 +440,55 @@ System.out.println("Avg price: " + priceStats.getAverage());
 
 See `json-java21-jsonpath/README.md` for JsonPath operators and more examples.
 
+## JSON Transforms
+
+This repo also includes a JSON Transforms implementation (module `json-java21-transforms`) based on the Microsoft JSON Document Transforms specification:
+https://github.com/Microsoft/json-document-transforms/wiki
+
+JSON Transforms provides a declarative way to transform JSON documents using transform specifications. A transform specification is itself a JSON document that describes operations (rename, remove, replace, merge) to apply to a source document.
+
+```java
+import jdk.sandbox.java.util.json.*;
+import json.java21.transforms.JsonTransforms;
+
+// Source document
+JsonValue source = Json.parse("""
+    {
+        "name": "Alice",
+        "age": 30,
+        "city": "Seattle"
+    }
+    """);
+
+// Transform specification
+JsonValue transform = Json.parse("""
+    {
+        "name": {
+            "@jdt.rename": "fullName"
+        },
+        "age": {
+            "@jdt.remove": true
+        },
+        "country": {
+            "@jdt.value": "USA"
+        }
+    }
+    """);
+
+// Parse and apply transform
+JsonTransforms transformer = JsonTransforms.parse(transform);
+JsonValue result = transformer.apply(source);
+
+// Result:
+// {
+//     "fullName": "Alice",
+//     "city": "Seattle",
+//     "country": "USA"
+// }
+```
+
+See `json-java21-transforms/README.md` for supported operations and more examples.
+
 ## Contributing
 
 If you use an AI assistant while contributing, ensure it follows the contributor/agent workflow rules in `AGENTS.md`.
