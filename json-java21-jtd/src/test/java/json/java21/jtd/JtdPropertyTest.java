@@ -383,6 +383,7 @@ class JtdPropertyTest extends JtdTestBase {
     return jtdSchemaArbitrary(depth - 1).map(NullableSchema::new);
   }
 
+  @SuppressWarnings("unused")
   @Provide
   Arbitrary<JtdTestSchema> jtdSchemas() {
     return jtdSchemaArbitrary(3);

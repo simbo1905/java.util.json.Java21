@@ -9,9 +9,14 @@ References:
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
 You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
 
-To kick the tyres on the New JSON API this repo includes a JSON Type Definition (JTD) Validator implementing RFC 8927, released on Maven Central as part of this project.
+In addition to the core backport, this repo includes implementations of more advanced JSON technologies built on the `java.util.json` API.
 
-We welcome contributions to the JTD Validator incubating within this repo. 
+| Submodule | What it is | Quick overview |
+| --- | --- | --- |
+| `json-java21-jtd` | JSON Type Definition (JTD) validator implementing RFC 8927 | [JTD validator](#json-type-definition-jtd-validator) |
+| `json-java21-jsonpath` | JsonPath query engine over `java.util.json` values | [JsonPath](#jsonpath) |
+
+We welcome contributions to these incubating modules.
 
 ## Usage Examples
 
