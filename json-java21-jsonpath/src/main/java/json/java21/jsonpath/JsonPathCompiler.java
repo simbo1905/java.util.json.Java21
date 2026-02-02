@@ -14,6 +14,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.lang.reflect.Constructor;
+import java.lang.invoke.MethodHandles;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
@@ -70,8 +71,7 @@ final class JsonPathCompiler {
 
     private static JsonPath instantiate(String fqcn, Map<String, byte[]> bytecode) {
         try {
-            final var loader = new InMemoryClassLoader(JsonPathCompiler.class.getClassLoader(), bytecode);
-            final Class<?> clazz = loader.loadClass(fqcn);
+            final Class<?> clazz = defineInThisLoader(fqcn, bytecode);
             if (!JsonPath.class.isAssignableFrom(clazz)) {
                 throw new IllegalStateException("Generated class does not implement JsonPath: " + fqcn);
             }
@@ -82,6 +82,30 @@ final class JsonPathCompiler {
             return ctor.newInstance();
         } catch (ReflectiveOperationException ex) {
             throw new IllegalStateException("Failed to load/instantiate generated JsonPath class: " + fqcn, ex);
+        }
+    }
+
+    private static Class<?> defineInThisLoader(String fqcn, Map<String, byte[]> bytecode) {
+        final var bytes = bytecode.get(fqcn);
+        if (bytes == null) {
+            throw new IllegalStateException("Missing bytecode for generated class: " + fqcn);
+        }
+        try {
+            // Define into the same loader/package as JsonPathCompiler so package-private helpers are accessible.
+            final MethodHandles.Lookup lookup = MethodHandles.lookup();
+            // Define any nested classes first, then the main (or vice versa) doesn't matter for our current codegen.
+            for (final var entry : bytecode.entrySet()) {
+                if (!entry.getKey().equals(fqcn)) {
+                    try {
+                        lookup.defineClass(entry.getValue());
+                    } catch (LinkageError ignored) {
+                        // Best-effort: might already be defined in this JVM.
+                    }
+                }
+            }
+            return lookup.defineClass(bytes);
+        } catch (IllegalAccessException ex) {
+            throw new IllegalStateException("Failed to define generated class in current loader: " + fqcn, ex);
         }
     }
 
@@ -340,22 +364,5 @@ final class JsonPathCompiler {
         }
     }
 
-    private static final class InMemoryClassLoader extends ClassLoader {
-        private final Map<String, byte[]> bytecode;
-
-        InMemoryClassLoader(ClassLoader parent, Map<String, byte[]> bytecode) {
-            super(parent);
-            this.bytecode = bytecode;
-        }
-
-        @Override
-        protected Class<?> findClass(String name) throws ClassNotFoundException {
-            final var bytes = bytecode.get(name);
-            if (bytes == null) {
-                return super.findClass(name);
-            }
-            return defineClass(name, bytes, 0, bytes.length);
-        }
-    }
 }
 
