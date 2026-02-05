@@ -1,6 +1,5 @@
 package io.github.simbo1905.json.jtd.codegen;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -30,9 +29,9 @@ final class EsmRenderer {
 
         sb.append("// ").append(schema.id()).append("-").append(sha256Prefix8).append(".js\n");
         sb.append("// Generated from JTD schema: ").append(schema.id()).append("\n");
-        sb.append("// SHA-256: ").append(sha256Prefix8).append("...").append("\n");
+        sb.append("// SHA-256: ").append(sha256Hex).append(" (prefix: ").append(sha256Prefix8).append(")\n");
         sb.append("// WARNING: Experimental - flat schemas only\n");
-        sb.append("// Generated at: ").append(Instant.now()).append("\n\n");
+        sb.append("\n");
 
         sb.append("const SCHEMA_ID = ").append(jsString(schema.id())).append(";\n\n");
 
