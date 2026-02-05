@@ -9,7 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.TreeMap;
 
-import static io.github.simbo1905.json.jtd.codegen.JtdNode.*;
+import static io.github.simbo1905.json.jtd.codegen.JtdAst.*;
 
 /// Renders an ES2020 JavaScript module exporting `validate(instance)`.
 ///

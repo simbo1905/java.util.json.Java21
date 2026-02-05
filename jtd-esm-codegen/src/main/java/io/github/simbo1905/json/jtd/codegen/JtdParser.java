@@ -14,7 +14,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 
-import static io.github.simbo1905.json.jtd.codegen.JtdNode.*;
+import static io.github.simbo1905.json.jtd.codegen.JtdAst.*;
 
 /// Parses a deliberately-limited subset of JTD (RFC 8927) for code generation.
 ///

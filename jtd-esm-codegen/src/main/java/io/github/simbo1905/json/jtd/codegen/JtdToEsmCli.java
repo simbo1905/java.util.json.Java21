@@ -7,7 +7,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Objects;
 
-import static io.github.simbo1905.json.jtd.codegen.JtdNode.SchemaNode;
+import static io.github.simbo1905.json.jtd.codegen.JtdAst.SchemaNode;
 
 /// CLI entry point for generating an ES2020 ESM validator from a flat JTD schema.
 ///

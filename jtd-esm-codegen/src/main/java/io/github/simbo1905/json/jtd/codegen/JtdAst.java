@@ -8,23 +8,26 @@ import java.util.Map;
 /// Supported JTD subset:
 /// - root: `properties`, `optionalProperties`, `metadata.id`
 /// - leaf: `{}` (empty form), `{ "type": ... }`, `{ "enum": [...] }`
-sealed interface JtdNode permits JtdNode.SchemaNode, JtdNode.PropertyNode, JtdNode.TypeNode, JtdNode.EnumNode, JtdNode.EmptyNode {
+public final class JtdAst {
+    private JtdAst() {}
 
-    record SchemaNode(
+    public sealed interface JtdNode permits SchemaNode, PropertyNode, TypeNode, EnumNode, EmptyNode {}
+
+    public record SchemaNode(
             String id, // metadata.id
             Map<String, PropertyNode> properties,
             Map<String, PropertyNode> optionalProperties
     ) implements JtdNode {}
 
-    record PropertyNode(String name, JtdNode type) implements JtdNode {}
+    public record PropertyNode(String name, JtdNode type) implements JtdNode {}
 
     /// JTD primitive type keyword as a string, e.g. "string", "int32", "timestamp".
-    record TypeNode(String type) implements JtdNode {}
+    public record TypeNode(String type) implements JtdNode {}
 
     /// Enum values (strings only in RFC 8927).
-    record EnumNode(List<String> values) implements JtdNode {}
+    public record EnumNode(List<String> values) implements JtdNode {}
 
     /// Empty form `{}`: accepts any JSON value.
-    record EmptyNode() implements JtdNode {}
+    public record EmptyNode() implements JtdNode {}
 }
 
