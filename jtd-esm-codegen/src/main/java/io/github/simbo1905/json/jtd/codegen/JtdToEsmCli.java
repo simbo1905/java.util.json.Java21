@@ -28,7 +28,7 @@ public final class JtdToEsmCli {
         System.out.println("Generated: " + outJs);
     }
 
-    static Path run(Path schemaPath, Path outDir) throws IOException {
+    public static Path run(Path schemaPath, Path outDir) throws IOException {
         LOG.fine(() -> "Reading schema from: " + schemaPath);
         
         final String schemaJson = Files.readString(schemaPath, StandardCharsets.UTF_8);

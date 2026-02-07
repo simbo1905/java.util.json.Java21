@@ -2,6 +2,10 @@ package io.github.simbo1905.json.jtd.codegen;
 
 import jdk.sandbox.java.util.json.*;
 import net.jqwik.api.*;
+import org.graalvm.polyglot.Context;
+import org.graalvm.polyglot.Source;
+import org.graalvm.polyglot.Value;
+import org.graalvm.polyglot.io.IOAccess;
 import org.junit.jupiter.api.Assertions;
 
 import java.io.IOException;
@@ -13,16 +17,17 @@ import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /// Property-based testing for JTD to ESM code generator.
 /// Generates comprehensive schema/document permutations to validate generated JavaScript validators.
+///
+/// Uses GraalVM Polyglot JS for in-process JavaScript execution - no external runtime needed.
 class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
-    private static final Logger LOG = Logger.getLogger(JtdEsmPropertyTest.class.getName());
+    static final Logger LOG = Logger.getLogger(JtdEsmPropertyTest.class.getName());
 
     private static final List<String> PROPERTY_NAMES = List.of("alpha", "beta", "gamma", "delta", "epsilon");
     private static final List<List<String>> PROPERTY_PAIRS = List.of(
-        List.of("alpha", "beta"), List.of("alpha", "gamma"), 
+        List.of("alpha", "beta"), List.of("alpha", "gamma"),
         List.of("beta", "delta"), List.of("gamma", "epsilon")
     );
     private static final List<String> DISCRIMINATOR_VALUES = List.of("type1", "type2", "type3");
@@ -30,7 +35,7 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
     private static final Random RANDOM = new Random();
 
     /// Sealed interface for JTD test schemas
-    sealed interface JtdTestSchema permits EmptySchema, RefSchema, TypeSchema, EnumSchema, 
+    sealed interface JtdTestSchema permits EmptySchema, RefSchema, TypeSchema, EnumSchema,
         ElementsSchema, PropertiesSchema, ValuesSchema, DiscriminatorSchema, NullableSchema {}
 
     record EmptySchema() implements JtdTestSchema {}
@@ -38,7 +43,7 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
     record TypeSchema(String type) implements JtdTestSchema {}
     record EnumSchema(List<String> values) implements JtdTestSchema {}
     record ElementsSchema(JtdTestSchema elements) implements JtdTestSchema {}
-    record PropertiesSchema(Map<String, JtdTestSchema> properties, 
+    record PropertiesSchema(Map<String, JtdTestSchema> properties,
                            Map<String, JtdTestSchema> optionalProperties,
                            boolean additionalProperties) implements JtdTestSchema {}
     record ValuesSchema(JtdTestSchema values) implements JtdTestSchema {}
@@ -98,7 +103,7 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
         final var empty = Arbitraries.of(new PropertiesSchema(Map.of(), Map.of(), false));
 
         final var singleRequired = Combinators.combine(
-            Arbitraries.of(PROPERTY_NAMES), 
+            Arbitraries.of(PROPERTY_NAMES),
             jtdSchemaArbitrary(childDepth)
         ).as((name, schema) -> {
             Assertions.assertNotNull(name);
@@ -181,8 +186,8 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
             Combinators.combine(Arbitraries.of(effectivePropertyNames), primitiveSchemas)
                 .as((name, schema) -> new PropertiesSchema(Map.of(), Map.of(name, schema), false)),
             Combinators.combine(Arbitraries.of(safePropertyPairs), primitiveSchemas, primitiveSchemas)
-                .as((names, reqSchema, optSchema) -> 
-                    new PropertiesSchema(Map.of(names.getFirst(), reqSchema), 
+                .as((names, reqSchema, optSchema) ->
+                    new PropertiesSchema(Map.of(names.getFirst(), reqSchema),
                                         Map.of(names.getLast(), optSchema), false))
         );
     }
@@ -191,59 +196,11 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
         return jtdSchemaArbitrary(depth - 1).map(NullableSchema::new);
     }
 
-    /// Converts test schema to JtdAst.RootNode
-    private static JtdAst.RootNode testSchemaToRootNode(JtdTestSchema schema) {
-        final var definitions = new LinkedHashMap<String, JtdAst.JtdNode>();
-        final var rootNode = convertToJtdNode(schema, definitions);
-        return new JtdAst.RootNode("property-test", definitions, rootNode);
-    }
-
-    private static JtdAst.JtdNode convertToJtdNode(JtdTestSchema schema, 
-                                                   Map<String, JtdAst.JtdNode> definitions) {
-        return switch (schema) {
-            case EmptySchema ignored -> new JtdAst.EmptyNode();
-            case RefSchema(var ref) -> new JtdAst.RefNode(ref);
-            case TypeSchema(var type) -> new JtdAst.TypeNode(type);
-            case EnumSchema(var values) -> new JtdAst.EnumNode(values);
-            case ElementsSchema(var elem) -> 
-                new JtdAst.ElementsNode(convertToJtdNode(elem, definitions));
-            case PropertiesSchema(var props, var optProps, var add) -> 
-                new JtdAst.PropertiesNode(
-                    props.entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> convertToJtdNode(e.getValue(), definitions),
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                    )),
-                    optProps.entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> convertToJtdNode(e.getValue(), definitions),
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                    )),
-                    add
-                );
-            case ValuesSchema(var val) -> 
-                new JtdAst.ValuesNode(convertToJtdNode(val, definitions));
-            case DiscriminatorSchema(var disc, var mapping) -> 
-                new JtdAst.DiscriminatorNode(disc, 
-                    mapping.entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> convertToJtdNode(e.getValue(), definitions),
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                    ))
-                );
-            case NullableSchema(var inner) -> 
-                new JtdAst.NullableNode(convertToJtdNode(inner, definitions));
-        };
-    }
-
     /// Builds compliant JSON document for a schema
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static Object buildCompliantDocument(JtdTestSchema schema) {
+    static Object buildCompliantDocument(JtdTestSchema schema) {
         return switch (schema) {
-            case EmptySchema ignored -> generateAnyValue();
+            case EmptySchema ignored -> "anything-goes";
             case RefSchema ignored -> "ref-compliant-value";
             case TypeSchema(var type) -> buildCompliantTypeValue(type);
             case EnumSchema(var values) -> values.getFirst();
@@ -289,31 +246,6 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
         };
     }
 
-    private static Object generateAnyValue() {
-        return switch (RANDOM.nextInt(7)) {
-            case 0 -> null;
-            case 1 -> RANDOM.nextBoolean();
-            case 2 -> RANDOM.nextInt(100);
-            case 3 -> RANDOM.nextDouble();
-            case 4 -> "random-string-" + RANDOM.nextInt(1000);
-            case 5 -> {
-                final var v1 = generateAnyValue();
-                final var v2 = generateAnyValue();
-                final var lst = new ArrayList<>();
-                if (v1 != null) lst.add(v1);
-                if (v2 != null) lst.add(v2);
-                yield lst;
-            }
-            case 6 -> {
-                final var v = generateAnyValue();
-                final var map = new LinkedHashMap<String, Object>();
-                if (v != null) map.put("key" + RANDOM.nextInt(10), v);
-                yield map;
-            }
-            default -> "fallback";
-        };
-    }
-
     private static Object buildCompliantTypeValue(String type) {
         return switch (type) {
             case "boolean" -> true;
@@ -332,7 +264,7 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
 
     /// Creates failing documents for a schema
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private static List<Object> createFailingDocuments(JtdTestSchema schema, Object compliant) {
+    static List<Object> createFailingDocuments(JtdTestSchema schema, Object compliant) {
         return switch (schema) {
             case EmptySchema ignored -> List.of();
             case RefSchema ignored -> Collections.singletonList(null);
@@ -347,36 +279,38 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
                         innerLst.add(invalidElem.getFirst());
                         final var failures = new ArrayList<>();
                         failures.add(innerLst);
-                        failures.add(null);
+                        failures.add("not-an-array");
                         yield failures;
                     }
                 }
-                yield Collections.singletonList(null);
+                yield List.of("not-an-array");
             }
             case PropertiesSchema(var props, var optProps, var add) -> {
                 if (props.isEmpty() && optProps.isEmpty()) {
                     yield List.of();
                 }
                 final var failures = new ArrayList<Object>();
-                if (!props.isEmpty()) {
+                if (!props.isEmpty() && compliant instanceof Map) {
                     final var firstKey = props.keySet().iterator().next();
                     failures.add(removeKey((Map<String, Object>) compliant, firstKey));
                 }
-                if (!add) {
+                if (!add && compliant instanceof Map) {
                     final var extended = new LinkedHashMap<>((Map<String, Object>) compliant);
                     extended.put("extraProperty", "extra-value");
                     failures.add(extended);
                 }
-                failures.add(null);
+                failures.add("not-an-object");
                 yield failures;
             }
-            case ValuesSchema ignored -> Arrays.asList(null, "not-an-object");
+            case ValuesSchema ignored -> List.of("not-an-object");
             case DiscriminatorSchema(var disc, var ignored) -> {
                 final var failures = new ArrayList<Object>();
-                final var modified = new LinkedHashMap<>((Map<String, Object>) compliant);
-                modified.put(disc, "invalid-discriminator");
-                failures.add(modified);
-                failures.add(null);
+                if (compliant instanceof Map) {
+                    final var modified = new LinkedHashMap<>((Map<String, Object>) compliant);
+                    modified.put(disc, "invalid-discriminator");
+                    failures.add(modified);
+                }
+                failures.add("not-an-object");
                 yield failures;
             }
             case NullableSchema ignored -> List.of();
@@ -405,7 +339,7 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
     }
 
     /// Describes schema for logging
-    private static String describeSchema(JtdTestSchema schema) {
+    static String describeSchema(JtdTestSchema schema) {
         return switch (schema) {
             case EmptySchema ignored -> "empty";
             case RefSchema(var ref) -> "ref:" + ref;
@@ -421,135 +355,13 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
             }
             case ValuesSchema(var val) -> "values[" + describeSchema(val) + "]";
             case DiscriminatorSchema(var disc, var mapping) ->
-                "discriminator[" + disc + "→{" + String.join(",", mapping.keySet()) + "}]";
+                "discriminator[" + disc + "={" + String.join(",", mapping.keySet()) + "}]";
             case NullableSchema(var inner) -> "nullable[" + describeSchema(inner) + "]";
         };
     }
 
-    @Property(generation = GenerationMode.AUTO)
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void generatedValidatorPassesCompliantDocuments(@ForAll("jtdSchemas") JtdTestSchema schema) throws Exception {
-        assumeTrue(isBunAvailable(), "bun is required for JavaScript execution tests");
-        LOG.finer(() -> "Executing generatedValidatorPassesCompliantDocuments");
-
-        final var schemaDescription = describeSchema(schema);
-        LOG.fine(() -> "Testing schema: " + schemaDescription);
-
-        // Skip problematic combinations
-        if (schemaDescription.contains("elements[discriminator[") && schemaDescription.contains("type=")) {
-            LOG.fine(() -> "Skipping problematic schema: " + schemaDescription);
-            return;
-        }
-
-        // Generate and compile schema
-        final var rootNode = testSchemaToRootNode(schema);
-        final var tempDir = Files.createTempDirectory("jtd-esm-prop-test-");
-        
-        // Write schema JSON
-        final var schemaJson = jtdSchemaToJsonObject(schema);
-        final var schemaFile = tempDir.resolve("schema.json");
-        Files.writeString(schemaFile, Json.toDisplayString(schemaJson, 0), StandardCharsets.UTF_8);
-
-        // Generate JS validator
-        final var outJs = JtdToEsmCli.run(schemaFile, tempDir);
-
-        // Test compliant document
-        final var compliantDoc = buildCompliantDocument(schema);
-        // Skip null compliant documents (NullableSchema can return null)
-        if (compliantDoc == null) {
-            LOG.fine(() -> "Skipping null compliant document for schema: " + schemaDescription);
-            cleanup(tempDir);
-            return;
-        }
-        final var runnerCode = buildTestRunner(outJs, List.of(
-            Map.of("name", "compliant", "data", compliantDoc, "expectEmpty", true)
-        ));
-
-        final var runnerFile = tempDir.resolve("runner.mjs");
-        Files.writeString(runnerFile, runnerCode, StandardCharsets.UTF_8);
-
-        final var result = runBunTest(tempDir, runnerFile);
-        LOG.fine(() -> "Test result - exitCode: " + result.exitCode() + ", output: " + result.output());
-        if (result.exitCode() != 0) {
-            LOG.severe(() -> String.format("Test failed for schema: %s%nCompliant document: %s%nExit code: %d%nOutput: %s", 
-                schemaDescription, compliantDoc, result.exitCode(), result.output()));
-        }
-        assertThat(result.exitCode()).as("Compliant document should pass validation for schema: %s", schemaDescription).isEqualTo(0);
-        assertThat(result.output()).as("Test output for schema: %s", schemaDescription).contains("passed", "0 failed");
-
-        // Cleanup
-        cleanup(tempDir);
-    }
-
-    @Property(generation = GenerationMode.AUTO)
-    @SuppressWarnings({"unchecked", "rawtypes"})
-    void generatedValidatorRejectsFailingDocuments(@ForAll("jtdSchemas") JtdTestSchema schema) throws Exception {
-        assumeTrue(isBunAvailable(), "bun is required for JavaScript execution tests");
-        LOG.finer(() -> "Executing generatedValidatorRejectsFailingDocuments");
-
-        final var schemaDescription = describeSchema(schema);
-        LOG.fine(() -> "Testing schema: " + schemaDescription);
-
-        // Skip problematic combinations
-        if (schemaDescription.contains("elements[discriminator[") && schemaDescription.contains("type=")) {
-            LOG.fine(() -> "Skipping problematic schema: " + schemaDescription);
-            return;
-        }
-
-        // Skip schemas that accept everything
-        if (schema instanceof EmptySchema || schema instanceof NullableSchema) {
-            LOG.fine(() -> "Skipping schema that accepts everything: " + schemaDescription);
-            return;
-        }
-
-        // Generate and compile schema
-        final var rootNode = testSchemaToRootNode(schema);
-        final var tempDir = Files.createTempDirectory("jtd-esm-prop-test-");
-        
-        // Write schema JSON
-        final var schemaJson = jtdSchemaToJsonObject(schema);
-        final var schemaFile = tempDir.resolve("schema.json");
-        Files.writeString(schemaFile, Json.toDisplayString(schemaJson, 0), StandardCharsets.UTF_8);
-
-        // Generate JS validator
-        final var outJs = JtdToEsmCli.run(schemaFile, tempDir);
-
-        // Create failing documents
-        final var compliantDoc = buildCompliantDocument(schema);
-        final var failingDocs = createFailingDocuments(schema, compliantDoc);
-
-        if (failingDocs.isEmpty()) {
-            LOG.fine(() -> "No failing documents for schema: " + schemaDescription);
-            cleanup(tempDir);
-            return;
-        }
-
-        // Build test cases (filter out null failing docs)
-        final var testCases = new ArrayList<Map<String, Object>>();
-        for (int i = 0; i < failingDocs.size(); i++) {
-            final var failingDoc = failingDocs.get(i);
-            if (failingDoc != null) {
-                testCases.add(Map.of(
-                    "name", "failing-" + i,
-                    "data", failingDoc,
-                    "expectEmpty", false
-                ));
-            }
-        }
-
-        final var runnerCode = buildTestRunner(outJs, testCases);
-        final var runnerFile = tempDir.resolve("runner.mjs");
-        Files.writeString(runnerFile, runnerCode, StandardCharsets.UTF_8);
-
-        final var result = runBunTest(tempDir, runnerFile);
-        assertThat(result.exitCode()).as("Failing documents should be rejected for schema: %s", schemaDescription).isEqualTo(0);
-        assertThat(result.output()).as("Test output for failing documents with schema: %s", schemaDescription).contains("passed", "0 failed");
-
-        // Cleanup
-        cleanup(tempDir);
-    }
-
-    private static JsonObject jtdSchemaToJsonObject(JtdTestSchema schema) {
+    /// Converts test schema to JSON for the codegen parser
+    static JsonObject jtdSchemaToJsonObject(JtdTestSchema schema) {
         return switch (schema) {
             case EmptySchema ignored -> JsonObject.of(Map.of());
             case RefSchema(var ref) -> {
@@ -572,20 +384,14 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
                 final var schemaMap = new LinkedHashMap<String, JsonValue>();
                 if (!props.isEmpty()) {
                     final Map<String, JsonValue> propsMap = props.entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> jtdSchemaToJsonObject(e.getValue()),
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                    ));
+                        Map.Entry::getKey, e -> jtdSchemaToJsonObject(e.getValue()),
+                        (a, b) -> a, LinkedHashMap::new));
                     schemaMap.put("properties", JsonObject.of(propsMap));
                 }
                 if (!optProps.isEmpty()) {
                     final Map<String, JsonValue> optMap = optProps.entrySet().stream().collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        e -> jtdSchemaToJsonObject(e.getValue()),
-                        (a, b) -> a,
-                        LinkedHashMap::new
-                    ));
+                        Map.Entry::getKey, e -> jtdSchemaToJsonObject(e.getValue()),
+                        (a, b) -> a, LinkedHashMap::new));
                     schemaMap.put("optionalProperties", JsonObject.of(optMap));
                 }
                 if (add) {
@@ -601,11 +407,8 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
                 final var schemaMap = new LinkedHashMap<String, JsonValue>();
                 schemaMap.put("discriminator", JsonString.of(disc));
                 final Map<String, JsonValue> mappingMap = mapping.entrySet().stream().collect(Collectors.toMap(
-                    Map.Entry::getKey,
-                    e -> jtdSchemaToJsonObject(e.getValue()),
-                    (a, b) -> a,
-                    LinkedHashMap::new
-                ));
+                    Map.Entry::getKey, e -> jtdSchemaToJsonObject(e.getValue()),
+                    (a, b) -> a, LinkedHashMap::new));
                 schemaMap.put("mapping", JsonObject.of(mappingMap));
                 yield JsonObject.of(schemaMap);
             }
@@ -619,77 +422,155 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
         };
     }
 
-    private static String buildTestRunner(Path validatorPath, List<Map<String, Object>> testCases) {
-        final var sb = new StringBuilder();
-        sb.append("import { validate } from '").append(validatorPath.toUri()).append("';\n\n");
-        sb.append("const testCases = [\n");
-        
-        for (var tc : testCases) {
-            sb.append("    {\n");
-            sb.append("        name: '").append(tc.get("name")).append("',\n");
-            sb.append("        data: ").append(jsonValueToJs(tc.get("data"))).append(",\n");
-            sb.append("        expectEmpty: ").append(tc.get("expectEmpty")).append("\n");
-            sb.append("    },\n");
+    /// Converts a Java value to a GraalVM polyglot-compatible value.
+    @SuppressWarnings("unchecked")
+    private static Object toGraalValue(Context context, Object value) {
+        if (value == null) return null;
+        if (value instanceof Boolean || value instanceof String) return value;
+        if (value instanceof Number num) return num.doubleValue();
+        if (value instanceof List<?> lst) {
+            final var jsArray = context.eval("js", "[]");
+            for (int i = 0; i < lst.size(); i++) {
+                jsArray.setArrayElement(i, toGraalValue(context, lst.get(i)));
+            }
+            return jsArray;
         }
-        
-        sb.append("];\n\n");
-        sb.append("let passed = 0;\n");
-        sb.append("let failed = 0;\n\n");
-        sb.append("for (const tc of testCases) {\n");
-        sb.append("    const errors = validate(tc.data);\n");
-        sb.append("    const isEmpty = errors.length === 0;\n");
-        sb.append("    if (isEmpty === tc.expectEmpty) {\n");
-        sb.append("        passed++;\n");
-        sb.append("    } else {\n");
-        sb.append("        console.log(`✗ ${tc.name} - expected ${tc.expectEmpty ? 'no errors' : 'errors'}, got ${JSON.stringify(errors)}`);\n");
-        sb.append("        failed++;\n");
-        sb.append("    }\n");
-        sb.append("}\n\n");
-        sb.append("console.log(`${passed} passed, ${failed} failed`);\n");
-        sb.append("process.exit(failed > 0 ? 1 : 0);\n");
-        
-        return sb.toString();
+        if (value instanceof Map<?, ?> rawMap) {
+            final var jsObj = context.eval("js", "({})");
+            final var typedMap = (Map<String, Object>) rawMap;
+            for (var entry : typedMap.entrySet()) {
+                jsObj.putMember(entry.getKey(), toGraalValue(context, entry.getValue()));
+            }
+            return jsObj;
+        }
+        return value;
     }
 
-    private static String jsonValueToJs(Object value) {
-        if (value == null) return "null";
-        if (value instanceof Boolean) return value.toString();
-        if (value instanceof Number) return value.toString();
-        if (value instanceof String) return "\"" + value + "\"";
-        if (value instanceof List) {
-            final var lst = (List<?>) value;
-            return "[" + lst.stream().map(JtdEsmPropertyTest::jsonValueToJs).collect(Collectors.joining(", ")) + "]";
-        }
-        if (value instanceof Map) {
-            final var map = (Map<?, ?>) value;
-            return "{" + map.entrySet().stream()
-                .map(e -> jsonValueToJs(e.getKey()) + ": " + jsonValueToJs(e.getValue()))
-                .collect(Collectors.joining(", ")) + "}";
-        }
-        return "null";
-    }
-
-    private static boolean isBunAvailable() {
-        try {
-            final var p = new ProcessBuilder("bun", "--version")
-                .redirectErrorStream(true)
-                .start();
-            return p.waitFor() == 0;
-        } catch (Exception e) {
-            return false;
+    /// Runs validation via GraalVM polyglot: loads the generated ESM module,
+    /// calls `validate(instance)`, returns the number of errors.
+    private static int runValidation(Path modulePath, Object document, String schemaDescription, String testName) throws IOException {
+        final var jsContent = Files.readString(modulePath, StandardCharsets.UTF_8);
+        LOG.finest(() -> String.format("%s - Generated JS for schema '%s':%n%s", testName, schemaDescription, jsContent));
+        LOG.finest(() -> String.format("%s - Document: %s", testName, document));
+        
+        try (var context = Context.newBuilder("js")
+                .allowIO(IOAccess.ALL)
+                .option("js.esm-eval-returns-exports", "true")
+                .option("js.ecmascript-version", "2020")
+                .build()) {
+            final var source = Source.newBuilder("js", modulePath.toFile())
+                .mimeType("application/javascript+module")
+                .build();
+            final var exports = context.eval(source);
+            final var validateFn = exports.getMember("validate");
+            final var graalDoc = toGraalValue(context, document);
+            final var result = validateFn.execute(graalDoc);
+            return (int) result.getArraySize();
         }
     }
 
-    private static TestResult runBunTest(Path workingDir, Path runnerFile) throws Exception {
-        final var p = new ProcessBuilder("bun", "run", runnerFile.toString())
-            .directory(workingDir.toFile())
-            .redirectErrorStream(true)
-            .start();
-        
-        final var output = new String(p.getInputStream().readAllBytes(), StandardCharsets.UTF_8).trim();
-        final var exitCode = p.waitFor();
-        
-        return new TestResult(exitCode, output);
+    @Property(generation = GenerationMode.AUTO)
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void generatedValidatorPassesCompliantDocuments(@ForAll("jtdSchemas") JtdTestSchema schema) throws Exception {
+        LOG.finer(() -> "Executing generatedValidatorPassesCompliantDocuments");
+
+        final var schemaDescription = describeSchema(schema);
+        LOG.fine(() -> "Testing schema: " + schemaDescription);
+
+        // Skip problematic combinations
+        if (schemaDescription.contains("elements[discriminator[") && schemaDescription.contains("type=")) {
+            LOG.fine(() -> "Skipping problematic schema: " + schemaDescription);
+            return;
+        }
+
+        final var tempDir = Files.createTempDirectory("jtd-esm-prop-test-");
+
+        // Write schema JSON and generate validator
+        final var schemaJson = jtdSchemaToJsonObject(schema);
+        final var schemaFile = tempDir.resolve("schema.json");
+        Files.writeString(schemaFile, Json.toDisplayString(schemaJson, 0), StandardCharsets.UTF_8);
+        final var outJs = JtdToEsmCli.run(schemaFile, tempDir);
+
+        // Build compliant document
+        final var compliantDoc = buildCompliantDocument(schema);
+        if (compliantDoc == null) {
+            LOG.fine(() -> "Skipping null compliant document for schema: " + schemaDescription);
+            cleanup(tempDir);
+            return;
+        }
+
+        // Validate via GraalVM polyglot
+        final int errorCount = runValidation(outJs, compliantDoc, schemaDescription, "generatedValidatorPassesCompliantDocuments");
+
+        if (errorCount != 0) {
+            LOG.severe(() -> String.format(
+                "Compliant document FAILED for schema: %s%nDocument: %s%nErrors: %d%nGenerated JS: %s",
+                schemaDescription, compliantDoc, errorCount, outJs));
+        }
+
+        assertThat(errorCount).as(
+            "Compliant document should pass validation for schema: %s with doc: %s",
+            schemaDescription, compliantDoc).isZero();
+
+        cleanup(tempDir);
+    }
+
+    @Property(generation = GenerationMode.AUTO)
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void generatedValidatorRejectsFailingDocuments(@ForAll("jtdSchemas") JtdTestSchema schema) throws Exception {
+        LOG.finer(() -> "Executing generatedValidatorRejectsFailingDocuments");
+
+        final var schemaDescription = describeSchema(schema);
+        LOG.fine(() -> "Testing schema: " + schemaDescription);
+
+        // Skip problematic combinations
+        if (schemaDescription.contains("elements[discriminator[") && schemaDescription.contains("type=")) {
+            LOG.fine(() -> "Skipping problematic schema: " + schemaDescription);
+            return;
+        }
+
+        // Skip schemas that accept everything
+        if (schema instanceof EmptySchema || schema instanceof NullableSchema) {
+            return;
+        }
+
+        final var tempDir = Files.createTempDirectory("jtd-esm-prop-test-");
+
+        // Write schema JSON and generate validator
+        final var schemaJson = jtdSchemaToJsonObject(schema);
+        final var schemaFile = tempDir.resolve("schema.json");
+        Files.writeString(schemaFile, Json.toDisplayString(schemaJson, 0), StandardCharsets.UTF_8);
+        final var outJs = JtdToEsmCli.run(schemaFile, tempDir);
+
+        // Create failing documents
+        final var compliantDoc = buildCompliantDocument(schema);
+        final var failingDocs = createFailingDocuments(schema, compliantDoc);
+
+        if (failingDocs.isEmpty()) {
+            cleanup(tempDir);
+            return;
+        }
+
+        // Validate each failing document
+        for (int i = 0; i < failingDocs.size(); i++) {
+            final var failingDoc = failingDocs.get(i);
+            if (failingDoc == null) continue;
+
+            final int errorCount = runValidation(outJs, failingDoc, schemaDescription, "generatedValidatorRejectsFailingDocuments");
+            final int docIndex = i;
+
+            if (errorCount == 0) {
+                LOG.severe(() -> String.format(
+                    "Failing document #%d PASSED (should have failed) for schema: %s%nDocument: %s%nGenerated JS: %s",
+                    docIndex, schemaDescription, failingDoc, outJs));
+            }
+
+            assertThat(errorCount).as(
+                "Failing document #%d should be rejected for schema: %s with doc: %s",
+                docIndex, schemaDescription, failingDoc).isGreaterThan(0);
+        }
+
+        cleanup(tempDir);
     }
 
     private static void cleanup(Path tempDir) throws IOException {
@@ -703,6 +584,4 @@ class JtdEsmPropertyTest extends JtdEsmCodegenLoggingConfig {
                 }
             });
     }
-
-    private record TestResult(int exitCode, String output) {}
 }

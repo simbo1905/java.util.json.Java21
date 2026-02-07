@@ -4,14 +4,13 @@ import java.util.*;
 
 import static io.github.simbo1905.json.jtd.codegen.JtdAst.*;
 
-/// Generates optimal ES2020 ESM validators using explicit stack-based validation.
+/// Generates ES2020 ESM validators per JTD_CODEGEN_SPEC.md
 /// 
-/// Key features:
-/// - Generates only the code needed (no unused helper functions)
-/// - Uses explicit stack to avoid recursion and stack overflow
-/// - Supports all RFC 8927 forms: elements, values, discriminator, nullable
-/// - Inlines primitive checks, uses loops for arrays
-/// - Generates separate functions for complex types
+/// Key principles:
+/// - No runtime stack - direct code emission
+/// - No helper functions - inline all checks
+/// - Emit only what the schema requires (no dead code)
+/// - Return {instancePath, schemaPath} error objects per RFC 8927
 final class EsmRenderer {
     private EsmRenderer() {}
 
@@ -25,12 +24,6 @@ final class EsmRenderer {
         ctx.shaPrefix8 = shaPrefix8;
         ctx.schemaId = schema.id();
 
-        // Analyze schema to determine what helpers we actually need
-        analyzeSchema(schema.rootSchema(), ctx);
-        for (var def : schema.definitions().values()) {
-            analyzeSchema(def, ctx);
-        }
-
         final var sb = new StringBuilder(8 * 1024);
 
         // Header
@@ -41,349 +34,224 @@ final class EsmRenderer {
 
         sb.append("const SCHEMA_ID = ").append(jsString(schema.id())).append(";\n\n");
 
-        // Generate enum constants
+        // Collect all enum constants used in the schema
+        collectEnums(schema.rootSchema(), ctx);
+        for (var def : schema.definitions().values()) {
+            collectEnums(def, ctx);
+        }
         generateEnumConstants(sb, ctx);
-
-        // Generate only the helper functions we need
-        generateHelpers(sb, ctx);
 
         // Generate validation functions for definitions
         for (var entry : schema.definitions().entrySet()) {
             final String defName = entry.getKey();
             final JtdNode defNode = entry.getValue();
-            generateDefinitionValidator(sb, defName, defNode, ctx);
+            generateDefinitionFunction(sb, defName, defNode, ctx);
         }
 
-        // Generate inline validation functions for complex nested types
-        ctx.inlineValidators.clear();
-        ctx.inlineValidatorCounter = 0;
-        collectInlineValidators(schema.rootSchema(), "root", ctx);
-        // Remove root from inline validators - we'll generate it separately
-        ctx.inlineValidators.remove("root");
-        
-        // Track discriminator mappings
-        trackDiscriminatorMappings(schema.rootSchema(), ctx);
-        
-        for (var entry : ctx.inlineValidators.entrySet()) {
-            final String key = entry.getKey();
-            final JtdNode node = entry.getValue();
-            final String discriminatorKey = ctx.discriminatorMappings.get(key);
-            generateInlineValidator(sb, key, node, ctx, discriminatorKey);
-        }
-
-        // Generate the root validator (referenced by validate() but defined before it)
-        generateInlineValidator(sb, "root", schema.rootSchema(), ctx, null);
-
-        // Generate main validate function with stack-based approach
+        // Generate the main validate function
         sb.append("export function validate(instance) {\n");
         sb.append("    const errors = [];\n");
-        sb.append("    const stack = [{ fn: validate_root, value: instance, path: '' }];\n\n");
-        sb.append("    while (stack.length > 0) {\n");
-        sb.append("        const frame = stack.pop();\n");
-        sb.append("        frame.fn(frame.value, errors, frame.path, stack);\n");
-        sb.append("    }\n\n");
+        
+        // Emit validation logic inline for root
+        final var rootCode = new StringBuilder();
+        generateNodeValidation(rootCode, schema.rootSchema(), ctx, "instance", "\"\"", "\"\"", "    ", null);
+        sb.append(rootCode);
+        
         sb.append("    return errors;\n");
         sb.append("}\n\n");
+
+        // Generate inline validator functions for complex nested schemas
+        generateInlineFunctions(sb, ctx);
 
         sb.append("export { SCHEMA_ID };\n");
 
         return sb.toString();
     }
 
-    /// Analyzes schema to determine which helpers are needed
-    private static void analyzeSchema(JtdNode node, RenderContext ctx) {
+    private static void collectEnums(JtdNode node, RenderContext ctx) {
         switch (node) {
-            case TypeNode tn -> {
-                switch (tn.type()) {
-                    case "timestamp" -> ctx.needsTimestampCheck = true;
-                    case "int8", "uint8", "int16", "uint16", "int32", "uint32" -> ctx.needsIntRangeCheck = true;
-                    case "float32", "float64" -> ctx.needsFloatCheck = true;
-                }
-            }
             case EnumNode en -> {
-                final String constName = "ENUM_" + (ctx.enumConstants.size() + 1);
+                final String constName = "ENUM_" + (ctx.enumCounter++);
                 ctx.enumConstants.put(constName, en.values());
             }
-            case ElementsNode el -> analyzeSchema(el.schema(), ctx);
-            case ValuesNode vn -> analyzeSchema(vn.schema(), ctx);
+            case ElementsNode el -> collectEnums(el.schema(), ctx);
+            case ValuesNode vn -> collectEnums(vn.schema(), ctx);
             case PropertiesNode pn -> {
-                pn.properties().values().forEach(n -> analyzeSchema(n, ctx));
-                pn.optionalProperties().values().forEach(n -> analyzeSchema(n, ctx));
+                pn.properties().values().forEach(n -> collectEnums(n, ctx));
+                pn.optionalProperties().values().forEach(n -> collectEnums(n, ctx));
             }
-            case DiscriminatorNode dn -> {
-                dn.mapping().values().forEach(n -> analyzeSchema(n, ctx));
-            }
-            case NullableNode nn -> analyzeSchema(nn.wrapped(), ctx);
-            case RefNode ignored -> {
-                // No analysis needed
-            }
-            case EmptyNode ignored -> {
-                // No analysis needed
-            }
+            case DiscriminatorNode dn -> dn.mapping().values().forEach(n -> collectEnums(n, ctx));
+            case NullableNode nn -> collectEnums(nn.wrapped(), ctx);
+            default -> {} // No enums
         }
-    }
-
-    private static void collectInlineValidators(JtdNode node, String prefix, RenderContext ctx) {
-        // Don't collect for simple types that can be validated inline
-        if (isSimpleType(node)) {
-            return;
-        }
-
-        // Already collected?
-        final String key = prefix;
-        if (ctx.inlineValidators.containsKey(key)) {
-            return;
-        }
-
-        ctx.inlineValidators.put(key, node);
-        ctx.inlineValidatorCounter++;
-
-        // Recurse into children
-        switch (node) {
-            case ElementsNode el -> collectInlineValidators(el.schema(), key + "_elem" + ctx.inlineValidatorCounter, ctx);
-            case ValuesNode vn -> collectInlineValidators(vn.schema(), key + "_val" + ctx.inlineValidatorCounter, ctx);
-            case PropertiesNode pn -> {
-                pn.properties().forEach((k, v) -> {
-                    if (!isSimpleType(v)) {
-                        collectInlineValidators(v, key + "_" + k + ctx.inlineValidatorCounter, ctx);
-                    }
-                });
-                pn.optionalProperties().forEach((k, v) -> {
-                    if (!isSimpleType(v)) {
-                        collectInlineValidators(v, key + "_" + k + ctx.inlineValidatorCounter, ctx);
-                    }
-                });
-            }
-            case DiscriminatorNode dn -> {
-                dn.mapping().forEach((k, v) -> {
-                    if (!isSimpleType(v)) {
-                        collectInlineValidators(v, key + "_" + k + ctx.inlineValidatorCounter, ctx);
-                    }
-                });
-            }
-            case NullableNode nn -> collectInlineValidators(nn.wrapped(), key + ctx.inlineValidatorCounter, ctx);
-            default -> {
-                // No children
-            }
-        }
-    }
-
-    /// Track which inline validators are discriminator mappings
-    private static void trackDiscriminatorMappings(JtdNode node, RenderContext ctx) {
-        trackDiscriminatorMappings(node, "root", null, ctx);
-    }
-
-    private static void trackDiscriminatorMappings(JtdNode node, String prefix, String parentDiscriminatorKey, RenderContext ctx) {
-        switch (node) {
-            case DiscriminatorNode dn -> {
-                // Track mappings for this discriminator
-                dn.mapping().forEach((tagValue, variantSchema) -> {
-                    // Try to find the inline validator key for this variant
-                    for (var entry : ctx.inlineValidators.entrySet()) {
-                        if (entry.getValue().equals(variantSchema)) {
-                            ctx.discriminatorMappings.put(entry.getKey(), dn.discriminator());
-                        }
-                    }
-                });
-                // Also recurse into variant schemas
-                dn.mapping().forEach((tagValue, variantSchema) -> 
-                    trackDiscriminatorMappings(variantSchema, prefix, dn.discriminator(), ctx));
-            }
-            case ElementsNode el -> trackDiscriminatorMappings(el.schema(), prefix + "_elem", parentDiscriminatorKey, ctx);
-            case ValuesNode vn -> trackDiscriminatorMappings(vn.schema(), prefix + "_val", parentDiscriminatorKey, ctx);
-            case PropertiesNode pn -> {
-                pn.properties().forEach((k, v) -> trackDiscriminatorMappings(v, prefix + "_" + k, parentDiscriminatorKey, ctx));
-                pn.optionalProperties().forEach((k, v) -> trackDiscriminatorMappings(v, prefix + "_" + k, parentDiscriminatorKey, ctx));
-            }
-            case NullableNode nn -> trackDiscriminatorMappings(nn.wrapped(), prefix, parentDiscriminatorKey, ctx);
-            default -> {
-                // No discriminator here
-            }
-        }
-    }
-
-    private static boolean isSimpleType(JtdNode node) {
-        return node instanceof TypeNode || node instanceof EnumNode || node instanceof EmptyNode || node instanceof RefNode;
     }
 
     private static void generateEnumConstants(StringBuilder sb, RenderContext ctx) {
-        int i = 1;
+        if (ctx.enumConstants.isEmpty()) return;
+        
         for (var entry : ctx.enumConstants.entrySet()) {
             sb.append("const ").append(entry.getKey()).append(" = ")
               .append(jsStringArray(entry.getValue())).append(";\n");
-            i++;
         }
-        if (!ctx.enumConstants.isEmpty()) {
-            sb.append("\n");
-        }
+        sb.append("\n");
     }
 
-    private static void generateHelpers(StringBuilder sb, RenderContext ctx) {
-        if (ctx.needsTimestampCheck) {
-            sb.append("function isTimestamp(v) {\n");
-            sb.append("    return typeof v === \"string\" && !Number.isNaN(Date.parse(v));\n");
-            sb.append("}\n\n");
-        }
-
-        if (ctx.needsIntRangeCheck) {
-            sb.append("function isIntInRange(v, min, max) {\n");
-            sb.append("    return Number.isInteger(v) && v >= min && v <= max;\n");
-            sb.append("}\n\n");
-        }
-
-        if (ctx.needsFloatCheck) {
-            sb.append("function isFloat(v) {\n");
-            sb.append("    return typeof v === \"number\" && Number.isFinite(v);\n");
-            sb.append("}\n\n");
-        }
-    }
-
-    private static void generateDefinitionValidator(StringBuilder sb, String defName, 
-            JtdNode node, RenderContext ctx) {
+    private static void generateDefinitionFunction(StringBuilder sb, String defName, JtdNode node, RenderContext ctx) {
         final String safeName = toSafeName(defName);
         
-        sb.append("function validate_").append(safeName).append("(value, errors, path, stack) {\n");
-        generateNodeValidation(sb, node, ctx, "value", "path", "    ", null);
+        sb.append("function validate_").append(safeName).append("(v, errors, p, sp) {\n");
+        generateNodeValidation(sb, node, ctx, "v", "p", "sp", "    ", null);
         sb.append("}\n\n");
     }
 
-    private static void generateInlineValidator(StringBuilder sb, String name, 
-            JtdNode node, RenderContext ctx, String discriminatorKey) {
-        sb.append("function validate_").append(name).append("(value, errors, path, stack) {\n");
-        generateNodeValidation(sb, node, ctx, "value", "path", "    ", discriminatorKey);
-        sb.append("}\n\n");
-    }
-
-    /// Generates validation logic for a node
-    private static void generateNodeValidation(StringBuilder sb, JtdNode node, 
-            RenderContext ctx, String valueExpr, String pathExpr, String indent, String discriminatorKey) {
+    /**
+     * Generates validation code for a node.
+     * @param discriminatorKey If non-null, this PropertiesNode is a discriminator variant and should
+     *                         skip validation of the discriminator key itself
+     */
+    private static void generateNodeValidation(StringBuilder sb, JtdNode node, RenderContext ctx,
+            String valueExpr, String pathExpr, String schemaPathExpr, String indent, String discriminatorKey) {
         
         switch (node) {
-            case EmptyNode en -> {
-                // Accepts anything - no validation needed
+            case EmptyNode ignored -> {
+                // Accepts anything - no validation
+            }
+            
+            case NullableNode nn -> {
+                if (nn.wrapped() instanceof EmptyNode) {
+                    // Nullable empty - accepts anything including null, no check needed
+                } else {
+                    sb.append(indent).append("if (").append(valueExpr).append(" !== null) {\n");
+                    generateNodeValidation(sb, nn.wrapped(), ctx, valueExpr, pathExpr, schemaPathExpr, indent + "    ", discriminatorKey);
+                    sb.append(indent).append("}\n");
+                }
             }
             
             case TypeNode tn -> {
-                final String check = generateTypeCheck(tn.type(), valueExpr);
-                sb.append(indent).append("if (!(").append(check).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/type' });\n");
-                sb.append(indent).append("}\n");
+                generateTypeCheck(sb, tn.type(), valueExpr, pathExpr, schemaPathExpr, indent);
             }
             
             case EnumNode en -> {
                 final String constName = findEnumConst(ctx.enumConstants, en.values());
-                sb.append(indent).append("if (!").append(constName).append(".includes(").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/enum' });\n");
+                sb.append(indent).append("if (typeof ").append(valueExpr).append(" !== \"string\" || !")
+                  .append(constName).append(".includes(").append(valueExpr).append(")) {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append(" + \"/enum\"});\n");
                 sb.append(indent).append("}\n");
             }
             
             case ElementsNode el -> {
-                // Check it's an array
+                // Type guard
                 sb.append(indent).append("if (!Array.isArray(").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/elements' });\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append("});\n");
                 sb.append(indent).append("} else {\n");
                 
-                // Generate element validation inline or push to stack
-                final JtdNode elemSchema = el.schema();
-                if (isSimpleType(elemSchema)) {
-                    // Inline simple element validation with loop
-                    sb.append(indent).append("    for (let i = 0; i < ").append(valueExpr).append(".length; i++) {\n");
-                    final String elemPath = pathExpr + " + '[' + i + ']'";
-                    final String elemExpr = valueExpr + "[i]";
-                    generateNodeValidation(sb, elemSchema, ctx, elemExpr, elemPath, indent + "        ", discriminatorKey);
-                    sb.append(indent).append("    }\n");
+                // Loop over elements
+                sb.append(indent).append("    for (let i = 0; i < ").append(valueExpr).append(".length; i++) {\n");
+                final String elemValue = valueExpr + "[i]";
+                final String elemPath = pathExpr + " + \"/\" + i";
+                final String elemSchemaPath = schemaPathExpr + " + \"/elements\"";
+                
+                if (isLeafNode(el.schema())) {
+                    // Inline leaf validation
+                    generateNodeValidation(sb, el.schema(), ctx, elemValue, elemPath, elemSchemaPath, indent + "        ", null);
                 } else {
-                    // Push elements onto stack for deferred validation
-                    final String validatorKey = findInlineValidator(ctx, elemSchema);
-                    sb.append(indent).append("    for (let i = ").append(valueExpr).append(".length - 1; i >= 0; i--) {\n");
-                    sb.append(indent).append("        stack.push({\n");
-                    sb.append(indent).append("            fn: validate_").append(validatorKey).append(",\n");
-                    sb.append(indent).append("            value: ").append(valueExpr).append("[i],\n");
-                    sb.append(indent).append("            path: ").append(pathExpr).append(" + '[' + i + ']'\n");
-                    sb.append(indent).append("        });\n");
-                    sb.append(indent).append("    }\n");
+                    // Complex schema - needs inline function
+                    final String fnName = getInlineFunctionName(el.schema(), ctx);
+                    sb.append(indent).append("        ").append(fnName).append("(")
+                      .append(elemValue).append(", errors, ").append(elemPath)
+                      .append(", ").append(elemSchemaPath).append(");\n");
                 }
                 
+                sb.append(indent).append("    }\n");
                 sb.append(indent).append("}\n");
             }
             
             case PropertiesNode pn -> {
-                // Check it's an object
-                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ").append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '' });\n");
+                // Type guard
+                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ")
+                  .append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append("});\n");
                 sb.append(indent).append("} else {\n");
                 
-                // Check required properties
+                // Required properties
                 for (var entry : pn.properties().entrySet()) {
                     final String key = entry.getKey();
-                    final JtdNode subNode = entry.getValue();
-                    final String childPath = pathExpr + " + '/" + pointerEscape(key) + "'";
-                    final String childExpr = valueExpr + "['" + key + "']";
+                    final JtdNode propSchema = entry.getValue();
                     
-                    sb.append(indent).append("    if (!('").append(key).append("' in ").append(valueExpr).append(")) {\n");
-                    sb.append(indent).append("        errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/properties/").append(pointerEscape(key)).append("' });\n");
-                    sb.append(indent).append("    } else {\n");
-                    
-                    if (isSimpleType(subNode)) {
-                        generateNodeValidation(sb, subNode, ctx, childExpr, childPath, indent + "        ", discriminatorKey);
-                    } else {
-                        final String validatorKey = findInlineValidator(ctx, subNode);
-                        sb.append(indent).append("        stack.push({\n");
-                        sb.append(indent).append("            fn: validate_").append(validatorKey).append(",\n");
-                        sb.append(indent).append("            value: ").append(childExpr).append(",\n");
-                        sb.append(indent).append("            path: ").append(childPath).append("\n");
-                        sb.append(indent).append("        });\n");
+                    // Skip discriminator key if we're in a discriminator variant
+                    if (discriminatorKey != null && key.equals(discriminatorKey)) {
+                        continue;
                     }
                     
+                    sb.append(indent).append("    if (!(\"").append(key).append("\" in ")
+                      .append(valueExpr).append(")) {\n");
+                    sb.append(indent).append("        errors.push({instancePath: ").append(pathExpr)
+                      .append(", schemaPath: ").append(schemaPathExpr).append(" + \"/properties/")
+                      .append(jsonPointerEscape(key)).append("\"});\n");
+                    sb.append(indent).append("    }\n");
+                    
+                    // Validate value if present
+                    sb.append(indent).append("    if (\"").append(key).append("\" in ")
+                      .append(valueExpr).append(") {\n");
+                    final String propValue = valueExpr + "[\"" + key + "\"]";
+                    final String propPath = pathExpr + " + \"/" + jsonPointerEscape(key) + "\"";
+                    final String propSchemaPath = schemaPathExpr + " + \"/properties/" + jsonPointerEscape(key) + "\"";
+                    
+                    if (isLeafNode(propSchema)) {
+                        generateNodeValidation(sb, propSchema, ctx, propValue, propPath, propSchemaPath, indent + "        ", null);
+                    } else {
+                        final String fnName = getInlineFunctionName(propSchema, ctx);
+                        sb.append(indent).append("        ").append(fnName).append("(")
+                          .append(propValue).append(", errors, ").append(propPath)
+                          .append(", ").append(propSchemaPath).append(");\n");
+                    }
                     sb.append(indent).append("    }\n");
                 }
                 
-                // Check optional properties
+                // Optional properties
                 for (var entry : pn.optionalProperties().entrySet()) {
                     final String key = entry.getKey();
-                    final JtdNode subNode = entry.getValue();
-                    final String childPath = pathExpr + " + '/" + pointerEscape(key) + "'";
-                    final String childExpr = valueExpr + "['" + key + "']";
+                    final JtdNode propSchema = entry.getValue();
                     
-                    sb.append(indent).append("    if ('").append(key).append("' in ").append(valueExpr).append(") {\n");
-                    
-                    if (isSimpleType(subNode)) {
-                        generateNodeValidation(sb, subNode, ctx, childExpr, childPath, indent + "        ", discriminatorKey);
-                    } else {
-                        final String validatorKey = findInlineValidator(ctx, subNode);
-                        sb.append(indent).append("        stack.push({\n");
-                        sb.append(indent).append("            fn: validate_").append(validatorKey).append(",\n");
-                        sb.append(indent).append("            value: ").append(childExpr).append(",\n");
-                        sb.append(indent).append("            path: ").append(childPath).append("\n");
-                        sb.append(indent).append("        });\n");
+                    // Skip discriminator key if we're in a discriminator variant
+                    if (discriminatorKey != null && key.equals(discriminatorKey)) {
+                        continue;
                     }
                     
+                    sb.append(indent).append("    if (\"").append(key).append("\" in ")
+                      .append(valueExpr).append(") {\n");
+                    final String propValue = valueExpr + "[\"" + key + "\"]";
+                    final String propPath = pathExpr + " + \"/" + jsonPointerEscape(key) + "\"";
+                    final String propSchemaPath = schemaPathExpr + " + \"/optionalProperties/" + jsonPointerEscape(key) + "\"";
+                    
+                    if (isLeafNode(propSchema)) {
+                        generateNodeValidation(sb, propSchema, ctx, propValue, propPath, propSchemaPath, indent + "        ", null);
+                    } else {
+                        final String fnName = getInlineFunctionName(propSchema, ctx);
+                        sb.append(indent).append("        ").append(fnName).append("(")
+                          .append(propValue).append(", errors, ").append(propPath)
+                          .append(", ").append(propSchemaPath).append(");\n");
+                    }
                     sb.append(indent).append("    }\n");
                 }
                 
-                // Check additional properties if not allowed
+                // Additional properties check (if not allowed)
                 if (!pn.additionalProperties()) {
-                    sb.append(indent).append("    const allowed = new Set([");
-                    boolean first = true;
-                    for (var key : pn.properties().keySet()) {
-                        if (!first) sb.append(", ");
-                        sb.append("'").append(key).append("'");
-                        first = false;
-                    }
-                    for (var key : pn.optionalProperties().keySet()) {
-                        if (!first) sb.append(", ");
-                        sb.append("'").append(key).append("'");
-                        first = false;
-                    }
-                    // Add discriminator key if present (for discriminator mappings)
+                    // Build list of allowed keys (including discriminator key if applicable)
+                    final Set<String> allowedKeys = new HashSet<>(pn.properties().keySet());
+                    allowedKeys.addAll(pn.optionalProperties().keySet());
+                    
                     if (discriminatorKey != null) {
-                        if (!first) sb.append(", ");
-                        sb.append("'").append(discriminatorKey).append("'");
+                        allowedKeys.add(discriminatorKey);
                     }
-                    sb.append("]);\n");
-                    sb.append(indent).append("    for (const key of Object.keys(").append(valueExpr).append(")) {\n");
-                    sb.append(indent).append("        if (!allowed.has(key)) {\n");
-                    sb.append(indent).append("            errors.push({ instancePath: ").append(pathExpr).append(" + '/' + key, schemaPath: '/additionalProperties' });\n");
+                    
+                    sb.append(indent).append("    for (const k in ").append(valueExpr).append(") {\n");
+                    sb.append(indent).append("        if (").append(buildKeyCheck("k", allowedKeys)).append(") {\n");
+                    sb.append(indent).append("            errors.push({instancePath: ").append(pathExpr)
+                      .append(" + \"/\" + k, schemaPath: ").append(schemaPathExpr).append("});\n");
                     sb.append(indent).append("        }\n");
                     sb.append(indent).append("    }\n");
                 }
@@ -392,114 +260,167 @@ final class EsmRenderer {
             }
             
             case ValuesNode vn -> {
-                // Check it's an object
-                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ").append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/values' });\n");
+                // Type guard
+                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ")
+                  .append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append("});\n");
                 sb.append(indent).append("} else {\n");
                 
-                // Iterate over values
-                final JtdNode valSchema = vn.schema();
-                if (isSimpleType(valSchema)) {
-                    // Inline simple value validation with loop
-                    sb.append(indent).append("    for (const key of Object.keys(").append(valueExpr).append(")) {\n");
-                    final String valPath = pathExpr + " + '/' + key";
-                    final String valExpr = valueExpr + "[key]";
-                    generateNodeValidation(sb, valSchema, ctx, valExpr, valPath, indent + "        ", discriminatorKey);
-                    sb.append(indent).append("    }\n");
+                // Loop over values
+                sb.append(indent).append("    for (const k in ").append(valueExpr).append(") {\n");
+                final String valValue = valueExpr + "[k]";
+                final String valPath = pathExpr + " + \"/\" + k";
+                final String valSchemaPath = schemaPathExpr + " + \"/values\"";
+                
+                if (isLeafNode(vn.schema())) {
+                    generateNodeValidation(sb, vn.schema(), ctx, valValue, valPath, valSchemaPath, indent + "        ", null);
                 } else {
-                    // Push values onto stack for deferred validation
-                    final String validatorKey = findInlineValidator(ctx, valSchema);
-                    sb.append(indent).append("    const keys = Object.keys(").append(valueExpr).append(");\n");
-                    sb.append(indent).append("    for (let i = keys.length - 1; i >= 0; i--) {\n");
-                    sb.append(indent).append("        const key = keys[i];\n");
-                    sb.append(indent).append("        stack.push({\n");
-                    sb.append(indent).append("            fn: validate_").append(validatorKey).append(",\n");
-                    sb.append(indent).append("            value: ").append(valueExpr).append("[key],\n");
-                    sb.append(indent).append("            path: ").append(pathExpr).append(" + '/' + key\n");
-                    sb.append(indent).append("        });\n");
-                    sb.append(indent).append("    }\n");
+                    final String fnName = getInlineFunctionName(vn.schema(), ctx);
+                    sb.append(indent).append("        ").append(fnName).append("(")
+                      .append(valValue).append(", errors, ").append(valPath)
+                      .append(", ").append(valSchemaPath).append(");\n");
                 }
                 
+                sb.append(indent).append("    }\n");
                 sb.append(indent).append("}\n");
             }
             
             case DiscriminatorNode dn -> {
-                // Check it's an object and has discriminator
-                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ").append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '' });\n");
-                sb.append(indent).append("} else if (!('").append(dn.discriminator()).append("' in ").append(valueExpr).append(")) {\n");
-                sb.append(indent).append("    errors.push({ instancePath: ").append(pathExpr).append(", schemaPath: '/discriminator' });\n");
+                // 5-step validation per RFC 8927
+                sb.append(indent).append("if (").append(valueExpr).append(" === null || typeof ")
+                  .append(valueExpr).append(" !== \"object\" || Array.isArray(").append(valueExpr).append(")) {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append("});\n");
+                sb.append(indent).append("} else if (!(\"").append(dn.discriminator()).append("\" in ")
+                  .append(valueExpr).append(")) {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(", schemaPath: ").append(schemaPathExpr).append("});\n");
+                sb.append(indent).append("} else if (typeof ").append(valueExpr).append("[\"").append(dn.discriminator())
+                  .append("\"] !== \"string\") {\n");
+                sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+                  .append(" + \"/").append(dn.discriminator()).append("\", schemaPath: ").append(schemaPathExpr)
+                  .append(" + \"/discriminator\"});\n");
                 sb.append(indent).append("} else {\n");
-                sb.append(indent).append("    const tag = ").append(valueExpr).append("['").append(dn.discriminator()).append("'];\n");
+                sb.append(indent).append("    const tag = ").append(valueExpr).append("[\"").append(dn.discriminator()).append("\"];\n");
                 
-                // Switch on tag value
+                // Switch on tag
                 boolean first = true;
                 for (var entry : dn.mapping().entrySet()) {
                     final String tagValue = entry.getKey();
-                    final JtdNode subNode = entry.getValue();
+                    final JtdNode variantSchema = entry.getValue();
                     
                     if (first) {
-                        sb.append(indent).append("    if (tag === '").append(tagValue).append("') {\n");
+                        sb.append(indent).append("    if (tag === ").append(jsString(tagValue)).append(") {\n");
                         first = false;
                     } else {
-                        sb.append(indent).append("    } else if (tag === '").append(tagValue).append("') {\n");
+                        sb.append(indent).append("    } else if (tag === ").append(jsString(tagValue)).append(") {\n");
                     }
                     
-                    if (isSimpleType(subNode)) {
-                        generateNodeValidation(sb, subNode, ctx, valueExpr, pathExpr, indent + "        ", dn.discriminator());
-                    } else {
-                        final String validatorKey = findInlineValidator(ctx, subNode);
-                        sb.append(indent).append("        stack.push({\n");
-                        sb.append(indent).append("            fn: validate_").append(validatorKey).append(",\n");
-                        sb.append(indent).append("            value: ").append(valueExpr).append(",\n");
-                        sb.append(indent).append("            path: ").append(pathExpr).append("\n");
-                        sb.append(indent).append("        });\n");
-                    }
+                    // Generate variant validation with discriminator exemption
+                    generateNodeValidation(sb, variantSchema, ctx, valueExpr, pathExpr, 
+                        schemaPathExpr + " + \"/mapping/" + jsonPointerEscape(tagValue) + "\"", 
+                        indent + "        ", dn.discriminator());
                 }
                 
                 sb.append(indent).append("    } else {\n");
-                sb.append(indent).append("        errors.push({ instancePath: ").append(pathExpr).append(" + '/").append(dn.discriminator()).append("', schemaPath: '/discriminator' });\n");
+                sb.append(indent).append("        errors.push({instancePath: ").append(pathExpr)
+                  .append(" + \"/").append(dn.discriminator()).append("\", schemaPath: ").append(schemaPathExpr)
+                  .append(" + \"/mapping\"});\n");
                 sb.append(indent).append("    }\n");
                 sb.append(indent).append("}\n");
             }
             
             case RefNode rn -> {
-                sb.append(indent).append("validate_").append(toSafeName(rn.ref()))
-                  .append("(").append(valueExpr).append(", errors, ").append(pathExpr).append(", stack);\n");
-            }
-            
-            case NullableNode nn -> {
-                sb.append(indent).append("if (").append(valueExpr).append(" !== null) {\n");
-                generateNodeValidation(sb, nn.wrapped(), ctx, valueExpr, pathExpr, indent + "    ", discriminatorKey);
-                sb.append(indent).append("}\n");
+                sb.append(indent).append("validate_").append(toSafeName(rn.ref())).append("(")
+                  .append(valueExpr).append(", errors, ").append(pathExpr).append(", ").append(schemaPathExpr).append(");\n");
             }
         }
     }
 
-    private static String generateTypeCheck(String type, String valueExpr) {
-        return switch (type) {
-            case "string" -> "typeof " + valueExpr + " === \"string\"";
+    private static void generateTypeCheck(StringBuilder sb, String type, String valueExpr, 
+            String pathExpr, String schemaPathExpr, String indent) {
+        
+        final String check = switch (type) {
             case "boolean" -> "typeof " + valueExpr + " === \"boolean\"";
-            case "timestamp" -> "isTimestamp(" + valueExpr + ")";
-            case "int8" -> "isIntInRange(" + valueExpr + ", -128, 127)";
-            case "uint8" -> "isIntInRange(" + valueExpr + ", 0, 255)";
-            case "int16" -> "isIntInRange(" + valueExpr + ", -32768, 32767)";
-            case "uint16" -> "isIntInRange(" + valueExpr + ", 0, 65535)";
-            case "int32" -> "isIntInRange(" + valueExpr + ", -2147483648, 2147483647)";
-            case "uint32" -> "isIntInRange(" + valueExpr + ", 0, 4294967295)";
-            case "float32", "float64" -> "isFloat(" + valueExpr + ")";
+            case "string" -> "typeof " + valueExpr + " === \"string\"";
+            case "timestamp" -> "typeof " + valueExpr + " === \"string\" && /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:(\\d{2}|60)(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$/.test(" + valueExpr + ")";
+            case "float32", "float64" -> "typeof " + valueExpr + " === \"number\" && Number.isFinite(" + valueExpr + ")";
+            case "int8" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= -128 && " + valueExpr + " <= 127";
+            case "uint8" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= 0 && " + valueExpr + " <= 255";
+            case "int16" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= -32768 && " + valueExpr + " <= 32767";
+            case "uint16" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= 0 && " + valueExpr + " <= 65535";
+            case "int32" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= -2147483648 && " + valueExpr + " <= 2147483647";
+            case "uint32" -> "typeof " + valueExpr + " === \"number\" && Number.isInteger(" + valueExpr + ") && " + valueExpr + " >= 0 && " + valueExpr + " <= 4294967295";
             default -> throw new IllegalArgumentException("Unknown type: " + type);
         };
+        
+        sb.append(indent).append("if (!(").append(check).append(")) {\n");
+        sb.append(indent).append("    errors.push({instancePath: ").append(pathExpr)
+          .append(", schemaPath: ").append(schemaPathExpr).append(" + \"/type\"});\n");
+        sb.append(indent).append("}\n");
     }
 
-    private static String findInlineValidator(RenderContext ctx, JtdNode node) {
-        for (var entry : ctx.inlineValidators.entrySet()) {
-            if (entry.getValue().equals(node)) {
+    private static boolean isLeafNode(JtdNode node) {
+        return node instanceof TypeNode || node instanceof EnumNode || node instanceof EmptyNode || node instanceof RefNode;
+    }
+
+    private static String getInlineFunctionName(JtdNode node, RenderContext ctx) {
+        // Check if this node already has a function name assigned
+        for (var entry : ctx.generatedInlineFunctions.entrySet()) {
+            if (entry.getValue() == node) {
                 return entry.getKey();
             }
         }
-        // If not found, it's a simple type - shouldn't happen
-        throw new IllegalStateException("No inline validator found for: " + node.getClass().getSimpleName());
+        // Create new unique function name using counter (not hashCode - avoids collisions)
+        final String name = "validate_inline_" + (ctx.inlineCounter++);
+        ctx.generatedInlineFunctions.put(name, node);
+        return name;
+    }
+
+    private static void generateInlineFunctions(StringBuilder sb, RenderContext ctx) {
+        // Keep generating until no new inline functions are added
+        // (inline functions can reference other inline functions)
+        var processed = new HashSet<String>();
+        boolean changed;
+        do {
+            changed = false;
+            var entries = new ArrayList<>(ctx.generatedInlineFunctions.entrySet());
+            for (var entry : entries) {
+                final String fnName = entry.getKey();
+                if (processed.contains(fnName)) {
+                    continue;
+                }
+                processed.add(fnName);
+                changed = true;
+                
+                final JtdNode node = entry.getValue();
+                sb.append("function ").append(fnName).append("(v, errors, p, sp) {\n");
+                generateNodeValidation(sb, node, ctx, "v", "p", "sp", "    ", null);
+                sb.append("}\n\n");
+            }
+        } while (changed);
+    }
+
+    private static String getDiscriminatorKey(PropertiesNode pn) {
+        // We need to track which discriminator this properties node belongs to
+        // For now, this is a placeholder - we'd need to track this during generation
+        return null;
+    }
+
+    private static String buildKeyCheck(String varName, Set<String> allowedKeys) {
+        if (allowedKeys.isEmpty()) {
+            return "true"; // No keys allowed, everything is extra
+        }
+        
+        final StringBuilder sb = new StringBuilder();
+        boolean first = true;
+        for (String key : allowedKeys) {
+            if (!first) sb.append(" && ");
+            sb.append(varName).append(" !== \"").append(key).append("\"");
+            first = false;
+        }
+        return sb.toString();
     }
 
     private static String findEnumConst(Map<String, List<String>> enumConsts, List<String> values) {
@@ -515,7 +436,7 @@ final class EsmRenderer {
         return name.replaceAll("[^a-zA-Z0-9_]", "_");
     }
 
-    private static String pointerEscape(String s) {
+    private static String jsonPointerEscape(String s) {
         return s.replace("~", "~0").replace("/", "~1");
     }
 
@@ -524,7 +445,7 @@ final class EsmRenderer {
     }
 
     private static String jsStringArray(List<String> values) {
-        final var sb = new StringBuilder(values.size() * 16);
+        final var sb = new StringBuilder();
         sb.append("[");
         for (int i = 0; i < values.size(); i++) {
             if (i > 0) sb.append(", ");
@@ -534,17 +455,13 @@ final class EsmRenderer {
         return sb.toString();
     }
 
-    /// Context for tracking what's needed during rendering
     private static class RenderContext {
         String sha256Hex;
         String shaPrefix8;
         String schemaId;
-        boolean needsTimestampCheck = false;
-        boolean needsIntRangeCheck = false;
-        boolean needsFloatCheck = false;
+        int enumCounter = 1;
+        int inlineCounter = 0;
         final Map<String, List<String>> enumConstants = new LinkedHashMap<>();
-        final Map<String, JtdNode> inlineValidators = new LinkedHashMap<>();
-        final Map<String, String> discriminatorMappings = new LinkedHashMap<>();
-        int inlineValidatorCounter = 0;
+        final Map<String, JtdNode> generatedInlineFunctions = new LinkedHashMap<>();
     }
 }
