@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>io.github.simbo1905.json</groupId>
+        <artifactId>parent</artifactId>
+        <version>0.1.9</version>
+    </parent>
+
+    <artifactId>jtd-esm-codegen</artifactId>
+    <packaging>jar</packaging>
+
+    <name>JTD to ES2020 Validator Code Generator (Experimental)</name>
+    <url>https://simbo1905.github.io/java.util.json.Java21/</url>
+    <scm>
+        <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
+        <developerConnection>scm:git:git@github.com:simbo1905/java.util.json.Java21.git</developerConnection>
+        <url>https://github.com/simbo1905/java.util.json.Java21</url>
+        <tag>HEAD</tag>
+    </scm>
+    <description>Experimental CLI that generates vanilla ES2020 ESM validators from a deliberately-limited JTD (RFC 8927) subset for browser payload validation.</description>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.release>21</maven.compiler.release>
+        <maven-shade-plugin.version>3.6.0</maven-shade-plugin.version>
+        <graaljs.version>24.1.2</graaljs.version>
+    </properties>
+
+    <dependencies>
+        <dependency>
+            <groupId>io.github.simbo1905.json</groupId>
+            <artifactId>java.util.json</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Test dependencies -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-api</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>net.jqwik</groupId>
+            <artifactId>jqwik</artifactId>
+            <version>1.9.3</version>
+            <scope>test</scope>
+        </dependency>
+        <!-- GraalVM Polyglot JS for in-process JavaScript execution -->
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>polyglot</artifactId>
+            <version>${graaljs.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.graalvm.polyglot</groupId>
+            <artifactId>js-community</artifactId>
+            <version>${graaljs.version}</version>
+            <type>pom</type>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- junit-js: JUnit runner for JavaScript tests via GraalVM polyglot (replaces bun) -->
+        <dependency>
+            <groupId>org.bitbucket.thinbus</groupId>
+            <artifactId>junit-js</artifactId>
+            <version>2.0.0</version>
+            <scope>test</scope>
+            <exclusions>
+                <!-- Exclude GraalVM deps to use project's 24.1.2 (bugfix of 24.1.0) -->
+                <exclusion>
+                    <groupId>org.graalvm.polyglot</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.graalvm.js</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.graalvm.truffle</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <!-- JUnit Vintage engine to run JUnit 4 @RunWith(JSRunner.class) tests under JUnit 5 -->
+        <dependency>
+            <groupId>org.junit.vintage</groupId>
+            <artifactId>junit-vintage-engine</artifactId>
+            <version>${junit.jupiter.version}</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <finalName>jtd-esm-codegen</finalName>
+        <plugins>
+            <!-- Treat all warnings as errors, enable all lint warnings -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <release>21</release>
+                    <compilerArgs>
+                        <arg>-Xlint:all</arg>
+                        <arg>-Werror</arg>
+                        <arg>-Xdiags:verbose</arg>
+                    </compilerArgs>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>-ea</argLine>
+                    <includes>
+                        <include>**/*Test.java</include>
+                        <include>**/*Tests.java</include>
+                        <include>**/*TestSuite.java</include>
+                    </includes>
+                    <systemPropertyVariables>
+                        <polyglot.engine.WarnInterpreterOnly>false</polyglot.engine.WarnInterpreterOnly>
+                    </systemPropertyVariables>
+                </configuration>
+            </plugin>
+
+            <!-- Build an uber JAR suitable for `java -jar` and GraalVM native-image -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>${maven-shade-plugin.version}</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>io.github.simbo1905.json.jtd.codegen.JtdToEsmCli</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+</project>
+

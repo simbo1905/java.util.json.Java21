@@ -15,6 +15,7 @@ In addition to the core backport, this repo includes implementations of more adv
 | --- | --- | --- |
 | `json-java21-jtd` | JSON Type Definition (JTD) validator implementing RFC 8927 | [JTD validator](#json-type-definition-jtd-validator) |
 | `json-java21-jsonpath` | JsonPath query engine over `java.util.json` values | [JsonPath](#jsonpath) |
+| `jtd-esm-codegen` | Experimental JTD → ES2020 ESM validator code generator | [JTD → ESM codegen](#jtd-to-esm-validator-codegen-experimental) |
 
 We welcome contributions to these incubating modules.
 
@@ -387,6 +388,38 @@ Features:
 - ✅ Timestamp format validation (RFC 3339 with leap seconds)
 - ✅ Discriminator tag exemption from additional properties
 - ✅ Stack-based validation preventing StackOverflowError
+
+## JTD to ESM Validator Codegen (Experimental)
+
+This repo also contains an **experimental** CLI tool that reads a JTD schema (RFC 8927) and generates a **vanilla ES2020 module** exporting a `validate(instance)` function. The intended use case is validating JSON event payloads in the browser (for example, across tabs using `BroadcastChannel`) without a build step.
+
+### Supported JTD subset (flat schemas only)
+
+This tool deliberately supports only:
+- `properties` (required properties)
+- `optionalProperties`
+- `type` primitives (`string`, `boolean`, `timestamp`, `int8`, `int16`, `int32`, `uint8`, `uint16`, `uint32`, `float32`, `float64`)
+- `enum`
+- `metadata.id` (used for the output filename prefix)
+
+It rejects other JTD features (`elements`, `values`, `discriminator`/`mapping`, `ref`/`definitions`) and also rejects **nested `properties`** (object schemas inside properties).
+
+When rejected, the error message is:
+
+`Unsupported JTD feature: <feature>. This experimental tool only supports flat schemas with properties, optionalProperties, type, and enum.`
+
+### Build and run
+
+```bash
+./mvnw -pl jtd-esm-codegen -am package
+java -jar ./jtd-esm-codegen/target/jtd-esm-codegen.jar schema.jtd.json
+```
+
+The output file is written to the current directory as:
+
+`<metadata.id>-<sha256_prefix_8>.js`
+
+Where `<sha256_prefix_8>` is the first 8 characters of the SHA-256 hash of the input schema file bytes.
 
 ## Building
 
