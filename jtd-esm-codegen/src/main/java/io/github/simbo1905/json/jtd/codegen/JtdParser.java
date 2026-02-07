@@ -1,144 +1,174 @@
 package io.github.simbo1905.json.jtd.codegen;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonString;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.sandbox.java.util.json.*;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
+import java.util.*;
 
 import static io.github.simbo1905.json.jtd.codegen.JtdAst.*;
 
-/// Parses a deliberately-limited subset of JTD (RFC 8927) for code generation.
-///
-/// This parser is *not* the general-purpose validator in `json-java21-jtd`.
-/// It exists to support the experimental code generator and intentionally rejects
-/// most of JTD.
+/// Parses JTD (RFC 8927) schemas for code generation.
+/// Supports all schema forms including elements, values, discriminator, and nullable.
 final class JtdParser {
     private JtdParser() {}
 
-    static SchemaNode parseString(String jtdJson) {
+    static RootNode parseString(String jtdJson) {
         Objects.requireNonNull(jtdJson, "jtdJson must not be null");
         return parseValue(Json.parse(jtdJson));
     }
 
-    static SchemaNode parseValue(JsonValue rootValue) {
+    static RootNode parseValue(JsonValue rootValue) {
         Objects.requireNonNull(rootValue, "rootValue must not be null");
         if (!(rootValue instanceof JsonObject root)) {
             throw new IllegalArgumentException("JTD schema must be a JSON object");
         }
 
-        rejectUnsupportedKeys(root, "elements", "values", "discriminator", "mapping", "ref", "definitions");
-
         final var metadata = getObjectOrNull(root, "metadata");
-        if (metadata == null) {
-            throw new IllegalArgumentException("JTD schema missing required key: metadata.id");
-        }
-        final var id = getString(metadata, "id");
-        if (id.isBlank()) {
-            throw new IllegalArgumentException("metadata.id must be non-blank");
+        final String id;
+        if (metadata != null && metadata.members().containsKey("id")) {
+            id = getString(metadata, "id");
+            if (id.isBlank()) {
+                throw new IllegalArgumentException("metadata.id must be non-blank");
+            }
+        } else {
+            id = "JtdSchema";
         }
 
-        final Map<String, PropertyNode> properties = parsePropertiesBlock(root, "properties");
-        final Map<String, PropertyNode> optionalProperties = parsePropertiesBlock(root, "optionalProperties");
-
-        // Reject additional unknown top-level keys (keeps the tool intentionally strict/limited).
-        final Set<String> allowedRoot = Set.of("properties", "optionalProperties", "metadata");
-        for (String k : root.members().keySet()) {
-            if (!allowedRoot.contains(k)) {
-                throw unsupported("unknown key '" + k + "'");
+        final Map<String, JtdNode> definitions = new LinkedHashMap<>();
+        if (root.members().containsKey("definitions")) {
+            final var defsObj = getObjectOrNull(root, "definitions");
+            if (defsObj != null) {
+                for (var e : defsObj.members().entrySet()) {
+                    definitions.put(e.getKey(), parseSchema(e.getKey(), e.getValue(), true));
+                }
             }
         }
 
-        return new SchemaNode(id, Map.copyOf(properties), Map.copyOf(optionalProperties));
+        final JtdNode rootSchema = parseSchema("root", root, false);
+
+        return new RootNode(id, definitions, rootSchema);
     }
 
-    private static Map<String, PropertyNode> parsePropertiesBlock(JsonObject root, String key) {
-        final var block = getObjectOrNull(root, key);
-        if (block == null) {
-            return Map.of();
+    private static JtdNode parseSchema(String propName, JsonValue schemaValue, boolean inDefinitions) {
+        if (!(schemaValue instanceof JsonObject schema)) {
+            throw new IllegalArgumentException("Schema for '" + propName + "' must be a JSON object");
         }
 
-        final var out = new LinkedHashMap<String, PropertyNode>();
-        for (var e : block.members().entrySet()) {
-            final String propName = e.getKey();
-            final JsonValue propSchemaValue = e.getValue();
-            if (!(propSchemaValue instanceof JsonObject propSchemaObj)) {
-                throw new IllegalArgumentException("Schema for '" + key + "." + propName + "' must be a JSON object");
+        // Check for nullable wrapper first
+        boolean isNullable = false;
+        if (schema.members().containsKey("nullable")) {
+            final var nullableVal = schema.members().get("nullable");
+            if (nullableVal instanceof JsonBoolean jb && jb.bool()) {
+                isNullable = true;
             }
-            final JtdNode type = parsePropertySchema(propName, propSchemaObj, key);
-            out.put(propName, new PropertyNode(propName, type));
-        }
-        return out;
-    }
-
-    private static JtdNode parsePropertySchema(String propName, JsonObject propSchema, String containerKey) {
-        // Explicitly reject unsupported features inside property schemas too.
-        rejectUnsupportedKeys(propSchema, "elements", "values", "discriminator", "mapping", "ref", "definitions");
-
-        if (propSchema.members().isEmpty()) {
-            return new EmptyNode();
         }
 
-        if (propSchema.members().containsKey("properties") || propSchema.members().containsKey("optionalProperties")) {
-            throw unsupported("properties");
-        }
+        JtdNode coreNode;
 
-        // Only allow leaf forms: type or enum.
-        final boolean hasType = propSchema.members().containsKey("type");
-        final boolean hasEnum = propSchema.members().containsKey("enum");
-        if (hasType && hasEnum) {
-            throw new IllegalArgumentException("Property '" + propName + "' must not specify both 'type' and 'enum'");
+        // 1. Ref
+        if (schema.members().containsKey("ref")) {
+            final var ref = stringValue(schema.members().get("ref"), propName, "ref");
+            coreNode = new RefNode(ref);
         }
-        if (!hasType && !hasEnum) {
-            // Any other leaf form is unsupported for this tool.
-            final var keys = propSchema.members().keySet().stream().sorted().toList();
-            throw unsupported("schema keys " + keys);
-        }
-
-        if (hasType) {
-            final var typeStr = stringValue(propSchema.members().get("type"), containerKey, propName, "type");
+        // 2. Type
+        else if (schema.members().containsKey("type")) {
+            final var typeStr = stringValue(schema.members().get("type"), propName, "type");
             final var normalized = typeStr.toLowerCase(Locale.ROOT).trim();
             if (!ALLOWED_TYPES.contains(normalized)) {
-                throw new IllegalArgumentException("Unsupported JTD type: '" + typeStr + "', expected one of: " + ALLOWED_TYPES);
+                throw new IllegalArgumentException("Unknown type: '" + typeStr + 
+                    "', expected one of: " + String.join(", ", ALLOWED_TYPES));
             }
-            rejectUnknownKeys(propSchema, Set.of("type"));
-            return new TypeNode(normalized);
+            coreNode = new TypeNode(normalized);
+        }
+        // 3. Enum
+        else if (schema.members().containsKey("enum")) {
+            final var enumValues = enumValues(schema.members().get("enum"), propName);
+            coreNode = new EnumNode(List.copyOf(enumValues));
+        }
+        // 4. Elements (arrays)
+        else if (schema.members().containsKey("elements")) {
+            final var elementsVal = schema.members().get("elements");
+            final var elementSchema = parseSchema(propName + "[]", elementsVal, inDefinitions);
+            coreNode = new ElementsNode(elementSchema);
+        }
+        // 5. Values (string->value maps)
+        else if (schema.members().containsKey("values")) {
+            final var valuesVal = schema.members().get("values");
+            final var valueSchema = parseSchema(propName + "{}", valuesVal, inDefinitions);
+            coreNode = new ValuesNode(valueSchema);
+        }
+        // 6. Discriminator (tagged unions)
+        else if (schema.members().containsKey("discriminator")) {
+            final var discVal = stringValue(schema.members().get("discriminator"), propName, "discriminator");
+            
+            if (!schema.members().containsKey("mapping")) {
+                throw new IllegalArgumentException("discriminator requires mapping");
+            }
+            
+            final var mappingObj = getObjectOrNull(schema, "mapping");
+            if (mappingObj == null) {
+                throw new IllegalArgumentException("mapping must be an object");
+            }
+            
+            final Map<String, JtdNode> mapping = new LinkedHashMap<>();
+            for (var e : mappingObj.members().entrySet()) {
+                mapping.put(e.getKey(), parseSchema(propName + "." + e.getKey(), e.getValue(), inDefinitions));
+            }
+            
+            coreNode = new DiscriminatorNode(discVal, mapping);
+        }
+        // 7. Properties
+        else if (hasPropertiesLikeKeys(schema)) {
+            final Map<String, JtdNode> props = new LinkedHashMap<>();
+            if (schema.members().containsKey("properties")) {
+                final var p = getObjectOrNull(schema, "properties");
+                if (p != null) {
+                    for (var e : p.members().entrySet()) {
+                        props.put(e.getKey(), parseSchema(propName + "." + e.getKey(), e.getValue(), inDefinitions));
+                    }
+                }
+            }
+
+            final Map<String, JtdNode> optionalProps = new LinkedHashMap<>();
+            if (schema.members().containsKey("optionalProperties")) {
+                final var op = getObjectOrNull(schema, "optionalProperties");
+                if (op != null) {
+                    for (var e : op.members().entrySet()) {
+                        optionalProps.put(e.getKey(), parseSchema(propName + "." + e.getKey(), e.getValue(), inDefinitions));
+                    }
+                }
+            }
+
+            boolean additional = false;
+            if (schema.members().containsKey("additionalProperties")) {
+                final var ap = schema.members().get("additionalProperties");
+                if (ap instanceof JsonBoolean b) {
+                    additional = b.bool();
+                }
+            }
+
+            coreNode = new PropertiesNode(props, optionalProps, additional);
+        }
+        // 8. Empty (accepts anything)
+        else {
+            coreNode = new EmptyNode();
         }
 
-        final var enumValues = enumValues(propSchema.members().get("enum"), containerKey, propName);
-        rejectUnknownKeys(propSchema, Set.of("enum"));
-        return new EnumNode(List.copyOf(enumValues));
+        // Wrap in nullable if needed
+        if (isNullable && !(coreNode instanceof EmptyNode)) {
+            return new NullableNode(coreNode);
+        }
+        return coreNode;
     }
 
-    private static void rejectUnknownKeys(JsonObject obj, Set<String> allowedKeys) {
-        for (String k : obj.members().keySet()) {
-            if (!allowedKeys.contains(k)) {
-                throw unsupported("unknown key '" + k + "'");
-            }
-        }
-    }
-
-    private static void rejectUnsupportedKeys(JsonObject obj, String... keys) {
-        for (String k : keys) {
-            if (obj.members().containsKey(k)) {
-                throw unsupported(k);
-            }
-        }
+    private static boolean hasPropertiesLikeKeys(JsonObject schema) {
+        return schema.members().containsKey("properties") ||
+               schema.members().containsKey("optionalProperties") ||
+               schema.members().containsKey("additionalProperties");
     }
 
     private static JsonObject getObjectOrNull(JsonObject obj, String key) {
         final var v = obj.members().get(key);
-        if (v == null) {
-            return null;
-        }
+        if (v == null) return null;
         if (!(v instanceof JsonObject o)) {
             throw new IllegalArgumentException("Expected '" + key + "' to be an object");
         }
@@ -148,51 +178,35 @@ final class JtdParser {
     private static String getString(JsonObject obj, String key) {
         final var v = obj.members().get(key);
         if (!(v instanceof JsonString js)) {
-            throw new IllegalArgumentException("Expected 'metadata." + key + "' to be a string");
+            throw new IllegalArgumentException("Expected '" + key + "' to be a string");
         }
         return js.string();
     }
 
-    private static String stringValue(JsonValue v, String container, String name, String key) {
+    private static String stringValue(JsonValue v, String container, String key) {
         if (!(v instanceof JsonString js)) {
-            throw new IllegalArgumentException("Expected '" + container + "." + name + "." + key + "' to be a string");
+            throw new IllegalArgumentException("Expected '" + container + "." + key + "' to be a string");
         }
         return js.string();
     }
 
-    private static List<String> enumValues(JsonValue v, String containerKey, String propName) {
+    private static List<String> enumValues(JsonValue v, String propName) {
         if (!(v instanceof JsonArray arr)) {
-            throw new IllegalArgumentException("Expected '" + containerKey + "." + propName + ".enum' to be an array");
+            throw new IllegalArgumentException("Expected '" + propName + ".enum' to be an array");
         }
         final var out = new ArrayList<String>();
         for (int i = 0; i < arr.elements().size(); i++) {
             final var el = arr.element(i);
             if (!(el instanceof JsonString js)) {
-                throw new IllegalArgumentException("Expected '" + containerKey + "." + propName + ".enum[" + i + "]' to be a string");
+                throw new IllegalArgumentException("Expected '" + propName + ".enum[" + i + "]' to be a string");
             }
             out.add(js.string());
         }
         return out;
     }
 
-    private static IllegalArgumentException unsupported(String feature) {
-        return new IllegalArgumentException(
-                "Unsupported JTD feature: " + feature + ". This experimental tool only supports flat schemas with properties, optionalProperties, type, and enum."
-        );
-    }
-
     private static final Set<String> ALLOWED_TYPES = Set.of(
-            "string",
-            "boolean",
-            "timestamp",
-            "int8",
-            "int16",
-            "int32",
-            "uint8",
-            "uint16",
-            "uint32",
-            "float32",
-            "float64"
+            "string", "boolean", "timestamp", "int8", "uint8", "int16", "uint16",
+            "int32", "uint32", "float32", "float64"
     );
 }
-
