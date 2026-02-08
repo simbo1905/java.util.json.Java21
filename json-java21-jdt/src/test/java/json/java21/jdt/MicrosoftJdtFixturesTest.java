@@ -1,4 +1,4 @@
-package json.java21.transforms;
+package json.java21.jdt;
 
 import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonValue;
@@ -20,13 +20,13 @@ import static org.assertj.core.api.Assertions.*;
 /// Executes the Microsoft json-document-transforms JSON fixtures against this implementation.
 ///
 /// Fixtures are vendored into:
-/// `json-java21-transforms/src/test/resources/microsoft-json-document-transforms/Inputs/`
-class MicrosoftJsonDocumentTransformsExamplesTest extends JsonTransformsLoggingConfig {
+/// `json-java21-jdt/src/test/resources/microsoft-json-document-transforms/Inputs/`
+class MicrosoftJdtFixturesTest extends JdtLoggingConfig {
 
-    private static final Logger LOG = Logger.getLogger(MicrosoftJsonDocumentTransformsExamplesTest.class.getName());
+    private static final Logger LOG = Logger.getLogger(MicrosoftJdtFixturesTest.class.getName());
 
     static Stream<Arguments> microsoftFixtures() throws IOException {
-        final Path base = Path.of(System.getProperty("transforms.test.resources"))
+        final Path base = Path.of(System.getProperty("jdt.test.resources"))
             .resolve("microsoft-json-document-transforms")
             .resolve("Inputs");
 
@@ -79,11 +79,11 @@ class MicrosoftJsonDocumentTransformsExamplesTest extends JsonTransformsLoggingC
         final JsonValue transform = Json.parse(readUtf8(transformFile));
         final JsonValue expected = Json.parse(readUtf8(expectedFile));
 
-        final JsonTransforms compiled = JsonTransforms.parse(transform);
-        final JsonValue actual = compiled.apply(source);
+        final JsonValue actual = Jdt.transform(source, transform);
 
         assertThat(actual)
-            .as(() -> "Expected:\n" + Json.toDisplayString(expected, 2) + "\n\nActual:\n" + Json.toDisplayString(actual, 2))
+            .as(() -> "fixture: " + fixtureName + "\nExpected:\n" + Json.toDisplayString(expected, 2) + 
+                "\n\nActual:\n" + Json.toDisplayString(actual, 2))
             .isEqualTo(expected);
     }
 
