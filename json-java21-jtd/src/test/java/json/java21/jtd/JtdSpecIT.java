@@ -93,41 +93,8 @@ public class JtdSpecIT extends JtdTestBase {
   }
 
   private void extractTestData() throws IOException {
-    // Check if test data is already extracted
-    if (Files.exists(VALIDATION_TEST_FILE)) {
-      LOG.fine(() -> "JTD test suite already extracted at: " + VALIDATION_TEST_FILE);
-      return;
-    }
-
-    // Extract the embedded test suite
-    Path zipFile = Paths.get("src/test/resources/jtd-test-suite.zip");
-    Path targetDir = Paths.get("target/test-data");
-    
-    if (!Files.exists(zipFile)) {
-      throw new RuntimeException("JTD test suite ZIP not found: " + zipFile.toAbsolutePath());
-    }
-
-    LOG.info(() -> "Extracting JTD test suite from: " + zipFile);
-    
-    // Create target directory
-    Files.createDirectories(targetDir);
-
-    // Extract ZIP file
-    try (var zis = new java.util.zip.ZipInputStream(Files.newInputStream(zipFile))) {
-      java.util.zip.ZipEntry entry;
-      while ((entry = zis.getNextEntry()) != null) {
-        if (!entry.isDirectory() && entry.getName().startsWith("json-typedef-spec-")) {
-          Path outputPath = targetDir.resolve(entry.getName());
-          Files.createDirectories(outputPath.getParent());
-          Files.copy(zis, outputPath, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
-        }
-        zis.closeEntry();
-      }
-    }
-
-    if (!Files.exists(VALIDATION_TEST_FILE)) {
-      throw new RuntimeException("Extraction completed but test file not found: " + VALIDATION_TEST_FILE);
-    }
+    // Use shared extractor to ensure test data is available
+    JtdTestDataExtractor.ensureValidationTestData();
   }
 
   private JsonNode loadTestFile() throws IOException {
