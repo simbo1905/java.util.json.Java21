@@ -11,7 +11,10 @@ class CodegenTestBase {
 
     @BeforeAll
     static void configureLogging() {
-        final var levelName = System.getProperty("java.util.logging.ConsoleHandler.level", "INFO");
+        var levelName = System.getProperty("java.util.logging.ConsoleHandler.level", "INFO");
+        if (levelName == null || levelName.isBlank()) {
+            levelName = "INFO";
+        }
         final var level = Level.parse(levelName);
 
         final var rootLogger = Logger.getLogger("");
