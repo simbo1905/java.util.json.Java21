@@ -2,6 +2,10 @@
 
 This file is for contributor/agent operational notes. Read `json-java21-jdt/README.md` for purpose, supported syntax, and user-facing examples.
 
+## CRITICAL: What "JDT" Means in This Project
+
+**JDT stands for "JSON Document Transforms"** -- a C# technology from Microsoft that we are porting to Java. It has NOTHING to do with Eclipse JDT (Java Development Tools). There are NO Eclipse files in this module. Do not confuse `json-java21-jdt` with Eclipse tooling. Every file in this module relates exclusively to JSON Document Transforms.
+
 - User docs MUST recommend only `./mvnw`.
 - The `$(command -v mvnd || command -v mvn || command -v ./mvnw)` wrapper is for local developer speed only; do not put it in user-facing docs.
 
