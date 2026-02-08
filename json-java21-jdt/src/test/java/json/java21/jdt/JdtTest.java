@@ -393,4 +393,74 @@ class JdtTest extends JdtLoggingConfig {
         
         assertThat(result).isEqualTo(transform);
     }
+
+    // ========== AST Parser Tests ==========
+
+    @Test
+    void ast_primitiveTransformParsesToReplacement() {
+        LOG.info(() -> "TEST: ast_primitiveTransformParsesToReplacement");
+        
+        final var transform = Json.parse("42");
+        final var ast = Jdt.parseToAst(transform);
+        
+        assertThat(ast).isInstanceOf(JdtAst.ReplacementNode.class);
+        assertThat(((JdtAst.ReplacementNode) ast).value()).isEqualTo(transform);
+    }
+
+    @Test
+    void ast_objectWithoutDirectivesParsesToMergeNode() {
+        LOG.info(() -> "TEST: ast_objectWithoutDirectivesParsesToMergeNode");
+        
+        final var transform = Json.parse("""
+            {"A": 1, "B": {"C": 2}}
+            """);
+        final var ast = Jdt.parseToAst(transform);
+        
+        assertThat(ast).isInstanceOf(JdtAst.MergeNode.class);
+        final var merge = (JdtAst.MergeNode) ast;
+        assertThat(merge.children()).containsKeys("A", "B");
+        assertThat(merge.children().get("A")).isInstanceOf(JdtAst.ReplacementNode.class);
+        assertThat(merge.children().get("B")).isInstanceOf(JdtAst.MergeNode.class);
+    }
+
+    @Test
+    void ast_objectWithDirectivesParsesToDirectiveNode() {
+        LOG.info(() -> "TEST: ast_objectWithDirectivesParsesToDirectiveNode");
+        
+        final var transform = Json.parse("""
+            {
+                "@jdt.rename": {"old": "new"},
+                "@jdt.remove": "B",
+                "C": 3
+            }
+            """);
+        final var ast = Jdt.parseToAst(transform);
+        
+        assertThat(ast).isInstanceOf(JdtAst.DirectiveNode.class);
+        final var directive = (JdtAst.DirectiveNode) ast;
+        assertThat(directive.rename()).isNotNull();
+        assertThat(directive.remove()).isNotNull();
+        assertThat(directive.merge()).isNull();
+        assertThat(directive.replace()).isNull();
+        assertThat(directive.children()).containsKey("C");
+    }
+
+    @Test
+    void ast_nestedDirectivesParseCorrectly() {
+        LOG.info(() -> "TEST: ast_nestedDirectivesParseCorrectly");
+        
+        final var transform = Json.parse("""
+            {
+                "Settings": {
+                    "@jdt.merge": {"newKey": "value"},
+                    "existing": "updated"
+                }
+            }
+            """);
+        final var ast = Jdt.parseToAst(transform);
+        
+        assertThat(ast).isInstanceOf(JdtAst.MergeNode.class);
+        final var root = (JdtAst.MergeNode) ast;
+        assertThat(root.children().get("Settings")).isInstanceOf(JdtAst.DirectiveNode.class);
+    }
 }

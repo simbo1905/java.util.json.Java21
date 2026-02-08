@@ -59,6 +59,15 @@ public final class Jdt {
         // Static utility class
     }
 
+    /// Parses a transform specification into a JDT AST for codegen or analysis.
+    ///
+    /// @param transform the transform specification document
+    /// @return the root AST node
+    public static JdtAst.JdtNode parseToAst(JsonValue transform) {
+        Objects.requireNonNull(transform, "transform must not be null");
+        return JdtAstParser.parse(transform);
+    }
+
     /// Default path resolver using the interpreter-based JsonPath.
     private static final Function<String, Function<JsonValue, List<JsonValue>>> DEFAULT_RESOLVER =
         expr -> JsonPath.parse(expr)::query;
