@@ -4,6 +4,7 @@ import jdk.sandbox.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 
 import java.util.*;
+import java.util.function.Function;
 import java.util.logging.Logger;
 
 /// JSON Document Transforms (JDT) engine.
@@ -58,7 +59,12 @@ public final class Jdt {
         // Static utility class
     }
 
+    /// Default path resolver using the interpreter-based JsonPath.
+    private static final Function<String, Function<JsonValue, List<JsonValue>>> DEFAULT_RESOLVER =
+        expr -> JsonPath.parse(expr)::query;
+
     /// Transforms a source JSON document using the given transform specification.
+    /// Uses the default interpreter-based JsonPath for `@jdt.path` operations.
     ///
     /// @param source the source JSON document to transform
     /// @param transform the transform specification document
@@ -66,20 +72,46 @@ public final class Jdt {
     /// @throws NullPointerException if source or transform is null
     /// @throws JdtException if the transform specification is invalid
     public static JsonValue transform(JsonValue source, JsonValue transform) {
+        return transform(source, transform, DEFAULT_RESOLVER);
+    }
+
+    /// Transforms a source JSON document using the given transform specification
+    /// and a custom path resolver for `@jdt.path` operations.
+    ///
+    /// The path resolver compiles a JsonPath expression string into a query function.
+    /// Use this to plug in bytecode-compiled JsonPath queries for better performance:
+    ///
+    /// ```java
+    /// // With compiled JsonPath (requires json-java21-jsonpath-codegen on classpath)
+    /// Function<String, Function<JsonValue, List<JsonValue>>> compiled =
+    ///     expr -> JsonPathCodegen.compile(expr)::query;
+    /// Jdt.transform(source, transform, compiled);
+    /// ```
+    ///
+    /// @param source the source JSON document to transform
+    /// @param transform the transform specification document
+    /// @param pathResolver compiles a JsonPath expression into a query function
+    /// @return the transformed JSON document
+    /// @throws NullPointerException if any argument is null
+    /// @throws JdtException if the transform specification is invalid
+    public static JsonValue transform(JsonValue source, JsonValue transform,
+            Function<String, Function<JsonValue, List<JsonValue>>> pathResolver) {
         Objects.requireNonNull(source, "source must not be null");
         Objects.requireNonNull(transform, "transform must not be null");
+        Objects.requireNonNull(pathResolver, "pathResolver must not be null");
 
         LOG.fine(() -> "Transforming source with transform specification");
         LOG.finer(() -> "Source: " + Json.toDisplayString(source, 2));
         LOG.finer(() -> "Transform: " + Json.toDisplayString(transform, 2));
 
-        final var result = applyTransform(source, transform);
+        final var result = applyTransform(source, transform, pathResolver);
         LOG.finer(() -> "Result: " + Json.toDisplayString(result, 2));
         return result;
     }
 
     /// Applies a transform to a source value.
-    static JsonValue applyTransform(JsonValue source, JsonValue transform) {
+    static JsonValue applyTransform(JsonValue source, JsonValue transform,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         // If transform is not an object, it's a direct replacement (default behavior for primitives)
         if (!(transform instanceof JsonObject transformObj)) {
             return transform;
@@ -90,48 +122,45 @@ public final class Jdt {
                 .anyMatch(k -> k.startsWith(JDT_PREFIX));
 
         if (hasJdtDirectives) {
-            return applyJdtDirectives(source, transformObj);
+            return applyJdtDirectives(source, transformObj, pr);
         }
 
         // Default behavior: merge objects, replace primitives
         if (source instanceof JsonObject sourceObj) {
-            return mergeObjects(sourceObj, transformObj);
-        } else if (source instanceof JsonArray sourceArr) {
-            // Arrays are appended by default when transform is an object targeting the array
-            // But if transform is just an object with keys, it replaces the array
+            return mergeObjects(sourceObj, transformObj, pr);
+        } else if (source instanceof JsonArray) {
             return transformObj;
         } else {
-            // Primitive source replaced by object transform
             return transformObj;
         }
     }
 
     /// Applies JDT directives from a transform object.
-    private static JsonValue applyJdtDirectives(JsonValue source, JsonObject transformObj) {
+    private static JsonValue applyJdtDirectives(JsonValue source, JsonObject transformObj,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var members = transformObj.members();
         var result = source;
 
         // Execution order: Rename -> Remove -> Merge -> Replace
-        // But also process non-JDT keys as default merge operations
 
         // 1. Rename
         if (members.containsKey(JDT_RENAME)) {
-            result = applyRename(result, members.get(JDT_RENAME));
+            result = applyRename(result, members.get(JDT_RENAME), pr);
         }
 
         // 2. Remove
         if (members.containsKey(JDT_REMOVE)) {
-            result = applyRemove(result, members.get(JDT_REMOVE));
+            result = applyRemove(result, members.get(JDT_REMOVE), pr);
         }
 
         // 3. Merge (explicit)
         if (members.containsKey(JDT_MERGE)) {
-            result = applyMerge(result, members.get(JDT_MERGE));
+            result = applyMerge(result, members.get(JDT_MERGE), pr);
         }
 
         // 4. Replace
         if (members.containsKey(JDT_REPLACE)) {
-            result = applyReplace(result, members.get(JDT_REPLACE));
+            result = applyReplace(result, members.get(JDT_REPLACE), pr);
         }
 
         // Also process non-JDT keys as recursive transforms (default merge behavior)
@@ -142,11 +171,9 @@ public final class Jdt {
                 final var transformValue = entry.getValue();
 
                 if (sourceValue != null) {
-                    // Recurse into existing key
-                    final var newValue = applyTransform(sourceValue, transformValue);
+                    final var newValue = applyTransform(sourceValue, transformValue, pr);
                     result = setObjectKey(resultObj, key, newValue);
                 } else {
-                    // Add new key
                     result = setObjectKey(resultObj, key, transformValue);
                 }
             }
@@ -156,27 +183,23 @@ public final class Jdt {
     }
 
     /// Applies the @jdt.rename directive.
-    static JsonValue applyRename(JsonValue source, JsonValue renameSpec) {
+    static JsonValue applyRename(JsonValue source, JsonValue renameSpec,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         if (!(source instanceof JsonObject sourceObj)) {
             LOG.fine(() -> "Cannot rename on non-object: " + source.getClass().getSimpleName());
             return source;
         }
 
-        // renameSpec can be:
-        // - Object: { "oldName": "newName", ... }
-        // - Array: [{ "oldName": "newName" }, ...]
-        // - Object with @jdt.path: { "@jdt.path": "...", "@jdt.value": "newName" }
-
         if (renameSpec instanceof JsonObject renameObj) {
             if (renameObj.members().containsKey(JDT_PATH)) {
-                return applyRenameWithPath(sourceObj, renameObj);
+                return applyRenameWithPath(sourceObj, renameObj, pr);
             }
             return applyRenameMapping(sourceObj, renameObj);
         } else if (renameSpec instanceof JsonArray renameArr) {
             var result = sourceObj;
             for (final var item : renameArr.elements()) {
                 if (item instanceof JsonObject itemObj) {
-                    result = (JsonObject) applyRename(result, itemObj);
+                    result = (JsonObject) applyRename(result, itemObj, pr);
                 }
             }
             return result;
@@ -209,7 +232,8 @@ public final class Jdt {
         return JsonObject.of(result);
     }
 
-    private static JsonObject applyRenameWithPath(JsonObject source, JsonObject renameObj) {
+    private static JsonObject applyRenameWithPath(JsonObject source, JsonObject renameObj,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var pathValue = renameObj.members().get(JDT_PATH);
         final var valueValue = renameObj.members().get(JDT_VALUE);
 
@@ -223,12 +247,8 @@ public final class Jdt {
         final var path = pathStr.string();
         final var newName = newNameStr.string();
 
-        // Use JsonPath to find matching nodes and rename them
-        final var jsonPath = JsonPath.parse(path);
-        final var matches = jsonPath.query(source);
+        final var matches = pr.apply(path).apply(source);
 
-        // For rename with path, we need to find the parent and rename the key
-        // This is complex - for now, handle simple cases
         LOG.fine(() -> "Rename with path '" + path + "' to '" + newName + "' - " + matches.size() + " matches");
 
         // TODO: Implement path-based rename properly
@@ -236,17 +256,12 @@ public final class Jdt {
     }
 
     /// Applies the @jdt.remove directive.
-    static JsonValue applyRemove(JsonValue source, JsonValue removeSpec) {
+    static JsonValue applyRemove(JsonValue source, JsonValue removeSpec,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         if (!(source instanceof JsonObject sourceObj)) {
             LOG.fine(() -> "Cannot remove from non-object: " + source.getClass().getSimpleName());
             return source;
         }
-
-        // removeSpec can be:
-        // - String: single key name to remove
-        // - Boolean true: remove all keys (set to null)
-        // - Array of strings: multiple keys to remove
-        // - Object with @jdt.path: path-based removal
 
         if (removeSpec instanceof JsonString removeStr) {
             return removeKey(sourceObj, removeStr.string());
@@ -262,7 +277,7 @@ public final class Jdt {
                 if (item instanceof JsonString itemStr) {
                     result = removeKey(result, itemStr.string());
                 } else if (item instanceof JsonObject itemObj) {
-                    result = (JsonObject) applyRemove(result, itemObj);
+                    result = (JsonObject) applyRemove(result, itemObj, pr);
                 } else {
                     throw new JdtException("@jdt.remove array elements must be strings or objects, got: " + 
                             item.getClass().getSimpleName());
@@ -271,7 +286,7 @@ public final class Jdt {
             return result;
         } else if (removeSpec instanceof JsonObject removeObj) {
             if (removeObj.members().containsKey(JDT_PATH)) {
-                return applyRemoveWithPath(sourceObj, removeObj);
+                return applyRemoveWithPath(sourceObj, removeObj, pr);
             }
             throw new JdtException("@jdt.remove object must contain @jdt.path");
         }
@@ -288,7 +303,8 @@ public final class Jdt {
         return JsonObject.of(result);
     }
 
-    private static JsonObject applyRemoveWithPath(JsonObject source, JsonObject removeObj) {
+    private static JsonObject applyRemoveWithPath(JsonObject source, JsonObject removeObj,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var pathValue = removeObj.members().get(JDT_PATH);
 
         if (!(pathValue instanceof JsonString pathStr)) {
@@ -296,13 +312,10 @@ public final class Jdt {
         }
 
         final var path = pathStr.string();
-        final var jsonPath = JsonPath.parse(path);
-        final var matches = jsonPath.query(source);
+        final var matches = pr.apply(path).apply(source);
 
         LOG.fine(() -> "Remove with path '" + path + "' - " + matches.size() + " matches");
 
-        // Remove matched nodes from source
-        // This requires traversing and rebuilding the object
         return removeMatchedNodes(source, matches);
     }
 
@@ -346,39 +359,33 @@ public final class Jdt {
     }
 
     /// Applies the @jdt.merge directive.
-    static JsonValue applyMerge(JsonValue source, JsonValue mergeSpec) {
-        // mergeSpec can be:
-        // - Object: merge into source
-        // - Array: apply each merge in sequence, or append if double-bracketed
-        // - Object with @jdt.path: path-based merge
+    static JsonValue applyMerge(JsonValue source, JsonValue mergeSpec,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
 
         if (mergeSpec instanceof JsonObject mergeObj) {
             if (mergeObj.members().containsKey(JDT_PATH)) {
-                return applyMergeWithPath(source, mergeObj);
+                return applyMergeWithPath(source, mergeObj, pr);
             }
             if (source instanceof JsonObject sourceObj) {
-                return mergeObjects(sourceObj, mergeObj);
+                return mergeObjects(sourceObj, mergeObj, pr);
             }
-            // Non-object source gets replaced
             return mergeObj;
         } else if (mergeSpec instanceof JsonArray mergeArr) {
-            // Check for double-bracket array (explicit array value)
             if (isDoubleBracketArray(mergeArr)) {
                 return mergeArr.elements().getFirst();
             }
-            // Apply each merge operation
             var result = source;
             for (final var item : mergeArr.elements()) {
-                result = applyMerge(result, item);
+                result = applyMerge(result, item, pr);
             }
             return result;
         } else {
-            // Primitive merge replaces the value
             return mergeSpec;
         }
     }
 
-    private static JsonValue applyMergeWithPath(JsonValue source, JsonObject mergeObj) {
+    private static JsonValue applyMergeWithPath(JsonValue source, JsonObject mergeObj,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var pathValue = mergeObj.members().get(JDT_PATH);
         final var valueValue = mergeObj.members().get(JDT_VALUE);
 
@@ -387,8 +394,7 @@ public final class Jdt {
         }
 
         final var path = pathStr.string();
-        final var jsonPath = JsonPath.parse(path);
-        final var matches = jsonPath.query(source);
+        final var matches = pr.apply(path).apply(source);
 
         LOG.fine(() -> "Merge with path '" + path + "' - " + matches.size() + " matches");
 
@@ -396,42 +402,35 @@ public final class Jdt {
             throw new JdtException("@jdt.merge with @jdt.path requires @jdt.value");
         }
 
-        // Apply merge to each matched node
         return applyToMatches(source, matches, match -> {
             if (match instanceof JsonObject matchObj && valueValue instanceof JsonObject valueObj) {
-                return mergeObjects(matchObj, valueObj);
+                return mergeObjects(matchObj, valueObj, pr);
             }
             return valueValue;
         });
     }
 
     /// Applies the @jdt.replace directive.
-    static JsonValue applyReplace(JsonValue source, JsonValue replaceSpec) {
-        // replaceSpec can be:
-        // - Any value: replace source with this value
-        // - Object with @jdt.path: path-based replacement
-        // - Array: if double-bracketed, use inner array as replacement value
+    static JsonValue applyReplace(JsonValue source, JsonValue replaceSpec,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
 
         if (replaceSpec instanceof JsonObject replaceObj) {
             if (replaceObj.members().containsKey(JDT_PATH)) {
-                return applyReplaceWithPath(source, replaceObj);
+                return applyReplaceWithPath(source, replaceObj, pr);
             }
-            // Plain object replaces the source
             return replaceObj;
         } else if (replaceSpec instanceof JsonArray replaceArr) {
-            // Check for double-bracket array (explicit array value)
             if (isDoubleBracketArray(replaceArr)) {
                 return replaceArr.elements().getFirst();
             }
-            // Single array replaces directly
             return replaceArr;
         } else {
-            // Primitive replacement
             return replaceSpec;
         }
     }
 
-    private static JsonValue applyReplaceWithPath(JsonValue source, JsonObject replaceObj) {
+    private static JsonValue applyReplaceWithPath(JsonValue source, JsonObject replaceObj,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var pathValue = replaceObj.members().get(JDT_PATH);
         final var valueValue = replaceObj.members().get(JDT_VALUE);
 
@@ -440,8 +439,7 @@ public final class Jdt {
         }
 
         final var path = pathStr.string();
-        final var jsonPath = JsonPath.parse(path);
-        final var matches = jsonPath.query(source);
+        final var matches = pr.apply(path).apply(source);
 
         LOG.fine(() -> "Replace with path '" + path + "' - " + matches.size() + " matches");
 
@@ -449,12 +447,12 @@ public final class Jdt {
             throw new JdtException("@jdt.replace with @jdt.path requires @jdt.value");
         }
 
-        // Replace each matched node with the value
         return applyToMatches(source, matches, match -> valueValue);
     }
 
     /// Merges two objects, with transform values overriding source values.
-    static JsonObject mergeObjects(JsonObject source, JsonObject transform) {
+    static JsonObject mergeObjects(JsonObject source, JsonObject transform,
+            Function<String, Function<JsonValue, List<JsonValue>>> pr) {
         final var result = new LinkedHashMap<>(source.members());
 
         for (final var entry : transform.members().entrySet()) {
@@ -465,22 +463,17 @@ public final class Jdt {
             final var sourceValue = result.get(key);
 
             if (sourceValue == null) {
-                // New key - but check if transform has JDT directives that need processing
                 if (transformValue instanceof JsonObject transformObj && 
                         transformObj.members().keySet().stream().anyMatch(k -> k.startsWith(JDT_PREFIX))) {
-                    // JDT directives on a new key - apply them to create the new value
-                    result.put(key, applyTransform(JsonObject.of(Map.of()), transformObj));
+                    result.put(key, applyTransform(JsonObject.of(Map.of()), transformObj, pr));
                 } else {
                     result.put(key, transformValue);
                 }
             } else if (sourceValue instanceof JsonObject && transformValue instanceof JsonObject transformObj) {
-                // Recursive transform - use applyTransform to handle JDT directives
-                result.put(key, applyTransform(sourceValue, transformObj));
+                result.put(key, applyTransform(sourceValue, transformObj, pr));
             } else if (sourceValue instanceof JsonArray sourceArr && transformValue instanceof JsonArray transformArr) {
-                // Append arrays
                 result.put(key, appendArrays(sourceArr, transformArr));
             } else {
-                // Replace value
                 result.put(key, transformValue);
             }
         }
@@ -510,7 +503,7 @@ public final class Jdt {
 
     /// Applies a transformation function to all nodes matching the given matches.
     private static JsonValue applyToMatches(JsonValue source, List<JsonValue> matches, 
-            java.util.function.Function<JsonValue, JsonValue> transformer) {
+            Function<JsonValue, JsonValue> transformer) {
         if (matches.isEmpty()) {
             return source;
         }
@@ -519,7 +512,7 @@ public final class Jdt {
     }
 
     private static JsonValue transformMatchingNodes(JsonValue node, List<JsonValue> matches,
-            java.util.function.Function<JsonValue, JsonValue> transformer) {
+            Function<JsonValue, JsonValue> transformer) {
         
         // Check if this node is a match
         for (final var match : matches) {
