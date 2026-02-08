@@ -45,6 +45,7 @@
         <module>json-java21-jdt</module>
         <module>jtd-esm-codegen</module>
         <module>json-java21-jtd-codegen</module>
+        <module>json-java21-jsonpath-codegen</module>
     </modules>
 
     <properties>
