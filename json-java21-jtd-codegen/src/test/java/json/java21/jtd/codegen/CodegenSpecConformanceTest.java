@@ -25,18 +25,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CodegenSpecConformanceTest extends CodegenTestBase {
 
   static Stream<Arguments> cases() throws IOException {
-    final var raw = CodegenSpecConformanceTest.class.getClassLoader()
-        .getResourceAsStream("jtd-spec-validation.json");
-    assert raw != null : "jtd-spec-validation.json not found on classpath";
-    final var jsonText = new String(raw.readAllBytes(), StandardCharsets.UTF_8);
-    final var root = Json.parse(jsonText);
-    assert root instanceof JsonObject : "expected top-level object";
-    final var obj = (JsonObject) root;
+    // Extract test suite from ZIP (same data as IT tests, avoids committing large JSON)
+    try (final var raw = JtdTestDataExtractor.getValidationTestDataStream()) {
+      final var jsonText = new String(raw.readAllBytes(), StandardCharsets.UTF_8);
+      final var root = Json.parse(jsonText);
+      assert root instanceof JsonObject : "expected top-level object";
+      final var obj = (JsonObject) root;
 
-    return obj.members().entrySet().stream()
-        .map(entry -> Arguments.of(
-            entry.getKey(),
-            entry.getValue()));
+      return obj.members().entrySet().stream()
+          .map(entry -> Arguments.of(
+              entry.getKey(),
+              entry.getValue()));
+    }
   }
 
   @ParameterizedTest(name = "{0}")
