@@ -57,6 +57,16 @@ public class Jtd {
     compileSchema(schema);
   }
 
+  /// Compiles a JTD schema and returns the immutable AST.
+  ///
+  /// @param schema The JTD schema as a JsonValue
+  /// @return the compiled [JtdSchema] AST
+  /// @throws IllegalArgumentException if the schema is invalid
+  public JtdSchema compileToSchema(JsonValue schema) {
+    definitions.clear();
+    return compileSchema(schema);
+  }
+
   /// Validates a JSON instance against a JTD schema
   /// @param schema The JTD schema as a JsonValue
   /// @param instance The JSON instance to validate
@@ -253,7 +263,7 @@ public class Jtd {
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
 
-              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr(), frame.crumbs(), discSchema.discriminator());
+              Frame variantFrame = new Frame(variantSchema, instance, frame.ptr(), frame.crumbs(), frame.schemaPath(), discSchema.discriminator());
               stack.push(variantFrame);
               LOG.finer(() -> "Pushed discriminator variant frame for " + discriminatorValueStr + " with discriminator key: " + discSchema.discriminator());
             }
@@ -264,7 +274,7 @@ public class Jtd {
         try {
           JtdSchema resolved = refSchema.target();
           Frame resolvedFrame = new Frame(resolved, instance, frame.ptr(),
-              frame.crumbs(), frame.discriminatorKey());
+              frame.crumbs(), frame.schemaPath(), frame.discriminatorKey());
           pushChildFrames(resolvedFrame, stack);
           LOG.finer(() -> "Pushed ref schema resolved to " +
               resolved.getClass().getSimpleName() + " for ref: " + refSchema.ref());

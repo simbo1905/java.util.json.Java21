@@ -40,3 +40,7 @@ pom.xml.versionsBackup
 # Local JTD debug logs
 jtd*.log
 **/jtd*.log
+
+# macOS metadata
+.DS_Store
+**/.DS_Store

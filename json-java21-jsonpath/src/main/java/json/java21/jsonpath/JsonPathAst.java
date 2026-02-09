@@ -16,7 +16,7 @@ import java.util.Objects;
 /// - Filter: filter by predicate (e.g., \[?(@.isbn)\] or \[?(@.price<10)\])
 /// - Union: multiple indices or names (e.g., \[0,1\] or \['a','b'\])
 /// - ScriptExpression: computed index (e.g., \[(@.length-1)\])
-sealed interface JsonPathAst {
+public sealed interface JsonPathAst {
 
     /// Root element ($) - the starting point of all JsonPath expressions
     record Root(List<Segment> segments) implements JsonPathAst {

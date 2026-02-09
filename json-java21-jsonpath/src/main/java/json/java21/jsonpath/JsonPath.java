@@ -32,6 +32,16 @@ public final class JsonPath {
         this.ast = ast;
     }
 
+    /// Returns the parsed AST for this JsonPath expression.
+    ///
+    /// Primarily for use by codegen modules that need to walk
+    /// the AST to generate bytecode or source code.
+    ///
+    /// @return the root AST node
+    public JsonPathAst.Root ast() {
+        return ast;
+    }
+
     /// Parses a JsonPath expression and returns a compiled JsonPath for reuse.
     /// @param path the JsonPath expression
     /// @return a compiled JsonPath that can be used to select from multiple documents
