@@ -84,9 +84,27 @@
                 <configuration>
                     <argLine>-ea</argLine>
                     <systemPropertyVariables>
-                        <jdt.test.resources>${project.basedir}/src/test/resources</jdt.test.resources>
+                        <jdt.test.resources>${project.build.directory}/test-data/jdt-test-suite/json-document-transforms-main</jdt.test.resources>
                     </systemPropertyVariables>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>com.googlecode.maven-download-plugin</groupId>
+                <artifactId>download-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>download-jdt-test-suite</id>
+                        <phase>generate-test-resources</phase>
+                        <goals>
+                            <goal>wget</goal>
+                        </goals>
+                        <configuration>
+                            <url>https://github.com/microsoft/json-document-transforms/archive/refs/heads/main.zip</url>
+                            <unpack>true</unpack>
+                            <outputDirectory>${project.build.directory}/test-data/jdt-test-suite</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
