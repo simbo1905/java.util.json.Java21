@@ -9,7 +9,7 @@ import java.util.List;
 
 /// JTD Schema interface - validates JSON instances against JTD schemas
 /// Following RFC 8927 specification with eight mutually-exclusive schema forms
-sealed interface JtdSchema {
+public sealed interface JtdSchema {
   
   /// Core frame-based validation that all schema variants must implement.
   /// @param frame Current validation frame
@@ -68,7 +68,7 @@ sealed interface JtdSchema {
   
   /// Ref schema - references a definition in the schema's definitions
   record RefSchema(String ref, java.util.Map<String, JtdSchema> definitions) implements JtdSchema {
-    JtdSchema target() {
+    public JtdSchema target() {
       JtdSchema schema = definitions.get(ref);
       if (schema == null) {
         throw new IllegalStateException("Ref not resolved: " + ref);
@@ -86,7 +86,7 @@ sealed interface JtdSchema {
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JtdSchema resolved = target();
       Frame resolvedFrame = new Frame(resolved, frame.instance(), frame.ptr(),
-          frame.crumbs(), frame.discriminatorKey());
+          frame.crumbs(), frame.schemaPath(), frame.discriminatorKey());
       return resolved.validateWithFrame(resolvedFrame, errors, verboseErrors);
     }
 
@@ -99,7 +99,7 @@ sealed interface JtdSchema {
   /// Type schema - validates specific primitive types
   record TypeSchema(String type) implements JtdSchema {
     /// RFC 3339 timestamp pattern with leap second support
-    private static final java.util.regex.Pattern RFC3339 = java.util.regex.Pattern.compile(
+    static final java.util.regex.Pattern RFC3339 = java.util.regex.Pattern.compile(
       "^(\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:(\\d{2}|60)(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2}))$"
     );
 

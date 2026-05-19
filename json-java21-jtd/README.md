@@ -186,6 +186,62 @@ Validation errors include standardized information:
 ./mvnw test -pl json-java21-jtd -am -Djava.util.logging.ConsoleHandler.level=FINE
 ```
 
+## Functional Validator API
+
+A schema can be compiled into a reusable `JtdValidator` -- a functional interface
+(`JsonValue -> JtdValidationResult`) suitable for stream pipelines:
+
+```java
+import json.java21.jtd.JtdValidator;
+import json.java21.jtd.JtdValidationResult;
+import jdk.sandbox.java.util.json.*;
+
+String schemaJson = """
+    { "type": "string" }
+    """;
+JsonValue schema = Json.parse(schemaJson);
+
+// Compile to a reusable validator (interpreter path, always available)
+JtdValidator validator = JtdValidator.compile(schema);
+
+JtdValidationResult result = validator.validate(Json.parse("\"hello\""));
+assert result.isValid();
+
+// Use in a stream pipeline
+List<JsonValue> docs = ...;
+List<JsonValue> invalid = docs.stream()
+    .filter(doc -> !validator.validate(doc).isValid())
+    .toList();
+```
+
+Errors follow RFC 8927 exactly -- each error is an `(instancePath, schemaPath)` pair:
+
+```java
+JtdValidationResult result = validator.validate(Json.parse("42"));
+result.errors().forEach(e ->
+    System.out.println(e.instancePath() + " -> " + e.schemaPath()));
+// Output: "" -> "/type"
+```
+
+### Generated Validators (optional, JDK 24+)
+
+When the `json-java21-jtd-codegen` module is on the classpath **and** the build
+runs on JDK 24+, the factory can generate optimised bytecode validators that
+contain only the checks the schema requires -- no interpreter, no AST, no
+runtime stack:
+
+```java
+// Throws if codegen module is not on the classpath
+JtdValidator fast = JtdValidator.compileGenerated(schema);
+```
+
+The generated classfiles target Java 21 (class version 65) so they run on any
+JDK 21+ runtime. The `toString()` of a generated validator returns the original
+JTD schema JSON.
+
+If you do not need the generated path, the interpreter path (`JtdValidator.compile`)
+works everywhere with zero extra dependencies.
+
 ## Architecture
 
 The validator uses a stack-based approach for efficient validation:
@@ -196,6 +252,8 @@ The validator uses a stack-based approach for efficient validation:
 - **Comprehensive Testing**: Full RFC 8927 compliance test suite
 
 See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed implementation information.
+See [JTD_STACK_MACHINE_SPEC.md](JTD_STACK_MACHINE_SPEC.md) for the interpreter specification.
+See [JTD_CODEGEN_SPEC.md](JTD_CODEGEN_SPEC.md) for the code generation specification.
 
 ## RFC 8927 Compliance
 
@@ -214,6 +272,7 @@ This implementation is fully compliant with RFC 8927:
 - **Stack-based validation** prevents StackOverflowError
 - **Early exit** on first validation error
 - **Immutable design** enables safe concurrent use
+- **Optional codegen** (JDK 24+ build) eliminates interpreter overhead for hot-path validation
 
 ## License
 
