@@ -29,8 +29,6 @@ To try the examples from this README, build the project and run the standalone e
 java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.sandbox.java.util.json.examples.ReadmeExamples
 ```
 
-*Replace `*` with the actual version number from the JAR filename.*
-
 ## API Overview
 
 The API provides immutable JSON value types:
