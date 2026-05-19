@@ -26,8 +26,7 @@ To try the examples from this README, build the project and run the standalone e
 
 ```bash
 ./mvnw package
-java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
-  jdk.sandbox.java.util.json.examples.ReadmeExamples
+java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.sandbox.java.util.json.examples.ReadmeExamples
 ```
 
 *Replace `*` with the actual version number from the JAR filename.*
