@@ -40,3 +40,4 @@ pom.xml.versionsBackup
 # Local JTD debug logs
 jtd*.log
 **/jtd*.log
+.DS_Store
