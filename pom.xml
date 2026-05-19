@@ -42,7 +42,6 @@
         <module>json-compatibility-suite</module>
         <module>json-java21-jtd</module>
         <module>json-java21-jsonpath</module>
-        <module>json-java21-jtd-codegen</module>
     </modules>
 
     <properties>
@@ -212,6 +211,17 @@
                     </plugin>
                 </plugins>
             </build>
+        </profile>
+
+        <!-- JTD Codegen module requires JDK 24+ (ClassFile API, JEP 484) -->
+        <profile>
+            <id>jtd-codegen</id>
+            <activation>
+                <jdk>[24,)</jdk>
+            </activation>
+            <modules>
+                <module>json-java21-jtd-codegen</module>
+            </modules>
         </profile>
     </profiles>
 
