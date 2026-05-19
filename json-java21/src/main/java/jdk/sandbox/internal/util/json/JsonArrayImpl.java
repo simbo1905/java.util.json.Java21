@@ -30,7 +30,6 @@ import java.util.List;
 
 import jdk.sandbox.java.util.json.JsonArray;
 import jdk.sandbox.java.util.json.JsonValue;
-
 /**
  * JsonArray implementation class
  */

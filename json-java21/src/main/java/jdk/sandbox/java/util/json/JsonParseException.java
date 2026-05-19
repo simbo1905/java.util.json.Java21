@@ -24,8 +24,6 @@
  */
 
 package jdk.sandbox.java.util.json;
-
-
 import java.io.Serial;
 
 /**

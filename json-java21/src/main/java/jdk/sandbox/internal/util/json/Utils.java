@@ -95,12 +95,12 @@ public class Utils {
     // Use to compose an exception when casting to an incorrect type
     public static JsonAssertionException composeTypeError(JsonValue jv, String expected) {
         var actual = switch (jv) {
-            case JsonObject ignored -> "JsonObject";
-            case JsonArray ignored -> "JsonArray";
-            case JsonBoolean ignored -> "JsonBoolean";
-            case JsonNull ignored -> "JsonNull";
-            case JsonNumber ignored -> "JsonNumber";
-            case JsonString ignored -> "JsonString";
+            case JsonObject v -> "JsonObject";
+            case JsonArray v -> "JsonArray";
+            case JsonBoolean v -> "JsonBoolean";
+            case JsonNull v -> "JsonNull";
+            case JsonNumber v -> "JsonNumber";
+            case JsonString v -> "JsonString";
         };
         return composeError(jv, "%s is not a %s.".formatted(actual, expected));
     }

@@ -24,7 +24,6 @@
  */
 
 package jdk.sandbox.java.util.json;
-
 import jdk.sandbox.internal.util.json.JsonBooleanImpl;
 
 /**
@@ -41,8 +40,7 @@ import jdk.sandbox.internal.util.json.JsonBooleanImpl;
 public non-sealed interface JsonBoolean extends JsonValue {
 
     /**
-     * {@return the {@code boolean} value represented by this
-     * {@code JsonBoolean}}
+     * {@inheritDoc}
      */
     @Override
     boolean bool();

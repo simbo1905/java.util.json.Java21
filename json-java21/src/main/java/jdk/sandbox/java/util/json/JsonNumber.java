@@ -24,7 +24,6 @@
  */
 
 package jdk.sandbox.java.util.json;
-
 import jdk.sandbox.internal.util.json.JsonNumberImpl;
 
 /**
@@ -38,10 +37,10 @@ import jdk.sandbox.internal.util.json.JsonNumberImpl;
  * syntax</a>.
  * Alternatively, {@link #of(double)}, {@link #of(long)}, or {@link #of(String)}
  * can be used to obtain a {@code JsonNumber}.
- * The value of the {@code JsonNumber} can be retrieved as a {@code long}
- * with {@link #toLong()} or as a {@code double} with {@link #toDouble()}.
- * {@link #toString()} can be used to return the string representation of
- * the JSON number.
+ * The value of the {@code JsonNumber} can be retrieved as an {@code int} with
+ * {@link #toInt()}, as a {@code long} with {@link #toLong()}, or as a
+ * {@code double} with {@link #toDouble()}. {@link #toString()} can be used to
+ * return the string representation of the JSON number.
  *
  * @apiNote
  * To avoid precision loss when converting JSON numbers to Java types, or when
@@ -63,14 +62,16 @@ import jdk.sandbox.internal.util.json.JsonNumberImpl;
 public non-sealed interface JsonNumber extends JsonValue {
 
     /**
-     * {@return a {@code long} if it can be translated from the string
-     * representation of this {@code JsonNumber}} That is, it can be expressed
-     * as a whole number and is within the range of {@link Long#MIN_VALUE} and
-     * {@link Long#MAX_VALUE}. This occurs, even if the string contains an
-     * exponent or a fractional part consisting of only zero digits. For example,
-     * both the JSON number "123.0" and "1.23e2" produce a {@code long} value of
-     * "123". A {@code JsonAssertionException} is thrown when the numeric value
-     * cannot be represented as a {@code long}; for example, the value "5.5".
+     * {@inheritDoc}
+     *
+     * @throws JsonAssertionException if this {@code JsonNumber} cannot
+     *      be represented as an {@code int}.
+     */
+    @Override
+    int toInt();
+
+    /**
+     * {@inheritDoc}
      *
      * @throws JsonAssertionException if this {@code JsonNumber} cannot
      *      be represented as a {@code long}.
@@ -79,14 +80,9 @@ public non-sealed interface JsonNumber extends JsonValue {
     long toLong();
 
     /**
-     * {@return a finite {@code double} if it can be translated from the string
-     * representation of this {@code JsonNumber}} If the string representation
-     * is outside the range of {@link Double#MAX_VALUE -Double.MAX_VALUE} and
-     * {@link Double#MAX_VALUE}, a {@code JsonAssertionException} is thrown.
+     * {@inheritDoc}
      *
-     * @apiNote Callers of this method should be aware of the potential loss in
-     * precision when the string representation of the JSON number is translated
-     * to a {@code double}.
+     * @apiNote {@inheritDoc}
      * @implNote The JDK reference implementation uses {@link
      * Double#parseDouble(String)} to perform the conversion from string to
      * finite double.
@@ -113,11 +109,22 @@ public non-sealed interface JsonNumber extends JsonValue {
         if (!Double.isFinite(num)) {
             throw new IllegalArgumentException("Not a valid JSON number");
         }
-        // LOCAL FIX for upstream bug: The original code hardcoded decimalOffset=0
-        // and exponentOffset=0, which breaks toLong() for integral doubles like 123.0.
-        // Delegating to of(String) ensures correct offset computation via Json.parse().
-        // See: https://github.com/simbo1905/java.util.json.Java21/issues/118
-        return JsonNumber.of(Double.toString(num));
+        // Delegate to of(String) which correctly computes offsets via Json.parse()
+        // Upstream bug: hardcoded decimalOffset=0 and exponentOffset=0
+        return of(Double.toString(num));
+    }
+
+    /**
+     * Creates a JSON number from the given {@code int} value.
+     * The string representation of the JSON number created is produced by applying
+     * {@link Integer#toString(int)} on {@code num}.
+     *
+     * @param num the given {@code int} value.
+     * @return a JSON number created from the {@code int} value
+     */
+    static JsonNumber of(int num) {
+        var str = Integer.toString(num);
+        return new JsonNumberImpl(str.toCharArray(), 0, str.length(), -1, -1);
     }
 
     /**
@@ -155,7 +162,7 @@ public non-sealed interface JsonNumber extends JsonValue {
             if (Json.parse(num) instanceof JsonNumber jn) {
                 return jn;
             }
-        } catch (JsonParseException ignored) {}
+        } catch(JsonParseException e) {}
         throw new IllegalArgumentException("Not a JSON number");
     }
 

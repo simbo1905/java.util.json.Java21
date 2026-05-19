@@ -24,7 +24,6 @@
  */
 
 package jdk.sandbox.java.util.json;
-
 import jdk.sandbox.internal.util.json.JsonNullImpl;
 
 /**

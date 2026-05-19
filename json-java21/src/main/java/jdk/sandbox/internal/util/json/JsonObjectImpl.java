@@ -30,7 +30,6 @@ import java.util.Map;
 
 import jdk.sandbox.java.util.json.JsonObject;
 import jdk.sandbox.java.util.json.JsonValue;
-
 /**
  * JsonObject implementation class
  */

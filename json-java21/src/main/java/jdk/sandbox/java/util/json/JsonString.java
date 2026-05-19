@@ -26,7 +26,6 @@
 package jdk.sandbox.java.util.json;
 
 import java.util.Objects;
-
 import jdk.sandbox.internal.util.json.JsonStringImpl;
 import jdk.sandbox.internal.util.json.Utils;
 
@@ -80,10 +79,7 @@ public non-sealed interface JsonString extends JsonValue {
     String toString();
 
     /**
-     * {@return the {@code String} value represented by this {@code JsonString}}
-     * If this {@code JsonString} was created by parsing a JSON document, any
-     * escaped characters in the original JSON document are converted to their
-     * unescaped form.
+     * {@inheritDoc}
      *
      * @see #toString()
      */

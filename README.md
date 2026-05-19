@@ -285,14 +285,19 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ## Current Status
 
-This code (as of 2026-01-25) is derived from the OpenJDK jdk-sandbox repository "json" branch. Key API changes from the previous version include:
-- `JsonString.value()` → `JsonString.string()`
-- `JsonNumber.toNumber()` → `JsonNumber.toLong()` / `JsonNumber.toDouble()`
-- `JsonBoolean.value()` → `JsonBoolean.bool()`
-- `JsonArray.values()` → `JsonArray.elements()`
-- `Json.fromUntyped()` and `Json.toUntyped()` have been removed
-- New accessor methods on `JsonValue`: `get(String)`, `element(int)`, `getOrAbsent(String)`, `valueOrNull()`
-- Internal implementation changed from `StableValue` to `LazyConstant`
+**Final `java.util.json` sandbox-era release** (2026-05-19).
+
+This code is derived from the OpenJDK jdk-sandbox repository "json" branch at commit `c1a4f80` (2026-02-05), which was the last commit before the API was moved to `jdk.incubator.json`.
+
+### API Summary
+- `JsonValue` conversion methods: `asBoolean()`, `toInt()`, `toLong()`, `toDouble()`, `asString()`
+- `JsonValue` navigation methods: `get(String)`, `get(int)`, `getOrAbsent(String)`, `valueOrNull()`
+- `JsonArray`: `elements()`, `of(List)`
+- `JsonObject`: `members()`, `of(Map)`
+- `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, int)`
+
+### Upstream Migration Notice
+The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, etc.) and new methods (`asInt()`). A separate branch tracks the incubator upgrade — see issue #145.
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
@@ -300,7 +305,7 @@ The JSON compatibitlity tests in this repo suggest 99% conformance with a leadin
 
 ### CI: Upstream API Tracking
 
-A daily workflow runs an API comparison against the OpenJDK sandbox and prints a JSON report. Implication: differences do not currently fail the build or auto‑open issues; check the workflow logs (or adjust the workflow to fail on diffs) if you need notifications.
+**Note**: The daily API tracker workflow currently targets the old `java.util.json` paths which no longer exist upstream. It needs to be updated to track `jdk.incubator.json` — see issue #145.
 
 ## Modifications
 

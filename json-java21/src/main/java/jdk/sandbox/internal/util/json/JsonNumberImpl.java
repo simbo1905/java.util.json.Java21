@@ -29,8 +29,6 @@ import java.util.Locale;
 
 import java.util.Optional;
 import jdk.sandbox.java.util.json.JsonNumber;
-
-
 /**
  * JsonNumber implementation class
  */
@@ -43,6 +41,7 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
     private final int exponentOffset;
 
     private final LazyConstant<String> numString = LazyConstant.of(this::initNumString);
+    private final LazyConstant<Optional<Integer>> numInteger = LazyConstant.of(this::initNumInteger);
     private final LazyConstant<Optional<Long>> numLong = LazyConstant.of(this::initNumLong);
     private final LazyConstant<Optional<Double>> numDouble = LazyConstant.of(this::initNumDouble);
 
@@ -52,6 +51,12 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
         endOffset = end;
         decimalOffset = dec;
         exponentOffset = exp;
+    }
+
+    @Override
+    public int toInt() {
+        return numInteger.get().orElseThrow(() ->
+            Utils.composeError(this, this + " cannot be represented as an int."));
     }
 
     @Override
@@ -95,6 +100,14 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
     // LazyConstants initializers
     private String initNumString() {
         return new String(doc, startOffset, endOffset - startOffset);
+    }
+
+    private Optional<Integer> initNumInteger() {
+        try {
+            return numLong.get().map(Math::toIntExact);
+        } catch(ArithmeticException e) {
+            return Optional.empty();
+        }
     }
 
     // 4 cases: Fully integral, has decimal, has exponent, has decimal and exponent
@@ -147,7 +160,7 @@ public final class JsonNumberImpl implements JsonNumber, JsonValueImpl {
                             startOffset, decimalOffset - startOffset), 10));
                 }
             }
-        } catch (NumberFormatException | ArithmeticException ignored) {}
+        } catch(NumberFormatException | ArithmeticException e) {}
         return Optional.empty();
     }
 
