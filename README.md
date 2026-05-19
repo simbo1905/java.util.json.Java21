@@ -9,14 +9,18 @@ References:
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
 You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
 
-In addition to the core backport, this repo includes implementations of more advanced JSON technologies built on the `java.util.json` API.
+This repo is organized into the following modules:
 
-| Submodule | What it is | Quick overview |
+| Module | What it is | JDK |
 | --- | --- | --- |
-| `json-java21-jtd` | JSON Type Definition (JTD) validator implementing RFC 8927 | [JTD validator](#json-type-definition-jtd-validator) |
-| `json-java21-jsonpath` | JsonPath query engine over `java.util.json` values | [JsonPath](#jsonpath) |
+| `json-java21` | Core `java.util.json` backport (parser, immutable types, `Json` API) | 21+ |
+| `json-java21-jtd` | JSON Type Definition (JTD) validator implementing RFC 8927, with stack-machine interpreter and optional bytecode codegen interface (`JtdValidator`) | 21+ |
+| `json-java21-jtd-codegen` | Bytecode code generator for JTD schemas using JDK 24+ ClassFile API (JEP 484); generates Java 21-compatible `.class` files for ~9x faster validation | 24+ (auto-skipped on JDK 21) |
+| `json-java21-jsonpath` | JsonPath query engine over `jdk.sandbox.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
+| `json-compatibility-suite` | JSON Test Suite conformance reporter (tests against [nst/JSONTestSuite](https://github.com/nst/JSONTestSuite)) | 21+ |
+| `json-java21-api-tracker` | Daily upstream API drift detector — fetches OpenJDK sandbox sources, compares public API signatures, reports differences | 25+ |
 
-We welcome contributions to these incubating modules.
+We welcome contributions to the incubating modules.
 
 ## Usage Examples
 
