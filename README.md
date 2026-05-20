@@ -16,6 +16,7 @@ This repo is organized into the following modules:
 | `json-java21` | Core `java.util.json` backport (parser, immutable types, `Json` API) | 21+ |
 | `json-java21-jtd` | JSON Type Definition (JTD) validator implementing RFC 8927, with stack-machine interpreter and optional bytecode codegen interface (`JtdValidator`) | 21+ |
 | `json-java21-jtd-codegen` | Bytecode code generator for JTD schemas using JDK 24+ ClassFile API (JEP 484); generates Java 21-compatible `.class` files for ~9x faster validation | 24+ (auto-skipped on JDK 21) |
+| `jdt2jar` | Offline JTD-to-JAR compiler CLI and distroless container wrapper for build-time validator packaging | 24+ (auto-skipped on JDK 21) |
 | `json-java21-jsonpath` | JsonPath query engine over `jdk.sandbox.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
 | `json-compatibility-suite` | JSON Test Suite conformance reporter (tests against [nst/JSONTestSuite](https://github.com/nst/JSONTestSuite)) | 21+ |
 | `json-java21-api-tracker` | Daily upstream API drift detector — fetches OpenJDK sandbox sources, compares public API signatures, reports differences | 25+ |
