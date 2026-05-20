@@ -27,7 +27,7 @@ public final class JtdCodegen {
   private JtdCodegen() {}
 
   /// Result of compilation including the validator and generated class statistics.
-  public record CompileResult(JtdValidator validator, int classfileBytes, byte[] classBytes) {}
+  public record CompileResult(JtdValidator validator, int classfileBytes) {}
 
   /// Public factory invoked by [JtdValidator.compileGenerated] via reflection.
   public static JtdValidator compile(JsonValue schema) {
@@ -49,7 +49,7 @@ public final class JtdCodegen {
   /// @param className Generated validator class name
   /// @return the generated class bytes
   public static byte[] compileBytes(JsonValue schema, String packageName, String className) {
-    return buildBytes(schema, packageName, className).clone();
+    return buildBytes(schema, packageName, className);
   }
 
   private static CompileResult instantiate(JsonValue schema, byte[] bytes, String packageName, String className) {
@@ -60,7 +60,7 @@ public final class JtdCodegen {
       final var clazz = lookup.defineClass(bytes);
       final var ctor = clazz.getConstructor(String.class);
       final var validator = (JtdValidator) ctor.newInstance(schemaJson);
-      return new CompileResult(validator, bytes.length, bytes.clone());
+      return new CompileResult(validator, bytes.length);
     } catch (Exception e) {
       throw new RuntimeException("Failed to load generated validator: " + internalName, e);
     }

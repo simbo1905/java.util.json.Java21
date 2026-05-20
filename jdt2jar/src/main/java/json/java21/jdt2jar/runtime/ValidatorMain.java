@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.Properties;
 
 /// Runtime launcher for compiled validator JARs.
@@ -133,13 +134,14 @@ public final class ValidatorMain {
     boolean json = false;
     boolean help = false;
 
-    for (int i = 0; i < args.length; i++) {
-      final var arg = args[i];
+    final var remaining = new ArrayDeque<>(java.util.List.of(args));
+    while (!remaining.isEmpty()) {
+      final var arg = remaining.removeFirst();
       switch (arg) {
         case "--help" -> help = true;
-        case "--validate" -> input = Path.of(requireValue(args, ++i, "--validate"));
+        case "--validate" -> input = Path.of(requireValue(remaining, "--validate"));
         case "--format" -> {
-          final var value = requireValue(args, ++i, "--format");
+          final var value = requireValue(remaining, "--format");
           if ("json".equalsIgnoreCase(value)) {
             json = true;
           } else {
@@ -153,11 +155,11 @@ public final class ValidatorMain {
     return new CliOptions(input, json, help);
   }
 
-  private static String requireValue(String[] args, int index, String option) {
-    if (index >= args.length) {
+  private static String requireValue(ArrayDeque<String> args, String option) {
+    if (args.isEmpty()) {
       throw new IllegalArgumentException("Missing value for " + option);
     }
-    return args[index];
+    return args.removeFirst();
   }
 
   private static void printUsage() {

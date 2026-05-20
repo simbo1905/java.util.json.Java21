@@ -9,6 +9,7 @@ import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
@@ -254,16 +255,17 @@ public final class Jdt2Jar {
     var includeSources = false;
     var help = false;
 
-    for (var i = 0; i < args.length; i++) {
-      final var arg = args[i];
+    final var remaining = new ArrayDeque<>(java.util.List.of(args));
+    while (!remaining.isEmpty()) {
+      final var arg = remaining.removeFirst();
       switch (arg) {
         case "--help" -> help = true;
         case "--main" -> main = true;
         case "--include-sources" -> includeSources = true;
-        case "--output" -> output = Path.of(requireValue(args, ++i, "--output"));
-        case "--package" -> packageName = requireValue(args, ++i, "--package");
-        case "--class" -> className = requireValue(args, ++i, "--class");
-        case "--runtime" -> runtime = Integer.parseInt(requireValue(args, ++i, "--runtime"));
+        case "--output" -> output = Path.of(requireValue(remaining, "--output"));
+        case "--package" -> packageName = requireValue(remaining, "--package");
+        case "--class" -> className = requireValue(remaining, "--class");
+        case "--runtime" -> runtime = Integer.parseInt(requireValue(remaining, "--runtime"));
         default -> {
           if (arg.startsWith("--")) {
             throw new UsageException("Unknown option: " + arg);
@@ -288,11 +290,11 @@ public final class Jdt2Jar {
     return new Options(schema, output, packageName, className, main, runtime, includeSources, false);
   }
 
-  private static String requireValue(String[] args, int index, String option) {
-    if (index >= args.length) {
+  private static String requireValue(ArrayDeque<String> args, String option) {
+    if (args.isEmpty()) {
       throw new UsageException("Missing value for " + option);
     }
-    return args[index];
+    return args.removeFirst();
   }
 
   private static String toInternalName(String packageName, String className) {
