@@ -1,0 +1,110 @@
+{
+  "definitions": {
+    "user": {
+      "properties": {
+        "id": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": {
+          "enum": ["admin", "manager", "contributor"]
+        }
+      },
+      "optionalProperties": {
+        "timezone": { "type": "string" }
+      }
+    },
+
+    "comment": {
+      "properties": {
+        "id": { "type": "string" },
+        "authorId": { "type": "string" },
+        "message": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      }
+    },
+
+    "taskEvent": {
+      "discriminator": "type",
+      "mapping": {
+        "created": {
+          "properties": {
+            "type": { "enum": ["created"] },
+            "createdBy": { "type": "string" },
+            "createdAt": { "type": "timestamp" }
+          }
+        },
+
+        "statusChanged": {
+          "properties": {
+            "type": { "enum": ["statusChanged"] },
+            "from": {
+              "enum": ["todo", "in_progress", "blocked", "done"]
+            },
+            "to": {
+              "enum": ["todo", "in_progress", "blocked", "done"]
+            },
+            "changedBy": { "type": "string" },
+            "changedAt": { "type": "timestamp" }
+          }
+        },
+
+        "commentAdded": {
+          "properties": {
+            "type": { "enum": ["commentAdded"] },
+            "comment": { "ref": "comment" },
+            "addedAt": { "type": "timestamp" }
+          }
+        }
+      }
+    }
+  },
+
+  "properties": {
+    "projectId": { "type": "string" },
+    "name": { "type": "string" },
+
+    "owner": {
+      "ref": "user"
+    },
+
+    "tasks": {
+      "elements": {
+        "properties": {
+          "id": { "type": "string" },
+          "title": { "type": "string" },
+
+          "status": {
+            "enum": ["todo", "in_progress", "blocked", "done"]
+          },
+
+          "assignee": {
+            "ref": "user"
+          },
+
+          "labels": {
+            "elements": {
+              "type": "string"
+            }
+          },
+
+          "activity": {
+            "elements": {
+              "ref": "taskEvent"
+            }
+          }
+        },
+
+        "optionalProperties": {
+          "description": { "type": "string" },
+          "dueDate": { "type": "timestamp" },
+
+          "metadata": {
+            "values": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}
