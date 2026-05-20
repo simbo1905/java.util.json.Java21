@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:24-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /build
 COPY . .
 RUN ["./mvnw", "-pl", "jdt2jar", "-am", "package", "-DskipTests", "-Dsurefire.failIfNoSpecifiedTests=false"]
