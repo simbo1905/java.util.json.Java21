@@ -5,7 +5,6 @@ import json.java21.jtd.codegen.JtdCodegen;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -63,7 +62,7 @@ public final class Jdt2Jar {
 
     final var schemaJson = Files.readString(options.schemaPath());
     final var schema = Json.parse(schemaJson);
-    final var generated = JtdCodegen.compileWithStats(schema, options.packageName(), options.className());
+    final var generatedBytes = JtdCodegen.compileBytes(schema, options.packageName(), options.className());
 
     if (options.runtime() != DEFAULT_RUNTIME) {
       throw new UsageException("Unsupported runtime version: " + options.runtime()
@@ -71,7 +70,7 @@ public final class Jdt2Jar {
     }
 
     final var output = options.output() != null ? options.output() : defaultOutput(options.schemaPath());
-    writeValidatorJar(output, options, schemaJson, generated.classBytes());
+    writeValidatorJar(output, options, schemaJson, generatedBytes);
 
     if (options.includeSources()) {
       writeSourceFile(sourcePathFor(output), options);
@@ -151,7 +150,7 @@ public final class Jdt2Jar {
           continue;
         }
         try (final var in = jar.getInputStream(entry)) {
-          writeEntry(out, written, name, readAllBytes(in));
+          writeEntry(out, written, name, in.readAllBytes());
         }
       }
     }
@@ -302,10 +301,6 @@ public final class Jdt2Jar {
 
   private static String toQualifiedName(String packageName, String className) {
     return packageName + "." + className;
-  }
-
-  private static byte[] readAllBytes(InputStream in) throws IOException {
-    return in.readAllBytes();
   }
 
   private static void printUsage() {
