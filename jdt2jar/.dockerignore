@@ -1,0 +1,21 @@
+# Build outputs
+**/target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+.eclipse/
+
+# OS
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Env
+.env
+
+# Local test artifacts
+/tmp/jdt2jar-*/

@@ -42,7 +42,7 @@ final class Descriptors {
   // -- Validation result types --
   static final ClassDesc CD_JtdValidationError = ClassDesc.of("json.java21.jtd.JtdValidationError");
   static final ClassDesc CD_JtdValidationResult = ClassDesc.of("json.java21.jtd.JtdValidationResult");
-  static final ClassDesc CD_JtdValidator = ClassDesc.of("json.java21.jtd.JtdValidator");
+  static final ClassDesc CD_JtdValidator = ClassDesc.of("json.java21.jtd.codegen.JtdValidator");
 
   // -- Common method type descriptors --
   static final MethodTypeDesc MTD_String = MethodTypeDesc.of(CD_String);

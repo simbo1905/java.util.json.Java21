@@ -49,7 +49,7 @@ class JtdSpecConformanceTest extends JtdTestBase {
     final var instance = caseObj.members().get("instance");
     final var expectedErrors = (JsonArray) caseObj.members().get("errors");
 
-    final var validator = JtdValidator.compile(schema);
+    final var validator = JtdValidator.compileInterpreter(schema);
     final var result = validator.validate(instance);
 
     final var expected = expectedErrors.elements().stream()

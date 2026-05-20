@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
          http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
@@ -11,21 +11,15 @@
         <version>0.1.9</version>
     </parent>
 
-    <artifactId>java.util.json.jtd</artifactId>
+    <artifactId>jdt2jar</artifactId>
     <packaging>jar</packaging>
-    <name>java.util.json Java21 Backport JTD Validator</name>
-    <url>https://simbo1905.github.io/java.util.json.Java21/</url>
-    <scm>
-        <connection>scm:git:https://github.com/simbo1905/java.util.json.Java21.git</connection>
-        <developerConnection>scm:git:git@github.com:simbo1905/java.util.json.Java21.git</developerConnection>
-        <url>https://github.com/simbo1905/java.util.json.Java21</url>
-        <tag>HEAD</tag>
-    </scm>
-    <description>Experimental JSON Type Definition (JTD) validator built using the java.util.json Java 21 backport; implements RFC 8927 for code generation and portable validation.</description>
+    <name>jdt2jar CLI</name>
+    <description>Offline JTD-to-JAR compiler that packages generated validators into standalone JAR files.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>24</maven.compiler.release>
+        <project.build.finalName>jdt2jar</project.build.finalName>
     </properties>
 
     <dependencies>
@@ -34,8 +28,17 @@
             <artifactId>java.util.json</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>io.github.simbo1905.json</groupId>
+            <artifactId>java.util.json.jtd</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.github.simbo1905.json</groupId>
+            <artifactId>java.util.json.jtd.codegen</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
-        <!-- Test dependencies -->
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-api</artifactId>
@@ -47,41 +50,20 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-params</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <!-- JSON parsing for test examples -->
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
-            <version>2.15.0</version>
-            <scope>test</scope>
-        </dependency>
-    
-        <dependency>
-            <groupId>net.jqwik</groupId>
-            <artifactId>jqwik</artifactId>
-            <version>1.9.3</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
 
     <build>
         <plugins>
-            <!-- Treat all warnings as errors, enable all lint warnings -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.13.0</version>
                 <configuration>
-                    <release>21</release>
+                    <release>24</release>
                     <showWarnings>true</showWarnings>
                     <showDeprecation>true</showDeprecation>
                     <compilerArgs>
@@ -93,21 +75,33 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.1.2</version>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
                 <executions>
                     <execution>
+                        <phase>package</phase>
                         <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
+                            <goal>shade</goal>
                         </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <finalName>jdt2jar</finalName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>json.java21.jdt2jar.Jdt2Jar</mainClass>
+                                </transformer>
+                            </transformers>
+                        </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
-                    <includes>
-                        <include>**/*IT.java</include>
-                        <include>**/*ITCase.java</include>
-                    </includes>
+                    <release>24</release>
+                    <doclint>none</doclint>
                 </configuration>
             </plugin>
         </plugins>

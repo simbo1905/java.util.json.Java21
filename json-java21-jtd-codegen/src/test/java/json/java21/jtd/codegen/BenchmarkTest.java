@@ -2,7 +2,6 @@ package json.java21.jtd.codegen;
 
 import jdk.sandbox.java.util.json.Json;
 import jdk.sandbox.java.util.json.JsonValue;
-import json.java21.jtd.JtdValidator;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
@@ -137,7 +136,7 @@ class BenchmarkTest extends CodegenTestBase {
       final var codegenResult = JtdCodegen.compileWithStats(schema);
       final var codegen = codegenResult.validator();
       final var classfileBytes = codegenResult.classfileBytes();
-      final var interpreter = JtdValidator.compile(schema);
+      final var interpreter = json.java21.jtd.JtdValidator.compileInterpreter(schema);
 
       assertThat(codegen.validate(validDoc).isValid()).isTrue();
       assertThat(codegen.validate(invalidDoc).isValid()).isFalse();
@@ -149,8 +148,8 @@ class BenchmarkTest extends CodegenTestBase {
 
       final var codegenValidNs = measure(codegen, validDoc);
       final var codegenInvalidNs = measure(codegen, invalidDoc);
-      final var interpValidNs = measure(interpreter, validDoc);
-      final var interpInvalidNs = measure(interpreter, invalidDoc);
+      final var interpValidNs = measureInterpreter(interpreter, validDoc);
+      final var interpInvalidNs = measureInterpreter(interpreter, invalidDoc);
 
       final var speedupValid = (double) interpValidNs / codegenValidNs;
       final var speedupInvalid = (double) interpInvalidNs / codegenInvalidNs;
@@ -191,6 +190,16 @@ class BenchmarkTest extends CodegenTestBase {
   }
 
   private long measure(JtdValidator validator, JsonValue doc) {
+    IntStream.range(0, WARMUP_ITERATIONS).forEach(_ -> validator.validate(doc));
+
+    final var start = System.nanoTime();
+    IntStream.range(0, MEASURED_ITERATIONS).forEach(_ -> validator.validate(doc));
+    final var elapsed = System.nanoTime() - start;
+
+    return elapsed / MEASURED_ITERATIONS;
+  }
+
+  private long measureInterpreter(json.java21.jtd.JtdValidator validator, JsonValue doc) {
     IntStream.range(0, WARMUP_ITERATIONS).forEach(_ -> validator.validate(doc));
 
     final var start = System.nanoTime();
