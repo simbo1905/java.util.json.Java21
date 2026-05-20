@@ -336,9 +336,7 @@ Such vulnerabilities existed at one point in the upstream OpenJDK sandbox implem
 
 ## JSON Type Definition (JTD) Validator
 
-This repo contains an incubating JTD validator that has the core JSON API as its only dependency. This sub-project demonstrates how to build realistic JSON heavy logic using the API. It follows Data Oriented Programming principles: it compiles JTD schemas into an immutable structure of records. For validation it parses the JSON document to the generic structure and uses the thread-safe parsed schema and a stack to visit and validate the parsed JSON.
-
-A complete JSON Type Definition validator is included (module: json-java21-jtd).
+A complete JSON Type Definition validator is included (module: `json-java21-jtd`), implementing RFC 8927 with a stack-machine interpreter and optional bytecode codegen (JDK 24+).
 
 ### Empty Schema `{}` Semantics (RFC 8927)
 
@@ -350,25 +348,12 @@ Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
 > `empty = {}`  
 > **Empty form:** A schema in the empty form accepts all JSON values and produces no errors.
 
-⚠️ Note: Some tools or in-house validators mistakenly interpret `{}` as "object with no
-properties allowed." **That is not JTD.** This implementation follows RFC 8927 strictly.
-
 ```java
 import json.java21.jtd.Jtd;
 import jdk.sandbox.java.util.json.*;
 
-// Compile JTD schema
-JsonValue schema = Json.parse("""
-  {
-    "properties": {
-      "name": {"type": "string"},
-      "age": {"type": "int32"}
-    }
-  }
-""");
-
-// Validate JSON
-JsonValue data = Json.parse("{\"name\":\"Alice\",\"age\":30}");
+JsonValue schema = Json.parse("{\"properties\":{\"name\":{\"type\":\"string\"}}}");
+JsonValue data = Json.parse("{\"name\":\"Alice\"}");
 Jtd validator = new Jtd();
 Jtd.Result result = validator.validate(schema, data);
 // result.isValid() => true
@@ -376,17 +361,6 @@ Jtd.Result result = validator.validate(schema, data);
 
 ### JTD RFC 8927 Compliance
 
-The validator provides full RFC 8927 compliance with comprehensive test coverage:
-
-```bash
-# Run all JTD compliance tests
-./mvnw test -pl json-java21-jtd -Dtest=JtdSpecIT
-
-# Run with detailed logging
-./mvnw test -pl json-java21-jtd -Djava.util.logging.ConsoleHandler.level=FINE
-```
-
-Features:
 - ✅ Eight mutually-exclusive schema forms (RFC 8927 §2.2)
 - ✅ Standardized error format with instance and schema paths
 - ✅ Primitive type validation with proper ranges
@@ -394,6 +368,12 @@ Features:
 - ✅ Timestamp format validation (RFC 3339 with leap seconds)
 - ✅ Discriminator tag exemption from additional properties
 - ✅ Stack-based validation preventing StackOverflowError
+
+## JTD to JAR Compiler (Optional)
+
+An optional `jdt2jar` CLI tool and distroless Docker image are available for offline JTD validator packaging. It compiles a JTD schema into a standalone validator JAR at build time, eliminating the JDK 24+ runtime requirement for generated validators. The generated JARs run on JDK 21+.
+
+See [`jdt2jar/README.md`](jdt2jar/README.md) for build instructions, container usage, and the pre-built image on GitHub Container Registry (`ghcr.io`).
 
 ## Building
 
