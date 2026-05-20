@@ -228,7 +228,7 @@ class CrossValidationTest extends CodegenTestBase {
     final var schema = Json.parse(schemaJson);
     final var instance = Json.parse(instanceJson);
 
-    final var interpreter = json.java21.jtd.JtdValidator.compile(schema);
+    final var interpreter = json.java21.jtd.JtdValidator.compileInterpreter(schema);
     final var codegen = JtdCodegen.compile(schema);
 
     final var interpResult = interpreter.validate(instance);

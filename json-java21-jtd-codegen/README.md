@@ -27,8 +27,7 @@ For **infrequent validation** (config loading, startup checks, one-off validatio
 
 ```java
 import jdk.sandbox.java.util.json.*;
-import json.java21.jtd.JtdValidator;
-import json.java21.jtd.codegen.JtdCodegen;
+import json.java21.jtd.codegen.JtdValidator;
 
 JsonValue schema = Json.parse("""
     {"properties": {"name": {"type": "string"}, "age": {"type": "uint8"}}}
@@ -36,12 +35,12 @@ JsonValue schema = Json.parse("""
 JsonValue doc = Json.parse("{\"name\":\"Alice\",\"age\":30}");
 
 // Codegen path (JDK 24+ only)
-JtdValidator validator = JtdCodegen.compile(schema);
+JtdValidator validator = JtdValidator.compileGenerated(schema);
 var result = validator.validate(doc);
 System.out.println(result.isValid()); // true
 
-// Falls back to interpreter automatically via JtdValidator.compile()
-JtdValidator interp = JtdValidator.compile(schema);
+// Falls back to interpreter automatically via JtdValidator.compileInterpreter()
+JtdValidator interp = json.java21.jtd.JtdValidator.compileInterpreter(schema);
 ```
 
 ## Performance

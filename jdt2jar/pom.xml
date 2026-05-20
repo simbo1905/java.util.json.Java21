@@ -63,8 +63,12 @@
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.13.0</version>
                 <configuration>
+                    <release>24</release>
+                    <showWarnings>true</showWarnings>
+                    <showDeprecation>true</showDeprecation>
                     <compilerArgs>
                         <arg>-Xlint:all</arg>
+                        <arg>-Werror</arg>
                         <arg>-Xdiags:verbose</arg>
                     </compilerArgs>
                 </configuration>

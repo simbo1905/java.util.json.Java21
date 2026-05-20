@@ -24,17 +24,9 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void compileReturnsValidatorForTypeSchema() {
     LOG.info("EXECUTING: compileReturnsValidatorForTypeSchema");
-    final var validator = JtdValidator.compile(Json.parse("{\"type\": \"string\"}"));
+    final var validator = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"string\"}"));
     assertThat(validator).isNotNull();
     assertThat(validator.validate(Json.parse("\"hello\"")).isValid()).isTrue();
-  }
-
-  @Test
-  void compileGeneratedThrowsWhenCodegenNotOnClasspath() {
-    LOG.info("EXECUTING: compileGeneratedThrowsWhenCodegenNotOnClasspath");
-    assertThatThrownBy(() -> JtdValidator.compileGenerated(Json.parse("{\"type\": \"string\"}")))
-        .isInstanceOf(UnsupportedOperationException.class)
-        .hasMessageContaining("Codegen module not on classpath");
   }
 
   // ------------------------------------------------------------------
@@ -44,7 +36,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void emptySchemaAcceptsAnything() {
     LOG.info("EXECUTING: emptySchemaAcceptsAnything");
-    final var v = JtdValidator.compile(Json.parse("{}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{}"));
     assertThat(v.validate(Json.parse("null")).isValid()).isTrue();
     assertThat(v.validate(Json.parse("42")).isValid()).isTrue();
     assertThat(v.validate(Json.parse("\"hi\"")).isValid()).isTrue();
@@ -59,7 +51,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void typeStringRejectsNumberWithCorrectPaths() {
     LOG.info("EXECUTING: typeStringRejectsNumberWithCorrectPaths");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"string\"}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"string\"}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).hasSize(1);
@@ -70,7 +62,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void typeBooleanValid() {
     LOG.info("EXECUTING: typeBooleanValid");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"boolean\"}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"boolean\"}"));
     assertThat(v.validate(Json.parse("true")).isValid()).isTrue();
     assertThat(v.validate(Json.parse("false")).isValid()).isTrue();
   }
@@ -78,7 +70,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void typeUint8OutOfRangeErrors() {
     LOG.info("EXECUTING: typeUint8OutOfRangeErrors");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"uint8\"}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"uint8\"}"));
     final var result = v.validate(Json.parse("300"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().schemaPath()).isEqualTo("/type");
@@ -91,7 +83,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void enumRejectsUnknownValueWithEnumPath() {
     LOG.info("EXECUTING: enumRejectsUnknownValueWithEnumPath");
-    final var v = JtdValidator.compile(Json.parse("{\"enum\": [\"a\", \"b\"]}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"enum\": [\"a\", \"b\"]}"));
     final var result = v.validate(Json.parse("\"c\""));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().instancePath()).isEqualTo("");
@@ -101,7 +93,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void enumRejectsNonStringWithEnumPath() {
     LOG.info("EXECUTING: enumRejectsNonStringWithEnumPath");
-    final var v = JtdValidator.compile(Json.parse("{\"enum\": [\"a\", \"b\"]}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"enum\": [\"a\", \"b\"]}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().schemaPath()).isEqualTo("/enum");
@@ -114,7 +106,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void elementsRejectsNonArrayAtRootPath() {
     LOG.info("EXECUTING: elementsRejectsNonArrayAtRootPath");
-    final var v = JtdValidator.compile(Json.parse("{\"elements\": {\"type\": \"string\"}}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"elements\": {\"type\": \"string\"}}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().instancePath()).isEqualTo("");
@@ -124,7 +116,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void elementsReportsChildErrorsWithCorrectPaths() {
     LOG.info("EXECUTING: elementsReportsChildErrorsWithCorrectPaths");
-    final var v = JtdValidator.compile(Json.parse("{\"elements\": {\"type\": \"string\"}}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"elements\": {\"type\": \"string\"}}"));
     final var result = v.validate(Json.parse("[\"ok\", 42, \"fine\", true]"));
     assertThat(result.isValid()).isFalse();
     LOG.fine(() -> "Errors: " + result.errors());
@@ -142,7 +134,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void propertiesRejectsNonObjectWithPropertiesPath() {
     LOG.info("EXECUTING: propertiesRejectsNonObjectWithPropertiesPath");
-    final var v = JtdValidator.compile(Json.parse(
+    final var v = JtdValidator.compileInterpreter(Json.parse(
         "{\"properties\": {\"name\": {\"type\": \"string\"}}}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
@@ -153,7 +145,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void optionalPropertiesOnlyRejectsNonObjectWithOptionalPath() {
     LOG.info("EXECUTING: optionalPropertiesOnlyRejectsNonObjectWithOptionalPath");
-    final var v = JtdValidator.compile(Json.parse(
+    final var v = JtdValidator.compileInterpreter(Json.parse(
         "{\"optionalProperties\": {\"email\": {\"type\": \"string\"}}}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
@@ -167,7 +159,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"properties": {"name": {"type": "string"}, "age": {"type": "uint8"}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"name\": \"Alice\"}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -180,7 +172,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"properties": {"name": {"type": "string"}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"name\": \"Alice\", \"extra\": true}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -193,7 +185,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"properties": {"age": {"type": "uint8"}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"age\": \"not a number\"}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -206,7 +198,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"optionalProperties": {"email": {"type": "string"}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"email\": 42}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -221,7 +213,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void valuesRejectsNonObjectAtRootPath() {
     LOG.info("EXECUTING: valuesRejectsNonObjectAtRootPath");
-    final var v = JtdValidator.compile(Json.parse("{\"values\": {\"type\": \"string\"}}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"values\": {\"type\": \"string\"}}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().schemaPath()).isEqualTo("/values");
@@ -230,7 +222,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void valuesReportsChildErrors() {
     LOG.info("EXECUTING: valuesReportsChildErrors");
-    final var v = JtdValidator.compile(Json.parse("{\"values\": {\"type\": \"string\"}}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"values\": {\"type\": \"string\"}}"));
     final var result = v.validate(Json.parse("{\"a\": \"ok\", \"b\": 42}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -247,7 +239,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"discriminator": "type", "mapping": {"a": {"properties": {"x": {"type": "string"}}}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().schemaPath()).isEqualTo("/discriminator");
@@ -259,7 +251,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"discriminator": "type", "mapping": {"a": {"properties": {"x": {"type": "string"}}}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"x\": 1}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().instancePath()).isEqualTo("");
@@ -272,7 +264,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"discriminator": "type", "mapping": {"a": {"properties": {"x": {"type": "string"}}}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"type\": 42}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().instancePath()).isEqualTo("/type");
@@ -285,7 +277,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"discriminator": "type", "mapping": {"a": {"properties": {"x": {"type": "string"}}}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"type\": \"unknown\"}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().instancePath()).isEqualTo("/type");
@@ -298,7 +290,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"discriminator": "type", "mapping": {"a": {"properties": {"x": {"type": "string"}}}}}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(Json.parse("{\"type\": \"a\", \"x\": 42}"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors()).anyMatch(e ->
@@ -313,7 +305,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void nullableAcceptsNull() {
     LOG.info("EXECUTING: nullableAcceptsNull");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"string\", \"nullable\": true}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"string\", \"nullable\": true}"));
     assertThat(v.validate(Json.parse("null")).isValid()).isTrue();
     assertThat(v.validate(Json.parse("\"hi\"")).isValid()).isTrue();
   }
@@ -321,7 +313,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void nullableStillRejectsWrongType() {
     LOG.info("EXECUTING: nullableStillRejectsWrongType");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"string\", \"nullable\": true}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"string\", \"nullable\": true}"));
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
     assertThat(result.errors().getFirst().schemaPath()).isEqualTo("/type");
@@ -337,7 +329,7 @@ class JtdValidatorTest extends JtdTestBase {
     final var schema = Json.parse("""
         {"definitions": {"addr": {"type": "string"}}, "ref": "addr"}
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     assertThat(v.validate(Json.parse("\"hello\"")).isValid()).isTrue();
     final var result = v.validate(Json.parse("42"));
     assertThat(result.isValid()).isFalse();
@@ -352,7 +344,7 @@ class JtdValidatorTest extends JtdTestBase {
   void toStringReturnsSchemaJson() {
     LOG.info("EXECUTING: toStringReturnsSchemaJson");
     final var schemaJson = "{\"type\": \"string\"}";
-    final var v = JtdValidator.compile(Json.parse(schemaJson));
+    final var v = JtdValidator.compileInterpreter(Json.parse(schemaJson));
     assertThat(v.toString()).isNotEmpty();
     LOG.fine(() -> "toString: " + v);
   }
@@ -364,7 +356,7 @@ class JtdValidatorTest extends JtdTestBase {
   @Test
   void usableInStreamPipeline() {
     LOG.info("EXECUTING: usableInStreamPipeline");
-    final var v = JtdValidator.compile(Json.parse("{\"type\": \"string\"}"));
+    final var v = JtdValidator.compileInterpreter(Json.parse("{\"type\": \"string\"}"));
     final var docs = java.util.List.of(
         Json.parse("\"a\""), Json.parse("42"), Json.parse("\"b\""), Json.parse("true"));
     final var invalid = docs.stream()
@@ -400,7 +392,7 @@ class JtdValidatorTest extends JtdTestBase {
           "extra": true
         }
         """);
-    final var v = JtdValidator.compile(schema);
+    final var v = JtdValidator.compileInterpreter(schema);
     final var result = v.validate(instance);
     assertThat(result.isValid()).isFalse();
 

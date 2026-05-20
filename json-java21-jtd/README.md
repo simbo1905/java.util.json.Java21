@@ -210,7 +210,7 @@ String schemaJson = """
 JsonValue schema = Json.parse(schemaJson);
 
 // Compile to a reusable validator (interpreter path, always available)
-JtdValidator validator = JtdValidator.compile(schema);
+JtdValidator validator = JtdValidator.compileInterpreter(schema);
 
 JtdValidationResult result = validator.validate(Json.parse("\"hello\""));
 assert result.isValid();
@@ -231,24 +231,9 @@ result.errors().forEach(e ->
 // Output: "" -> "/type"
 ```
 
-### Generated Validators (optional, JDK 24+)
+### Bytecode-Generated Validators (optional, JDK 24+)
 
-When the `json-java21-jtd-codegen` module is on the classpath **and** the build
-runs on JDK 24+, the factory can generate optimised bytecode validators that
-contain only the checks the schema requires -- no interpreter, no AST, no
-runtime stack:
-
-```java
-// Throws if codegen module is not on the classpath
-JtdValidator fast = JtdValidator.compileGenerated(schema);
-```
-
-The generated classfiles target Java 21 (class version 65) so they run on any
-JDK 21+ runtime. The `toString()` of a generated validator returns the original
-JTD schema JSON.
-
-If you do not need the generated path, the interpreter path (`JtdValidator.compile`)
-works everywhere with zero extra dependencies.
+For repeated hot-path validation, the [`json-java21-jtd-codegen`](../json-java21-jtd-codegen/README.md) module generates dedicated validator classes via the JDK 24+ ClassFile API. Use its own `JtdValidator.compileGenerated(schema)` factory — a separate functional interface in the `json.java21.jtd.codegen` package.
 
 ## Architecture
 

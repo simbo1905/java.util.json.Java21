@@ -10,14 +10,15 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
 import jdk.sandbox.java.util.json.JsonValue;
-import json.java21.jtd.*;
+import json.java21.jtd.Jtd;
 
 /// Compiles a JTD schema into a bytecode-generated [JtdValidator].
 ///
 /// The generated class targets Java 21 (class file version 65) and
 /// contains only the checks the schema requires.
 ///
-/// Entry point for the `JtdValidator.compileGenerated()` reflection call.
+/// Use via {@code JtdValidator.compileGenerated(schema)} in this package,
+/// or call {@link #compile(JsonValue)} directly.
 public final class JtdCodegen {
 
   static final Logger LOG = Logger.getLogger(JtdCodegen.class.getName());
@@ -29,7 +30,8 @@ public final class JtdCodegen {
   /// Result of compilation including the validator and generated class statistics.
   public record CompileResult(JtdValidator validator, int classfileBytes) {}
 
-  /// Public factory invoked by [JtdValidator.compileGenerated] via reflection.
+  /// Compiles a JTD schema into a bytecode-generated validator.
+  /// Requires JDK 24+ (ClassFile API). Generated classes target Java 21 bytecode.
   public static JtdValidator compile(JsonValue schema) {
     return compileWithStats(schema).validator();
   }

@@ -162,6 +162,7 @@ public final class Jdt2Jar {
         || path.startsWith("jdk/sandbox/internal/util/json/")
         || path.startsWith("json/java21/jtd/"))
         && !path.startsWith("json/java21/jtd/codegen/")
+        || path.startsWith("json/java21/jtd/codegen/JtdValidator.class")
         || path.startsWith("json/java21/jdt2jar/runtime/");
   }
 

@@ -6,7 +6,6 @@ import jdk.sandbox.java.util.json.JsonParseException;
 import jdk.sandbox.java.util.json.JsonString;
 import jdk.sandbox.java.util.json.JsonValue;
 import json.java21.jtd.JtdValidationResult;
-import json.java21.jtd.JtdValidator;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -45,7 +44,7 @@ public final class ValidatorMain {
     }
   }
 
-  public static int run(JtdValidator validator, String[] args) throws IOException {
+  public static int run(json.java21.jtd.codegen.JtdValidator validator, String[] args) throws IOException {
     final CliOptions options;
     try {
       options = parseArgs(args);
@@ -85,7 +84,7 @@ public final class ValidatorMain {
   }
 
   public static JtdValidationResult validate(String schemaJson, JsonValue instance) {
-    return JtdValidator.compile(Json.parse(schemaJson)).validate(instance);
+    return json.java21.jtd.JtdValidator.compileInterpreter(Json.parse(schemaJson)).validate(instance);
   }
 
   private static RuntimeConfig loadConfig() throws IOException {
@@ -100,11 +99,11 @@ public final class ValidatorMain {
         props.getProperty("schemaEntry", "jtd/schema.json"));
   }
 
-  private static JtdValidator instantiate(String validatorClassName, String schemaJson) {
+  private static json.java21.jtd.codegen.JtdValidator instantiate(String validatorClassName, String schemaJson) {
     try {
       final var clazz = Class.forName(validatorClassName);
       final var ctor = clazz.getConstructor(String.class);
-      return (JtdValidator) ctor.newInstance(schemaJson);
+      return (json.java21.jtd.codegen.JtdValidator) ctor.newInstance(schemaJson);
     } catch (ReflectiveOperationException e) {
       throw new IllegalStateException("Could not instantiate validator class: " + validatorClassName, e);
     }
