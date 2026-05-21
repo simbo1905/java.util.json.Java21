@@ -35,10 +35,7 @@ A minimal distroless container image is available for offline schema compilation
 ### Pre-built Image (GitHub Container Registry)
 
 ```bash
-# Pull the latest image
 docker pull ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest
-
-# Pull a specific release version
 docker pull ghcr.io/simbo1905/java.util.json.java21/jdt2jar:2026.05.20
 ```
 
@@ -52,38 +49,33 @@ docker build -t jdt2jar -f jdt2jar/Dockerfile .
 
 ### Usage
 
-The container's working directory is `/work`. Mount your local directory there, or use `docker cp` for environments where volume mounts are restricted (e.g., Colima on macOS).
-
-#### Option 1: Volume mount (Linux, Docker Desktop with file sharing enabled)
+The container's working directory is `/work`. Mount your project directory there:
 
 ```bash
-# bash / zsh
-docker run --rm -v "$(pwd):/work" ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest schema.jtd.json --output schema-validator.jar --main
-
-# PowerShell
-docker run --rm -v "${PWD}:/work" ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest schema.jtd.json --output schema-validator.jar --main
-
-# cmd.exe
-docker run --rm -v "%CD%:/work" ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest schema.jtd.json --output schema-validator.jar --main
+docker run --rm -v "$(pwd):/work" jdt2jar:latest schema.jtd.json --output schema-validator.jar --main
 ```
 
-#### Option 2: docker cp (works everywhere, including Colima on macOS)
+Validate a payload with the generated JAR:
 
 ```bash
-# Compile a schema
-cid=$(docker create --name jdt2jar-build ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest /work/schema.jtd.json --output /work/schema-validator.jar --main)
-docker cp schema.jtd.json jdt2jar-build:/work/schema.jtd.json
-docker start -a jdt2jar-build
-docker cp jdt2jar-build:/work/schema-validator.jar .
-docker rm jdt2jar-build
-
-# Validate a payload
-cid=$(docker create --name jdt2jar-validate --entrypoint /jre/bin/java ghcr.io/simbo1905/java.util.json.java21/jdt2jar:latest -jar /work/schema-validator.jar --validate /work/payload.json)
-docker cp schema-validator.jar jdt2jar-validate:/work/schema-validator.jar
-docker cp payload.json jdt2jar-validate:/work/payload.json
-docker start -a jdt2jar-validate
-docker rm jdt2jar-validate
+java -jar schema-validator.jar --validate payload.json
 ```
+
+Or validate inside a container:
+
+```bash
+docker run --rm -v "$(pwd):/work" --entrypoint /jre/bin/java jdt2jar:latest -jar /work/schema-validator.jar --validate /work/payload.json
+```
+
+### Helper Script
+
+For environments where volume mounts are restricted (e.g., Colima on macOS with projects outside `~/`), use the helper script:
+
+```bash
+./scripts/jdt2jar.sh schema.jtd.json --output schema-validator.jar --main
+```
+
+The script syncs source to `~/tmp/jdt2jar-work`, runs the container, and syncs output back.
 
 ### Image Properties
 
