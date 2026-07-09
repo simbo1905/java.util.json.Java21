@@ -137,7 +137,7 @@ class JsonPointerTest extends JsonPointerLoggingConfig {
     }
 
     @Test
-    void tilde0DecodestiLdeInKey() {
+    void tilde0DecodesTildeInKey() {
         LOG.info("TEST: tilde0DecodesTildeInKey - /m~0n resolves key 'm~n'");
         final var result = JsonPointer.parse("/m~0n").resolve(rfcDoc());
         assertThat(result.toString()).isEqualTo("8");
