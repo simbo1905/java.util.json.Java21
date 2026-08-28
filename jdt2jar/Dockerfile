@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:24-jdk AS build
+FROM eclipse-temurin:25-jdk AS build
 WORKDIR /build
 COPY . .
 RUN ["./mvnw", "-pl", "jdt2jar", "-am", "package", "-DskipTests", "-Dsurefire.failIfNoSpecifiedTests=false"]
@@ -10,6 +10,7 @@ RUN ["mkdir", "-p", "/empty-work/tmp", "/empty-app"]
 FROM gcr.io/distroless/base-debian13:nonroot
 COPY --from=build --chown=65532:65532 /empty-work /work
 COPY --from=build --chown=65532:65532 /empty-app /app
+WORKDIR /work
 ENV JAVA_TOOL_OPTIONS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -Djava.io.tmpdir=/work/tmp -XX:+ExitOnOutOfMemoryError"
 COPY --from=build /opt/jre /jre
 COPY --from=build /build/jdt2jar/target/jdt2jar.jar /app/jdt2jar.jar
