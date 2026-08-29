@@ -31,7 +31,7 @@ public class ApiTrackerRunner {
     configureLogging(logLevel);
 
     System.out.println("=== JSON API Tracker ===");
-    System.out.println("Comparing local jdk.sandbox.java.util.json with upstream java.util.json");
+    System.out.println("Comparing local jdk.sandbox.java.util.json with upstream jdk.incubator.json");
     System.out.println("Log level: " + logLevel);
     System.out.println("Mode: " + mode);
     if (sourcePath != null) {

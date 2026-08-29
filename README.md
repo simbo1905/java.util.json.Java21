@@ -307,7 +307,13 @@ The JSON compatibitlity tests in this repo suggest 99% conformance with a leadin
 
 ### CI: Upstream API Tracking
 
-**Note**: The daily API tracker workflow currently targets the old `java.util.json` paths which no longer exist upstream. It needs to be updated to track `jdk.incubator.json` — see issue #145.
+The `daily-api-tracker.yml` workflow runs daily at 02:00 UTC: it fetches the upstream `jdk.incubator.json` sources from the [jdk-sandbox `json` branch](https://github.com/openjdk/jdk-sandbox/tree/json) HEAD and compares public API signatures against the local `jdk.sandbox.java.util.json` classes. When they differ it creates a fingerprint-deduplicated "API drift detected" issue; reports are uploaded as workflow artifacts (`target/api-tracker/`) with 90-day retention. The check can also be run locally:
+
+```bash
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker exec:java \
+  -Dexec.mainClass="io.github.simbo1905.tracker.ApiTrackerRunner" \
+  -Dexec.args="INFO"
+```
 
 ## Modifications
 

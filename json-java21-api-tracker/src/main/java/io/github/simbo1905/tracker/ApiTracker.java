@@ -63,8 +63,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     // Cache for HTTP responses to avoid repeated fetches
     Map<String, String> FETCH_CACHE = new ConcurrentHashMap<>();
 
-    // GitHub base URL for upstream sources
-    String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/";
+    // GitHub base URL for upstream sources (JDK 28 JEP 540 incubator module layout)
+    String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/jdk.incubator.json/share/classes/";
 
     // HttpClient factory method for proper resource management
     static HttpClient createHttpClient() {
@@ -266,10 +266,10 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Maps local class name to upstream GitHub path
     static String mapToUpstreamPath(String className) {
-        // Remove jdk.sandbox prefix and map to standard packages
+        // Remove jdk.sandbox prefix and map to the jdk.incubator.json module packages
         String path = className
-            .replace("jdk.sandbox.java.util.json", "java/util/json")
-            .replace("jdk.sandbox.internal.util.json", "jdk/internal/util/json")
+            .replace("jdk.sandbox.java.util.json", "jdk/incubator/json")
+            .replace("jdk.sandbox.internal.util.json", "jdk/incubator/json/impl")
             .replace('.', '/');
 
         return path + ".java";
@@ -400,24 +400,24 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             """));
 
         // JsonValue base interface stub
-        compilationUnits.add(new InMemoryJavaFileObject("java.util.json.JsonValue", """
-            package java.util.json;
+        compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json.JsonValue", """
+            package jdk.incubator.json;
             public sealed interface JsonValue permits JsonObject, JsonArray, JsonString, JsonNumber, JsonBoolean, JsonNull {}
             """));
 
         // Basic JSON type stubs
         final var jsonTypes = List.of("JsonObject", "JsonArray", "JsonString", "JsonNumber", "JsonBoolean", "JsonNull");
         for (final var type : jsonTypes) {
-            compilationUnits.add(new InMemoryJavaFileObject("java.util.json." + type,
-                "package java.util.json; public non-sealed interface " + type + " extends JsonValue {}"));
+            compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json." + type,
+                "package jdk.incubator.json; public non-sealed interface " + type + " extends JsonValue {}"));
         }
 
         // Internal implementation stubs
-        compilationUnits.add(new InMemoryJavaFileObject("jdk.internal.util.json.JsonObjectImpl", """
-            package jdk.internal.util.json;
+        compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json.impl.JsonObjectImpl", """
+            package jdk.incubator.json.impl;
             import java.util.Map;
-            import java.util.json.JsonObject;
-            import java.util.json.JsonValue;
+            import jdk.incubator.json.JsonObject;
+            import jdk.incubator.json.JsonValue;
             public class JsonObjectImpl implements JsonObject {
                 public JsonObjectImpl(Map<String, JsonValue> map) {}
                 public Map<String, JsonValue> members() { return null; }
@@ -865,9 +865,9 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         // Handle generic types
         var normalized = typeName;
 
-        // Replace jdk.sandbox.* with standard packages
-        normalized = normalized.replace("jdk.sandbox.java.util.json", "java.util.json");
-        normalized = normalized.replace("jdk.sandbox.internal.util.json", "jdk.internal.util.json");
+        // Replace jdk.sandbox.* with the upstream incubator packages
+        normalized = normalized.replace("jdk.sandbox.java.util.json", "jdk.incubator.json");
+        normalized = normalized.replace("jdk.sandbox.internal.util.json", "jdk.incubator.json.impl");
 
         // Remove any remaining package prefixes for comparison
         if (normalized.contains(".")) {
@@ -887,7 +887,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var reportMap = new LinkedHashMap<String, JsonValue>();
         reportMap.put("timestamp", JsonString.of(startTime.toString()));
         reportMap.put("localPackage", JsonString.of("jdk.sandbox.java.util.json"));
-        reportMap.put("upstreamPackage", JsonString.of("java.util.json"));
+        reportMap.put("upstreamPackage", JsonString.of("jdk.incubator.json"));
 
         // Discover local classes
         final var localClasses = discoverLocalJsonClasses();

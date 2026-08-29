@@ -127,10 +127,10 @@ public class ApiTrackerTest {
         @DisplayName("Should map local class names to upstream paths")
         void testMapToUpstreamPath() {
             assertThat(ApiTracker.mapToUpstreamPath("jdk.sandbox.java.util.json.JsonObject"))
-                .isEqualTo("java/util/json/JsonObject.java");
+                .isEqualTo("jdk/incubator/json/JsonObject.java");
 
             assertThat(ApiTracker.mapToUpstreamPath("jdk.sandbox.internal.util.json.JsonObjectImpl"))
-                .isEqualTo("jdk/internal/util/json/JsonObjectImpl.java");
+                .isEqualTo("jdk/incubator/json/impl/JsonObjectImpl.java");
         }
 
         @Test
