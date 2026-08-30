@@ -40,17 +40,11 @@ import jdk.incubator.java.util.json.JsonParseException;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 public class TestJsonLiteral extends JsonTestLoggingConfig {
-
-    void conversionTest() {
-        assertTrue(JsonBoolean.of(true).asBoolean());
-        assertFalse(JsonBoolean.of(false).asBoolean());
-    }
 
     @Nested
     class TestParse {

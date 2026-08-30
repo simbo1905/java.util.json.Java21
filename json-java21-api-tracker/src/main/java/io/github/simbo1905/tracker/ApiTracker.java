@@ -97,7 +97,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     }
 
     /// Discovers all classes in the local JSON API packages
-    /// @return sorted set of classes from jdk.incubator.java.util.json and jdk.incubator.internal.util.json
+    /// @return sorted set of classes from jdk.incubator.java.util.json
     static Set<Class<?>> discoverLocalJsonClasses() {
         LOGGER.info("Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>(Comparator.comparing(Class::getName));
@@ -608,15 +608,6 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             diffMap.put("status", JsonString.of("UPSTREAM_ERROR"));
             diffMap.put("error", upstream.asMap().get("error"));
             return JsonObject.of(diffMap);
-        }
-
-        // Check if status is NOT_IMPLEMENTED (from parsing)
-        if (upstream.asMap().containsKey("status")) {
-            final var status = ((JsonString) upstream.asMap().get("status")).asString();
-            if ("NOT_IMPLEMENTED".equals(status)) {
-                diffMap.put("status", JsonString.of("PARSE_NOT_IMPLEMENTED"));
-                return JsonObject.of(diffMap);
-            }
         }
 
         // Perform detailed comparison

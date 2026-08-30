@@ -2,7 +2,6 @@ package json.java21.jtd.codegen;
 
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
-import java.lang.constant.ConstantDescs;
 
 import json.java21.jtd.JtdSchema;
 
