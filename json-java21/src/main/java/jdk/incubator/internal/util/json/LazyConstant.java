@@ -5,7 +5,7 @@ import java.util.function.Supplier;
 /// Polyfill for JDK's LazyConstant using double-checked locking pattern
 /// for thread-safe lazy initialization.
 ///
-/// This provides a simpler API than StableValue:
+/// This provides a simpler API than the legacy StableValue:
 /// - `LazyConstant.of(Supplier<T>)` - creates a lazy constant
 /// - `.get()` - gets the value (computing if needed)
 class LazyConstant<T> {

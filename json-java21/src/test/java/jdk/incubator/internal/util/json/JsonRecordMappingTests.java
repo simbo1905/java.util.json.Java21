@@ -76,32 +76,32 @@ public class JsonRecordMappingTests {
             throw new IllegalArgumentException("Expected a JsonObject");
         }
 
-        Map<String, JsonValue> members = jsonObject.members();
-        String type = ((JsonString) members.get("type")).string();
+        Map<String, JsonValue> members = jsonObject.asMap();
+        String type = ((JsonString) members.get("type")).asString();
 
         return switch (type) {
             case "order" -> {
-                String orderId = ((JsonString) members.get("orderId")).string();
+                String orderId = ((JsonString) members.get("orderId")).asString();
                 Customer customer = (Customer) toDomain(members.get("customer"));
-                List<LineItem> items = ((JsonArray) members.get("items")).elements().stream()
+                List<LineItem> items = ((JsonArray) members.get("items")).asList().stream()
                         .map(item -> (LineItem) toDomain(item))
                         .collect(Collectors.toList());
                 yield new Order(orderId, customer, items);
             }
             case "customer" -> {
-                String name = ((JsonString) members.get("name")).string();
-                String email = ((JsonString) members.get("email")).string();
+                String name = ((JsonString) members.get("name")).asString();
+                String email = ((JsonString) members.get("email")).asString();
                 yield new Customer(name, email);
             }
             case "lineItem" -> {
                 Product product = (Product) toDomain(members.get("product"));
-                int quantity = (int) ((JsonNumber) members.get("quantity")).toLong();
+                int quantity = (int) ((JsonNumber) members.get("quantity")).asLong();
                 yield new LineItem(product, quantity);
             }
             case "product" -> {
-                String sku = ((JsonString) members.get("sku")).string();
-                String name = ((JsonString) members.get("name")).string();
-                double price = ((JsonNumber) members.get("price")).toDouble();
+                String sku = ((JsonString) members.get("sku")).asString();
+                String name = ((JsonString) members.get("name")).asString();
+                double price = ((JsonNumber) members.get("price")).asDouble();
                 yield new Product(sku, name, price);
             }
             default -> throw new IllegalStateException("Unexpected value: " + type);

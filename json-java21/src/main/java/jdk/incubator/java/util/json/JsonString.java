@@ -26,54 +26,60 @@
 package jdk.incubator.java.util.json;
 
 import java.util.Objects;
+
 import jdk.incubator.internal.util.json.JsonStringImpl;
 import jdk.incubator.internal.util.json.Utils;
 
 /**
- * The interface that represents a JSON string.
+ * The interface that represents JSON string.
  * <p>
- * A {@code JsonString} can be produced by a {@link Json#parse(String)}.
+ * A {@code JsonString} can be produced by {@link Json#parse(String)}.
  * Within a valid JSON string, any character may be escaped using either a
- * two-character escape sequence (if applicable) or a Unicode escape sequence.
- * Quotation mark (U+0022), reverse solidus (U+005C), and the control characters
- * (U+0000 through U+001F) must be escaped.
+ * two-character escape sequence (if applicable) or one or two Unicode escape
+ * sequences. A supplementary character is represented by two Unicode escape
+ * sequences corresponding to its surrogate pair.
+ * <span id="escape-characters">Quotation Mark (U+0022), Backslash (Reverse Solidus, U+005C), and the control
+ * characters (U+0000 through U+001F) must be escaped.</span>
  * <p> Alternatively, {@link #of(String)} can be used to obtain a {@code JsonString}
- * directly from a {@code String}. The {@code JsonString} instances produced by
- * the following expressions are all equivalent,
+ * directly from a {@code String}. The {@code String} values of {@code JsonString}
+ * instances produced by the following expressions are all equivalent:
  * {@snippet lang = "java":
- *     Json.parse("\"foo\\t\"");
- *     Json.parse("\"foo\\u0009\"");
- *     JsonString.of("foo\t");
+ *     Json.parse("\"foo\\t\"").asString();
+ *     Json.parse("\"foo\\u0009\"").asString();
+ *     JsonString.of("foo\t").asString();
  *}
  *
  * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-7 RFC 8259:
  *      The JavaScript Object Notation (JSON) Data Interchange Format - Strings
- * @since 99
+ * @since 28
  */
 public non-sealed interface JsonString extends JsonValue {
 
     /**
-     * {@return the {@code JsonString} created from the given
-     * {@code String}}
+     * {@return the {@code JsonString} created from the given {@code String}}
+     * Unlike {@link Json#parse(String)}, {@code src} is not expected to be
+     * surrounded by quotation marks and the {@linkplain ##escape-characters special characters}
+     * do not need to be escaped. As a result, {@code src} is equal to {@code
+     * JsonString.of(src).asString()}.
      *
      * @param src the given source {@code String}. Non-null.
      * @throws NullPointerException if {@code src} is {@code null}
      */
     static JsonString of(String src) {
         var escaped = '"' + Utils.escape(Objects.requireNonNull(src)) + '"';
-        return new JsonStringImpl(escaped.toCharArray(), 0, escaped.length(),
+        return new JsonStringImpl(escaped.toCharArray(), true, 0, escaped.length(),
                 escaped.length() != src.length() + 2);
     }
 
     /**
      * {@return the JSON string represented by this {@code JsonString}}
-     * If this {@code JsonString} was created by parsing a JSON document, it
+     * If this {@code JsonString} was created by parsing a JSON text, it
      * preserves the original text representation of the corresponding JSON
-     * string. Otherwise, the source {@code String} passed to the factory method
-     * {@link #of(String)} is used to generate the JSON string, with special
-     * characters properly escaped.
+     * string. Otherwise, the returned JSON string is the source {@code String}
+     * passed to the factory method {@link #of(String)} surrounded by double quotes
+     * with {@linkplain ##escape-characters special characters} properly escaped.
      *
-     * @see #string()
+     * @see #asString()
      */
     @Override
     String toString();
@@ -84,25 +90,5 @@ public non-sealed interface JsonString extends JsonValue {
      * @see #toString()
      */
     @Override
-    String string();
-
-    /**
-     * {@return true if the given {@code obj} is equal to this {@code JsonString}}
-     * Two {@code JsonString}s {@code js1} and {@code js2} represent the same value
-     * if {@code js1.string().equals(js2.string())}.
-     *
-     * @see #string()
-     */
-    @Override
-    boolean equals(Object obj);
-
-    /**
-     * {@return the hash code value of this {@code JsonString}} The hash code of a
-     * {@code JsonString} is derived from the hash code of {@code JsonString}'s
-     * {@link #string()}.
-     *
-     * @see #string()
-     */
-    @Override
-    int hashCode();
+    String asString();
 }

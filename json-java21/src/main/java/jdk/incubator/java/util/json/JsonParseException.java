@@ -24,29 +24,31 @@
  */
 
 package jdk.incubator.java.util.json;
+
 import java.io.Serial;
 
 /**
  * Signals that an error has been detected while parsing the
- * JSON document. This exception is thrown if the value supplied
- * to the {@link Json#parse(String) Json::parse} methods is not valid JSON
- * syntax, or contains a JSON object with duplicate names.
+ * JSON text. This exception is thrown if the value supplied
+ * to either {@link Json#parse(String)} or {@link Json#parse(char[])}
+ * is not valid JSON syntax, or contains a JSON object with duplicate
+ * names.
  *
- * @since 99
+ * @since 28
  */
-public class JsonParseException extends RuntimeException {
+public final class JsonParseException extends RuntimeException {
 
     @Serial
     private static final long serialVersionUID = 7022545379651073390L;
 
     /**
-     * Position of the error line in the document
+     * Zero-based line number of the error
      * @serial
      */
     private final int line;
 
     /**
-     * Position of the error position in the document
+     * Zero-based position of the error within the line
      * @serial
      */
     private final int pos;
@@ -54,24 +56,33 @@ public class JsonParseException extends RuntimeException {
     /**
      * Constructs a JsonParseException with the specified detail message.
      * @param message the detail message
-     * @param line the line of the error on parsing the document
-     * @param pos the position of the error on parsing the document
+     * @param line the zero-based line number of the error, counted by
+     *         {@code '\n'} (linefeed, {@code U+000A}) characters. Non-negative.
+     * @param pos the zero-based position of the error within the line, counted
+     *         in UTF-16 code units. Non-negative.
+     * @throws IllegalArgumentException if {@code line} or {@code pos} are negative
      */
     public JsonParseException(String message, int line, int pos) {
         super(message);
+        if (line < 0 || pos < 0) {
+            throw new IllegalArgumentException(
+                    "\"line\" and \"pos\" should be non-negative");
+        }
         this.line = line;
         this.pos = pos;
     }
 
     /**
-     * {@return the line of the error on parsing the document}
+     * {@return the zero-based line number of the error, counted by
+     * {@code '\n'} (linefeed, {@code U+000A}) characters}
      */
     public int getErrorLine() {
         return line;
     }
 
     /**
-     * {@return the position of the error on parsing the document}
+     * {@return the zero-based position of the error within the line,
+     * counted in UTF-16 code units}
      */
     public int getErrorPosition() {
         return pos;

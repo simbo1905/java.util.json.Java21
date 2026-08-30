@@ -25,40 +25,47 @@
 
 package jdk.incubator.java.util.json;
 
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.stream.Collectors;
+
 import jdk.incubator.internal.util.json.JsonObjectImpl;
 
 /**
  * The interface that represents JSON object.
  * <p>
- * A {@code JsonObject} can be produced by a {@link Json#parse(String)}.
- * <p> Alternatively, {@link #of(Map)} can be used to obtain a {@code JsonObject}.
+ * A {@code JsonObject} can be produced by {@link Json#parse(String)}.
+ * <p>
+ * Alternatively, {@link #of(Map)} can be used to obtain a {@code JsonObject}.
+ * <p>
  * Implementations of {@code JsonObject} cannot be created from sources that
- * contain duplicate member names. If duplicate names appear during
- * a {@link Json#parse(String)}, a {@code JsonParseException} is thrown.
+ * contain duplicate member names. If duplicate names appear while parsing with
+ * {@link Json#parse(String)}, a {@code JsonParseException} is thrown. If duplicate
+ * member names are detected while creating a {@code JsonObject} with {@link #of(Map)},
+ * an {@code IllegalArgumentException} is thrown.
  *
  * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-4 RFC 8259:
  *      The JavaScript Object Notation (JSON) Data Interchange Format - Objects
- * @since 99
+ * @since 28
  */
 public non-sealed interface JsonObject extends JsonValue {
 
     /**
      * {@inheritDoc}
+     *
+     * @implNote {@inheritDoc}
      */
     @Override
-    Map<String, JsonValue> members();
+    Map<String, JsonValue> asMap();
 
     /**
      * {@inheritDoc}
      *
      * @param name {@inheritDoc}
-     * @throws JsonAssertionException if there is no association with the member name
      * @throws NullPointerException {@inheritDoc}
+     * @throws JsonValueException if there is no association with the member name
      */
     @Override
     default JsonValue get(String name) {
@@ -73,50 +80,37 @@ public non-sealed interface JsonObject extends JsonValue {
      * @throws NullPointerException {@inheritDoc}
      */
     @Override
-    default Optional<JsonValue> getOrAbsent(String name) {
+    default Optional<JsonValue> tryGet(String name) {
         // Overridden to specify
-        return JsonValue.super.getOrAbsent(name);
+        return JsonValue.super.tryGet(name);
     }
 
     /**
      * {@return the {@code JsonObject} created from the given
      * map of {@code String} to {@code JsonValue}s}
      *
-     * The {@code JsonObject}'s members occur in the same order as the given
-     * map's entries.
-     *
      * @param map the map of {@code JsonValue}s. Non-null.
+     * @throws IllegalArgumentException if duplicate member names are given in
+     *      {@code map}, including when they are encountered while iterating over
+     *      the mappings of an {@link java.util.IdentityHashMap}.
      * @throws NullPointerException if {@code map} is {@code null}, contains
      *      any keys that are {@code null}, or contains any values that are {@code null}.
      */
     static JsonObject of(Map<String, ? extends JsonValue> map) {
-        return new JsonObjectImpl(map.entrySet() // Implicit NPE on map
-                .stream()
-                .collect(Collectors.toMap(
-                        e -> Objects.requireNonNull(e.getKey()), Map.Entry::getValue, // Implicit NPE on val
-                        (k, v) -> v, LinkedHashMap::new)));
+        Objects.requireNonNull(map);
+
+        if (map.isEmpty()) {
+            return new JsonObjectImpl(Collections.emptyMap());
+        } else {
+            var m = new LinkedHashMap<String, JsonValue>();
+            for (var e : map.entrySet()) {
+                var key = Objects.requireNonNull(e.getKey());
+                var value = Objects.requireNonNull(e.getValue());
+                if (m.putIfAbsent(key, value) != null) {
+                    throw new IllegalArgumentException("Duplicate member name: " + key);
+                }
+            }
+            return new JsonObjectImpl(m);
+        }
     }
-
-    /**
-     * {@return {@code true} if the given object is also a {@code JsonObject}
-     * and the two {@code JsonObject}s represent the same mappings} Two
-     * {@code JsonObject}s {@code jo1} and {@code jo2} represent the same
-     * mappings if {@code jo1.members().equals(jo2.members())}.
-     *
-     * @see #members()
-     */
-    @Override
-    boolean equals(Object obj);
-
-    /**
-     * {@return the hash code value for this {@code JsonObject}} The hash code value
-     * of a {@code JsonObject} is derived from the hash code of {@code JsonObject}'s
-     * {@link #members()}. Thus, for two {@code JsonObject}s {@code jo1} and {@code jo2},
-     * {@code jo1.equals(jo2)} implies that {@code jo1.hashCode() == jo2.hashCode()}
-     * as required by the general contract of {@link Object#hashCode}.
-     *
-     * @see #members()
-     */
-    @Override
-    int hashCode();
 }

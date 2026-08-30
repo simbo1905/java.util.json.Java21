@@ -27,13 +27,15 @@ package jdk.incubator.internal.util.json;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 import jdk.incubator.java.util.json.JsonArray;
 import jdk.incubator.java.util.json.JsonValue;
+
 /**
  * JsonArray implementation class
  */
-public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
+public final class JsonArrayImpl implements JsonArray, JsonValueSupport {
 
     private final List<JsonValue> theValues;
     private final int offset;
@@ -49,9 +51,22 @@ public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
         doc = d;
     }
 
+    // Conversion override
     @Override
-    public List<JsonValue> elements() {
+    public List<JsonValue> asList() {
         return Collections.unmodifiableList(theValues);
+    }
+
+    // Navigation overrides (on default) -> bypass the unmodifiable wrap
+    @Override
+    public JsonValue get(int index) {
+        try {
+            return theValues.get(index);
+        } catch (IndexOutOfBoundsException ignored) {
+            throw Utils.composeError(this, String.format(Locale.ROOT,
+                "JsonArray index %d out of bounds for length %d.",
+                index, theValues.size()));
+        }
     }
 
     @Override
@@ -66,24 +81,6 @@ public final class JsonArrayImpl implements JsonArray, JsonValueImpl {
 
     @Override
     public String toString() {
-        var s = new StringBuilder("[");
-        for (JsonValue v: elements()) {
-            s.append(v.toString()).append(",");
-        }
-        if (!elements().isEmpty()) {
-            s.setLength(s.length() - 1); // trim final comma
-        }
-        return s.append("]").toString();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return o instanceof JsonArray oja &&
-                elements().equals(oja.elements());
-    }
-
-    @Override
-    public int hashCode() {
-        return elements().hashCode();
+        return JsonGenerator.toCompactString(this);
     }
 }

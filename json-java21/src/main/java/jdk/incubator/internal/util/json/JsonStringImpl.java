@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,23 +26,25 @@
 package jdk.incubator.internal.util.json;
 
 import jdk.incubator.java.util.json.JsonString;
+
 /**
  * JsonString implementation class
  */
-public final class JsonStringImpl implements JsonString, JsonValueImpl {
+public final class JsonStringImpl implements JsonString, JsonValueSupport {
 
     private final char[] doc;
     private final int startOffset;
     private final int endOffset;
     private final boolean hasEscape;
+    private final boolean fromFactory;
 
     // The String instance representing this JSON string for `toString()`.
-    // It always conforms to JSON syntax. If created by parsing a JSON document,
+    // It always conforms to JSON syntax. If created by parsing a JSON text,
     // it matches the original text exactly. If created via the factory method,
     // non-conformant characters are properly escaped.
     private final LazyConstant<String> jsonStr = LazyConstant.of(this::initJsonStr);
 
-    // The String instance returned by `string()`. Escaped characters are unescaped.
+    // The String instance returned by `asString()`. Escaped characters are unescaped.
     private final LazyConstant<String> value = LazyConstant.of(this::unescape);
 
     // LazyConstants initializers
@@ -50,26 +52,27 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
         return new String(doc, startOffset, endOffset - startOffset);
     }
 
-    public JsonStringImpl(char[] doc, int start, int end, boolean escape) {
+    public JsonStringImpl(char[] doc, boolean factory, int start, int end, boolean escape) {
         this.doc = doc;
+        fromFactory = factory;
         startOffset = start;
         endOffset = end;
         hasEscape = escape;
     }
 
     @Override
-    public String string() {
+    public String asString() {
         return value.get();
     }
 
     @Override
     public char[] doc() {
-        return doc;
+        return fromFactory ? null : doc;
     }
 
     @Override
     public int offset() {
-        return startOffset;
+        return fromFactory ? -1 : startOffset;
     }
 
     @Override
@@ -103,7 +106,7 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
                     case 'r' -> c = '\r';
                     case 't' -> c = '\t';
                     case 'u' -> {
-                        // Will not throw NFE, document parse already validated input
+                        // Will not throw NFE, text parse already validated input
                         c = (char) Integer.parseInt(new String(doc, offset + 1, 4), 16);
                         offset += 4;
                     }
@@ -116,16 +119,5 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
             sb.append(c);
         }
         return sb.toString();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return o instanceof JsonString ojs &&
-                string().equals(ojs.string());
-    }
-
-    @Override
-    public int hashCode() {
-        return string().hashCode();
     }
 }

@@ -24,10 +24,11 @@
  */
 
 package jdk.incubator.java.util.json;
+
 import jdk.incubator.internal.util.json.JsonBooleanImpl;
 
 /**
- * The interface that represents JSON boolean.
+ * The interface that represents the JSON boolean literals, "true" and "false".
  * <p>
  * A {@code JsonBoolean} can be produced by {@link Json#parse(String)}.
  * <p> Alternatively, {@link #of(boolean)} can be used to
@@ -35,7 +36,7 @@ import jdk.incubator.internal.util.json.JsonBooleanImpl;
  *
  * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-3 RFC 8259:
  *      The JavaScript Object Notation (JSON) Data Interchange Format - Values
- * @since 99
+ * @since 28
  */
 public non-sealed interface JsonBoolean extends JsonValue {
 
@@ -43,7 +44,7 @@ public non-sealed interface JsonBoolean extends JsonValue {
      * {@inheritDoc}
      */
     @Override
-    boolean bool();
+    boolean asBoolean();
 
     /**
      * {@return the {@code JsonBoolean} created from the given
@@ -54,27 +55,4 @@ public non-sealed interface JsonBoolean extends JsonValue {
     static JsonBoolean of(boolean src) {
         return src ? JsonBooleanImpl.TRUE : JsonBooleanImpl.FALSE;
     }
-
-    /**
-     * {@return {@code true} if the given object is also a {@code JsonBoolean}
-     * and the two {@code JsonBoolean}s represent the same boolean value} Two
-     * {@code JsonBoolean}s {@code jb1} and {@code jb2} represent the same
-     * boolean values if {@code jb1.bool().equals(jb2.bool())}.
-     *
-     * @see #bool()
-     */
-    @Override
-    boolean equals(Object obj);
-
-    /**
-     * {@return the hash code value for this {@code JsonBoolean}} The hash code value
-     * of a {@code JsonBoolean} is derived from the hash code of {@code JsonBoolean}'s
-     * {@link #bool()}. Thus, for two {@code JsonBooleans}s {@code jb1} and {@code jb2},
-     * {@code jb1.equals(jb2)} implies that {@code jb1.hashCode() == jb2.hashCode()}
-     * as required by the general contract of {@link Object#hashCode}.
-     *
-     * @see #bool()
-     */
-    @Override
-    int hashCode();
 }

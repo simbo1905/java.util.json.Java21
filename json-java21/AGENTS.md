@@ -106,14 +106,14 @@ upstream call sites, **no import or call-site rewrite is needed**; upstream `Laz
 usages compile unchanged against the polyfill.
 
 This file is NOT from upstream and must be preserved during sync. The legacy
-`StableValue.java` polyfill (for the pre-`c1a4f80` upstream API) is unused dead code and is
+`StableValue.java` polyfill (for the pre-`c1a4f80` upstream API) was unused dead code and was
 removed during the incubator uplift.
 
 #### 4.4 DO NOT Convert JavaDoc to JEP 467 Markdown
 If upstream uses `/** ... */` style, DO NOT convert them to our `/// ...` format; we will not edit the upstream files more than the absolute minimum to get them to run on Java 21. 
 
-#### 4.5 JsonAssertionException (Shipped Upstream)
-Upstream at `c1a4f80` DOES ship `java/util/json/JsonAssertionException.java`; it is NOT a local
+#### 4.5 JsonValueException (Shipped Upstream)
+Upstream at `c1a4f80` DOES ship `java/util/json/JsonValueException.java`; it is NOT a local
 addition. Our copy is a minimized mechanical backport of the upstream file (copyright header,
 javadoc and `@Serial serialVersionUID` stripped; behaviour identical). Take the upstream file
 with the standard transforms of 4.1/4.2; do not treat it as local-only.
@@ -169,8 +169,9 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) clean test -pl json-ja
 | `jdk/incubator/internal/util/json/LazyConstant.java` | Java 21 polyfill for the JDK `java.lang.LazyConstant` API used by upstream since `c1a4f80` |
 | `jdk/incubator/demo/JsonDemo.java` | Demonstration/example code |
 
-Note: `JsonAssertionException.java` is shipped upstream (see step 4.5) and
-`StableValue.java` is unused legacy pending removal; neither is a local addition anymore.
+Note: since the `43325738c` uplift, upstream ships `JsonValueException.java` instead of
+`JsonValueException.java`, and `StableValue.java` has been removed; neither is a
+local addition.
 
 ## Transformation Example
 

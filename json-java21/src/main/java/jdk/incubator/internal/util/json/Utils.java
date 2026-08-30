@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -26,13 +26,17 @@
 package jdk.incubator.internal.util.json;
 
 import jdk.incubator.java.util.json.JsonArray;
-import jdk.incubator.java.util.json.JsonAssertionException;
+import jdk.incubator.java.util.json.JsonValueException;
 import jdk.incubator.java.util.json.JsonBoolean;
 import jdk.incubator.java.util.json.JsonNull;
 import jdk.incubator.java.util.json.JsonNumber;
 import jdk.incubator.java.util.json.JsonObject;
 import jdk.incubator.java.util.json.JsonString;
 import jdk.incubator.java.util.json.JsonValue;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Shared utilities for Json classes.
@@ -45,8 +49,6 @@ public class Utils {
     /*
      * Escapes a String to ensure it is a valid JSON String.
      * Backslash, double quote, and control chars are escaped.
-     * Providing this method in Utils allows for a bypass of `JsonString.of(str).value()`
-     * for the toString representation of JsonObject member names.
      */
     public static String escape(String str) {
         StringBuilder sb = null; // Lazy init
@@ -62,38 +64,37 @@ public class Utils {
                 if (sb == null) {
                     sb = new StringBuilder().append(str, 0, i);
                 }
-                // 2 Char escapes (Non-control characters)
-                if (c == '\\') {
-                    sb.append('\\').append(c);
-                } else if (c == '"') {
-                    sb.append('\\').append(c);
-                    // 2 Char escapes (Control characters)
+                sb.append('\\');
+                // Non-control characters
+                if (c == '\\' || c == '"') {
+                    sb.append(c);
+                // 2 Char escapes (Control characters)
                 } else if (c == '\b') {
-                    sb.append('\\').append('b');
+                    sb.append('b');
                 } else if (c == '\f') {
-                    sb.append('\\').append('f');
+                    sb.append('f');
                 } else if (c == '\n') {
-                    sb.append('\\').append('n');
+                    sb.append('n');
                 } else if (c == '\r') {
-                    sb.append('\\').append('r');
+                    sb.append('r');
                 } else if (c == '\t') {
-                    sb.append('\\').append('t');
-                    // All other chars requiring Unicode escape sequence
+                    sb.append('t');
                 } else {
-                    sb.append('\\').append('u').append(String.format("%04X", (int) c));
+                    // All other chars requiring Unicode escape sequence
+                    sb.append('u').append(String.format("%04X", (int) c));
                 }
             }
         }
         return sb == null ? str : sb.toString();
     }
 
-    public static JsonAssertionException composeError(JsonValue jv, String message) {
-        return new JsonAssertionException(message +
-                (jv instanceof JsonValueImpl jvi && jvi.doc() != null ? JsonPath.getPath(jvi) : ""));
+    public static JsonValueException composeError(JsonValue jv, String message) {
+        return new JsonValueException(message +
+                (jv instanceof JsonValueSupport jvs && jvs.doc() != null ? JsonPath.getValuePath(jvs) : ""));
     }
 
     // Use to compose an exception when casting to an incorrect type
-    public static JsonAssertionException composeTypeError(JsonValue jv, String expected) {
+    public static JsonValueException composeTypeError(JsonValue jv, String expected) {
         var actual = switch (jv) {
             case JsonObject v -> "JsonObject";
             case JsonArray v -> "JsonArray";
@@ -105,34 +106,63 @@ public class Utils {
         return composeError(jv, "%s is not a %s.".formatted(actual, expected));
     }
 
-    // This class is responsible for creating the path produced by JAE.
+    static String getParsingPath(int offset, char[] doc, boolean structural) {
+        return JsonPath.getParsingPath(offset, doc, structural);
+    }
+
+    // This class is responsible for creating the path produced by JsonValueException
+    // and JsonParseException. As a result, the appropriate method should be used
+    // as the path semantics differ between the two exception types.
     // Backtracks from the offset of the offending JSON element to the root.
     private static final class JsonPath {
-
         private final int offset;
         private final char[] doc;
         // Tracked and incremented during path creation
         private int line;
         private int pos;
 
-        private JsonPath(JsonValueImpl jvi) {
-            this.offset = jvi.offset();
-            this.doc = jvi.doc();
+        private JsonPath(int offset, char[] doc) {
+            this.offset = offset;
+            this.doc = doc;
         }
 
-        private static String getPath(JsonValueImpl jvi) {
-            return new JsonPath(jvi).parseToRoot();
+        // JsonParseException path produces a contextual path which may not always lead to a primitive
+        // value, but can occur in the structure itself. The offsets in the exception
+        // message should ultimately be derived from the parser state.
+        private static String getParsingPath(int offset, char[] doc, boolean structural) {
+            var pathParts = new ArrayList<String>();
+            // If we encounter an error within the structural state, but not within a value itself
+            // we need to manually insert the brace otherwise backtracking skips it
+            if (structural) {
+                // Structural parsing cases
+                if (doc[offset] == '[') {
+                    pathParts.add("[");
+                } else if (doc[offset] == '{') {
+                    pathParts.add("{");
+                }
+            }
+            return " Path: \"%s\".".formatted(new JsonPath(offset, doc).parseToRoot(pathParts));
         }
 
-        private String parseToRoot() {
-            var sb = new StringBuilder();
-            // Updates the sb
-            toPath(offset, sb);
+        // JsonValueException path produces a path that always leads to a value, and should provide
+        // the correct line and pos positions derived from the JV itself
+        private static String getValuePath(JsonValueSupport jvs) {
+            var pathParts = new ArrayList<String>();
+            var jp = new JsonPath(jvs.offset(), jvs.doc());
+            var path = jp.parseToRoot(pathParts);
+            // After path is produced, line and pos should be value bearing
+            return String.format(Locale.ROOT,
+                " Path: \"%s\". Location: line %d, position %d.",
+                path, jp.line, jp.pos);
+        }
+
+        private String parseToRoot(List<String> pathParts) {
+            toPath(offset, pathParts);
             // If no new line encountered, pos is the starting offset value
             if (line == 0) {
                 pos = offset;
             }
-            return " Path: \"%s\". Location: line %d, position %d.".formatted(sb.toString(), line, pos);
+            return String.join("", pathParts.reversed());
         }
 
         private void addLine(int curr) {
@@ -142,28 +172,29 @@ public class Utils {
             }
         }
 
-        // Void return type, builds the passed StringBuilder
-        private void toPath(int offset, StringBuilder sb) {
+        // List is populated upon completion. It contains the path
+        // to the root in reverse order.
+        private void toPath(int offset, List<String> pathParts) {
             // Walk past starting char and white space
             offset = walkWhitespace(offset - 1);
             // If offset is -1, we found the root and are finished
-            if (offset != -1) {
+            while (offset > -1) {
                 // Node case
                 offset = switch (doc[offset]) {
                     // Does the actual appending
                     // Walks to the node's starting [ or {
-                    case ',', '[' -> arrayNode(offset, sb);
-                    case ':' -> objectNode(offset, sb);
+                    case ',', '[' -> arrayNode(offset, pathParts);
+                    case ':' -> objectNode(offset, pathParts);
                     default -> throw new InternalError();
                 };
-                toPath(offset, sb);
+                offset = walkWhitespace(offset - 1);
             }
         }
 
         private int walkWhitespace(int offset) {
             while (offset >= 0) {
                 var ws = switch (doc[offset]) {
-                    case ' ', '\t','\r' -> true;
+                    case ' ', '\t', '\r' -> true;
                     case '\n' -> {
                         addLine(offset);
                         yield true;
@@ -180,7 +211,7 @@ public class Utils {
 
         // Backtracking from an element in a JsonArray either expects a ',' or '['
         // E.g. " [ val ... " or " [ foo, val "
-        private int arrayNode(int offset, StringBuilder sb) {
+        private int arrayNode(int offset, List<String> pathParts) {
             int aDepth = 0;
             int oDepth = 0;
             int values = 0;
@@ -213,13 +244,13 @@ public class Utils {
                 }
                 offset--;
             }
-            sb.insert(0, '[' + String.valueOf(values));
+            pathParts.add('[' + String.valueOf(values));
             return offset;
         }
 
         // Unlike arrayNode, always expects a ':'
         // Regardless of value position, always preceded by a member name and colon
-        private int objectNode(int offset, StringBuilder sb) {
+        private int objectNode(int offset, List<String> pathParts) {
             offset--; // Walk past ':'
             int depth = 0;
             int nameStart = 0;
@@ -243,7 +274,7 @@ public class Utils {
             }
 
             // Add the name
-            sb.insert(0, '{' + new String(doc, nameStart, nameEnd - nameStart));
+            pathParts.add('{' + new String(doc, nameStart, nameEnd - nameStart));
 
             boolean inString = false;
             // Move to parent offset

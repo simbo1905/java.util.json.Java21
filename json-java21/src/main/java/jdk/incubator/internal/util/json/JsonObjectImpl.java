@@ -27,13 +27,16 @@ package jdk.incubator.internal.util.json;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 
 import jdk.incubator.java.util.json.JsonObject;
 import jdk.incubator.java.util.json.JsonValue;
+
 /**
  * JsonObject implementation class
  */
-public final class JsonObjectImpl implements JsonObject, JsonValueImpl {
+public final class JsonObjectImpl implements JsonObject, JsonValueSupport {
 
     private final Map<String, JsonValue> theMembers;
     private final int offset;
@@ -49,9 +52,27 @@ public final class JsonObjectImpl implements JsonObject, JsonValueImpl {
         doc = d;
     }
 
+    // Conversion override
     @Override
-    public Map<String, JsonValue> members() {
+    public Map<String, JsonValue> asMap() {
         return Collections.unmodifiableMap(theMembers);
+    }
+
+    // Navigation overrides (on default) -> bypass the unmodifiable wrap
+    @Override
+    public JsonValue get(String name) {
+        Objects.requireNonNull(name);
+        return switch (theMembers.get(name)) {
+            case JsonValue jv -> jv;
+            case null -> throw Utils.composeError(this,
+                    "JsonObject member \"%s\" does not exist.".formatted(name));
+        };
+    }
+
+    @Override
+    public Optional<JsonValue> tryGet(String name) {
+        Objects.requireNonNull(name);
+        return Optional.ofNullable(theMembers.get(name));
     }
 
     @Override
@@ -66,27 +87,6 @@ public final class JsonObjectImpl implements JsonObject, JsonValueImpl {
 
     @Override
     public String toString() {
-        var s = new StringBuilder("{");
-        for (Map.Entry<String, JsonValue> kv: members().entrySet()) {
-            // Escape the key (which is stored as unescaped) to conform to JSON syntax
-            s.append("\"").append(Utils.escape(kv.getKey())).append("\":")
-             .append(kv.getValue().toString())
-             .append(",");
-        }
-        if (!members().isEmpty()) {
-            s.setLength(s.length() - 1); // trim final comma
-        }
-        return s.append("}").toString();
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return o instanceof JsonObject ojo &&
-                members().equals(ojo.members());
-    }
-
-    @Override
-    public int hashCode() {
-        return members().hashCode();
+        return JsonGenerator.toCompactString(this);
     }
 }

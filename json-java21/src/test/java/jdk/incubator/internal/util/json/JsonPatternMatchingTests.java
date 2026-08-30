@@ -15,11 +15,11 @@ public class JsonPatternMatchingTests {
 
     private String identifyJsonValue(JsonValue jsonValue) {
         return switch (jsonValue) {
-            case JsonObject o -> "Object with " + o.members().size() + " members";
-            case JsonArray a -> "Array with " + a.elements().size() + " elements";
-            case JsonString s -> "String with value: " + s.string();
-            case JsonNumber n -> "Number with value: " + n.toDouble();
-            case JsonBoolean b -> "Boolean with value: " + b.bool();
+            case JsonObject o -> "Object with " + o.asMap().size() + " members";
+            case JsonArray a -> "Array with " + a.asList().size() + " elements";
+            case JsonString s -> "String with value: " + s.asString();
+            case JsonNumber n -> "Number with value: " + n.asDouble();
+            case JsonBoolean b -> "Boolean with value: " + b.asBoolean();
             case JsonNull ignored -> "Null";
         };
     }
@@ -40,11 +40,11 @@ public class JsonPatternMatchingTests {
         JsonParser parser = new JsonParser(json.toCharArray());
         JsonObject jsonObject = (JsonObject) parser.parseRoot();
 
-        assertThat(identifyJsonValue(jsonObject.members().get("myObject"))).isEqualTo("Object with 0 members");
-        assertThat(identifyJsonValue(jsonObject.members().get("myArray"))).isEqualTo("Array with 2 elements");
-        assertThat(identifyJsonValue(jsonObject.members().get("myString"))).isEqualTo("String with value: hello");
-        assertThat(identifyJsonValue(jsonObject.members().get("myNumber"))).isEqualTo("Number with value: 123.45");
-        assertThat(identifyJsonValue(jsonObject.members().get("myBoolean"))).isEqualTo("Boolean with value: true");
-        assertThat(identifyJsonValue(jsonObject.members().get("myNull"))).isEqualTo("Null");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myObject"))).isEqualTo("Object with 0 members");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myArray"))).isEqualTo("Array with 2 elements");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myString"))).isEqualTo("String with value: hello");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myNumber"))).isEqualTo("Number with value: 123.45");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myBoolean"))).isEqualTo("Boolean with value: true");
+        assertThat(identifyJsonValue(jsonObject.asMap().get("myNull"))).isEqualTo("Null");
     }
 }

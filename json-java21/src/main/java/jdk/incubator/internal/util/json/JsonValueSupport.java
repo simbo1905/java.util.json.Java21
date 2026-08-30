@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, Oracle and/or its affiliates. All rights reserved.
+ * Copyright (c) 2025, 2026, Oracle and/or its affiliates. All rights reserved.
  * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
  *
  * This code is free software; you can redistribute it and/or modify it
@@ -23,24 +23,24 @@
  * questions.
  */
 
-package jdk.incubator.java.util.json;
-
-import jdk.incubator.internal.util.json.JsonNullImpl;
+package jdk.incubator.internal.util.json;
 
 /**
- * The interface that represents JSON null.
- * <p>
- * A {@code JsonNull} can be produced by {@link Json#parse(String)}.
- * <p> Alternatively, {@link #of()} can be used to obtain a {@code JsonNull}.
- *
- * @since 28
+ * Provides support methods for {@code JsonValue} implementation classes,
+ * primarily for constructing {@code JsonValueException} error messages.
  */
-public non-sealed interface JsonNull extends JsonValue {
+public sealed interface JsonValueSupport
+        permits JsonArrayImpl, JsonBooleanImpl, JsonNullImpl, JsonNumberImpl, JsonObjectImpl, JsonStringImpl {
 
     /**
-     * {@return a {@code JsonNull}}
+     * Return access to the underlying JSON text, if it was parsed.
+     * Otherwise, return null.
      */
-    static JsonNull of() {
-        return JsonNullImpl.NULL;
-    }
+    char[] doc();
+
+    /**
+     * Return the associated offset of the JsonValue in the JSON text,
+     * if it was parsed. Otherwise, return -1.
+     */
+    int offset();
 }

@@ -26,17 +26,17 @@
 package jdk.incubator.internal.util.json;
 
 import jdk.incubator.java.util.json.JsonNull;
+
 /**
  * JsonNull implementation class
  */
-public final class JsonNullImpl implements JsonNull, JsonValueImpl {
+public final class JsonNullImpl implements JsonNull, JsonValueSupport {
 
     private final int offset;
     private final char[] doc;
 
     public static final JsonNullImpl NULL = new JsonNullImpl(null, -1);
     private static final String VALUE = "null";
-    private static final int HASH = VALUE.hashCode();
 
     public JsonNullImpl(char[] doc, int offset) {
         this.doc = doc;
@@ -56,15 +56,5 @@ public final class JsonNullImpl implements JsonNull, JsonValueImpl {
     @Override
     public String toString() {
         return VALUE;
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-        return obj instanceof JsonNull;
-    }
-
-    @Override
-    public int hashCode() {
-        return HASH;
     }
 }

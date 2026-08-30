@@ -26,26 +26,27 @@
 package jdk.incubator.internal.util.json;
 
 import jdk.incubator.java.util.json.JsonBoolean;
+
 /**
  * JsonBoolean implementation class
  */
-public final class JsonBooleanImpl implements JsonBoolean, JsonValueImpl {
+public final class JsonBooleanImpl implements JsonBoolean, JsonValueSupport {
 
-    private final Boolean theBoolean;
+    private final boolean theBoolean;
     private final int offset;
     private final char[] doc;
 
     public static final JsonBooleanImpl TRUE = new JsonBooleanImpl(true, null, -1);
     public static final JsonBooleanImpl FALSE = new JsonBooleanImpl(false, null, -1);
 
-    public JsonBooleanImpl(Boolean bool, char[] doc, int offset) {
+    public JsonBooleanImpl(boolean bool, char[] doc, int offset) {
         theBoolean = bool;
         this.doc = doc;
         this.offset = offset;
     }
 
     @Override
-    public boolean bool() {
+    public boolean asBoolean() {
         return theBoolean;
     }
 
@@ -61,16 +62,6 @@ public final class JsonBooleanImpl implements JsonBoolean, JsonValueImpl {
 
     @Override
     public String toString() {
-        return String.valueOf(bool());
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        return o instanceof JsonBoolean ojb && bool() == ojb.bool();
-    }
-
-    @Override
-    public int hashCode() {
-        return Boolean.hashCode(bool());
+        return String.valueOf(asBoolean());
     }
 }

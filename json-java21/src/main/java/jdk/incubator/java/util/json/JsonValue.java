@@ -24,137 +24,49 @@
  */
 
 package jdk.incubator.java.util.json;
+
 import jdk.incubator.internal.util.json.Utils;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
- * The interface that represents a JSON value. A {@code JsonValue} can be
- * produced by parsing a JSON document with {@link Json#parse(String)}. Extracting
- * a value is done in a 2-step process using {@link ##access access} and {@link
- * ##conversion conversion} methods. The {@link ##generation generation} method
- * produces the JSON compliant text from the {@code JsonValue}.
- * <h2 id="access">Navigating JSON documents</h2>
- * Use the access methods to navigate to the desired JSON element. {@link
- * #get(String)} is provided for JSON object and {@link #element(int)} for JSON array.
- * Given the JSON document:
- * {@snippet lang=java:
- * JsonValue json = Json.parse("""
- *     { "foo": ["bar", true, 42], "baz": null }
- *     """);
- * }
- * the JSON String "bar" can be accessed as follows:
- * {@snippet lang=java:
- * JsonValue foo0 = json.get("foo").element(0);
- * }
- * If an access method is invoked on an incompatible JSON type (for example,
- * calling {@code get(String)} on a JSON array), a {@code JsonAssertionException}
- * is thrown.
- * <p>
- * Once the desired JSON element is reached, call the corresponding conversion
- * method to retrieve an appropriate Java value from the {@code JsonValue}.
- * <h2 id=conversion>Converting JSON values to Java values</h2>
- * Use the conversion methods to produce a Java value from the {@code
- * JsonValue}. Each conversion methods corresponds to a JSON type:
- * <ul>
- *     <li>{@code string()} returns a String that represents the JSON string
- *     with all RFC 8259 JSON escapes translated to their corresponding
- *     characters.</li>
- *     <li>{@code toInt()} returns an int provided the JSON number is a whole
- *     number within range of {@code Integer.MIN_VALUE} and
- *     {@code Integer.MAX_VALUE}.
- *     </li>
- *     <li>{@code toLong()} returns a long provided the JSON number is a whole
- *     number within range of {@code Long.MIN_VALUE} and {@code Long.MAX_VALUE}.
- *     </li>
- *     <li>{@code toDouble()} returns a double provided the JSON number is
- *     within range of {@code -Double.MAX_VALUE} and {@code Double.MAX_VALUE}.
- *     </li>
- *     <li>{@code bool()} returns {@code true} or {@code false} for JSON
- *     boolean literals.</li>
- *     <li>{@code members()} returns an unmodifiable map of {@code String} to
- *     {@code JsonValue} for JSON object, guaranteed to contain neither null
- *     keys nor null values. If the JSON object contains no members, an empty
- *     map is returned.
- *     </li>
- *     <li>{@code elements()} returns an unmodifiable list of {@code JsonValue}
- *     for JSON array, guaranteed to contain non-null values. If the JSON array
- *     contains no elements, an empty list is returned.</li>
- * </ul>
- * For example,
- * {@snippet lang=java:
- * String bar = foo0.string();
- * }
- * The code above retrieves the Java String "bar" from the JSON element {@code foo0}.
- * If an incorrect conversion method is used, which does not correspond to the matching
- * JSON type, for example {@code foo0.bool()}, a {@code JsonAssertionException} is thrown.
- * <p>
- * These conversion methods always return a value when the {@code JsonValue} is
- * of the correct JSON type. The exceptions are {@code toInt()}, {@code toLong()},
- * and {@code toDouble()}; the {@code to} prefix implies that they may throw a
- * {@code JsonAssertionException} even when the {@code JsonValue} is a JSON
- * number, for example if it is outside their supported ranges.
- * <h2>Subtypes of JsonValue</h2>
- * The {@code JsonValue} subtypes correspond to the JSON types. For example,
- * {@code JsonString} to JSON string. If the type of JSON value is unknown, it can
- * be retrieved as follows:
- * {@snippet lang=java:
- * switch (json.get("foo")) {
- *     case JsonString js -> js.string(); // handle the value as JSON string
- *     case JsonArray ja -> ja.element(0).string(); // handle the value as JSON array
- *     default -> throw new JsonAssertionException("unexpected type");
- * }
- * }
- * <h2>Missing Object Members</h2>
- * There are times when the member in a JSON object is optional. For those
- * cases, use the access method {@link #getOrAbsent(String)} which returns an
- * Optional of JsonValue. For example:
- * {@snippet lang=java:
- * json.getOrAbsent("foo")
- *     .ifPresent(IO::println)
- * }
- * This example only prints the value if the member named "foo" exists.
- * <h2>Handling of null</h2>
- * In some JSON documents, JSON null is used to signify absence.
- * For those cases, use the access method {@link #valueOrNull()} which returns an
- * Optional of JsonValue. For example:
- * {@snippet lang=java:
- * json.get("baz")
- *     .valueOrNull()
- *     .ifPresent(IO::println)
- * }
- * This example only prints the value if the member named "baz" is not a JSON
- * null.
- * <h2 id="generation">Generating JSON documents</h2>
- * {@code JsonValue} overrides {@link Object#toString()} to generate RFC 8259 compliant
- * JSON text in a compact representation with white spaces eliminated.
- * For generating JSON documents suitable for display, use
- * the generation method {@link Json#toDisplayString(JsonValue, int)} instead.
- * <p>
- * Instances of {@code JsonValue} are immutable and thread safe.
+ * The interface that represents a JSON value. A {@code JsonValue} represents
+ * a syntactic element within a JSON text. The {@code JsonValue} subtypes
+ * correspond to the JSON types, while {@code JsonValue} itself provides a uniform
+ * interface for navigation, conversion, and generation.
  *
- * @implSpec A class implementing a non-sealed {@code JsonValue} sub-interface
- * must adhere to the
- * <a href="../../../java/lang/doc-files/ValueBased.html">value-based</a>
- * class requirements.
+ * <p>{@code JsonValue} does not define any identity or value semantics.
+ * Code that requires equality, hashing, or comparisons should use a
+ * {@linkplain jdk.incubator.java.util.json/jdk.incubator.java.util.json##conversion conversion}
+ * method to obtain a Java value upon which such operations are performed.
  *
- * @since 99
+ * <p>Instances of {@code JsonValue} are immutable and thread safe. See the
+ * {@linkplain jdk.incubator.java.util.json/jdk.incubator.java.util.json package specification}
+ * for an overview of parsing, accessing, converting, and generating JSON text.
+ *
+ * @since 28
  */
 public sealed interface JsonValue permits JsonString, JsonNumber, JsonObject, JsonArray, JsonBoolean, JsonNull {
 
     /**
-     * {@return the String representation of this {@code JsonValue} that conforms
-     * to the JSON syntax} If this {@code JsonValue} is created by parsing a
-     * JSON document, it preserves the text representation of the corresponding
-     * JSON element, except that the returned string does not contain any white
-     * spaces or newlines to produce a compact representation.
-     * For a String representation suitable for display, use
-     * {@link Json#toDisplayString(JsonValue, int)}.
+     * {@return a JSON syntax conformant String representation of this {@code JsonValue}}
      *
-     * @see Json#toDisplayString(JsonValue, int)
+     * The returned string represents the same JSON value as this object and
+     * does not contain insignificant whitespace or line separators. The returned
+     * String is not a canonical representation of the JSON value. If this {@code JsonValue}
+     * was obtained via one of the parsing methods on the {@link Json} class, the
+     * returned String is not necessarily an exact lexical match of the JSON text that
+     * was parsed. Subinterfaces may specify stronger preservation behavior for their
+     * corresponding JSON type.
+     * <p>
+     * For a String representation suitable for display, use
+     * {@link Json#toDisplayString(JsonValue, String)}.
+     *
+     * @see Json#toDisplayString(JsonValue, String)
      */
     String toString();
 
@@ -163,156 +75,181 @@ public sealed interface JsonValue permits JsonString, JsonNumber, JsonObject, Js
 
     /**
      * {@return the {@code boolean} value represented by this {@code JsonValue} if
-     * it is an instance of {@link JsonBoolean}}
+     * it is an instance of {@link JsonBoolean}; otherwise, throws a
+     * {@code JsonValueException}}
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonBoolean} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonBoolean} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of {@code JsonBoolean}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of {@code JsonBoolean}.
      */
-    default boolean bool() {
+    default boolean asBoolean() {
         throw Utils.composeTypeError(this, "JsonBoolean");
     }
 
     /**
      * {@return an {@code int} if this {@code JsonValue} is an instance of {@link JsonNumber}
-     * and it can be translated from its string representation} That is, it can be
-     * expressed as a whole number and is within the range of
-     * {@link Integer#MIN_VALUE} and {@link Integer#MAX_VALUE}. This occurs,
-     * even if the string contains an exponent or a fractional part consisting of
-     * only zero digits. For example, both the JSON number "123.0" and "1.23e2"
-     * produce an {@code int} value of "123". A {@code JsonAssertionException}
+     * that can be converted exactly; otherwise, throws a {@code JsonValueException}}
+     *
+     * This {@code JsonValue} must be a JSON number that represents
+     * a whole number and that is within the range
+     * {@link Integer#MIN_VALUE} to {@link Integer#MAX_VALUE}, inclusive. This is true
+     * even if the JSON number contains an exponent or a fractional part consisting of
+     * all zeroes. For example, the JSON numbers "123.0" and "1.23e2" both
+     * produce an {@code int} value of {@code 123}. A {@code JsonValueException}
      * is thrown when the numeric value cannot be represented as an {@code int};
-     * for example, the value "5.5".
+     * for example, the JSON number "5.5".
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonNumber} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonNumber} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance
-     *      of {@code JsonNumber} nor can be represented as an {@code int}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance
+     *      of {@code JsonNumber} or is not representable as an {@code int}.
      */
-    default int toInt() {
+    default int asInt() {
         throw Utils.composeTypeError(this, "JsonNumber");
     }
 
     /**
-     * {@return a {@code long} if this {@code JsonValue} is an instance of {@link JsonNumber} and
-     * it can be translated from its string representation} That is, it can be expressed
-     * as a whole number and is within the range of {@link Long#MIN_VALUE} and
-     * {@link Long#MAX_VALUE}. This occurs, even if the string contains an
-     * exponent or a fractional part consisting of only zero digits. For example,
-     * both the JSON number "123.0" and "1.23e2" produce a {@code long} value of
-     * "123". A {@code JsonAssertionException} is thrown when the numeric value
-     * cannot be represented as a {@code long}; for example, the value "5.5".
+     * {@return a {@code long} if this {@code JsonValue} is an instance of {@link JsonNumber}
+     * that can be converted exactly; otherwise, throws a {@code JsonValueException}}
+     *
+     * This {@code JsonValue} must be a JSON number that represents
+     * a whole number and that is within the range {@link Long#MIN_VALUE} to
+     * {@link Long#MAX_VALUE}, inclusive. This is true even if the JSON number contains an
+     * exponent or a fractional part consisting of all zeroes. For example,
+     * the JSON numbers "123.0" and "1.23e2" both produce a {@code long} value of
+     * {@code 123}. A {@code JsonValueException} is thrown when the numeric value
+     * cannot be represented as a {@code long}; for example, the JSON number "5.5".
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonNumber} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonNumber} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance
-     *      of {@code JsonNumber} nor can be represented as a {@code long}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance
+     *      of {@code JsonNumber} or is not representable as a {@code long}.
      */
-    default long toLong() {
+    default long asLong() {
         throw Utils.composeTypeError(this, "JsonNumber");
     }
 
     /**
-     * {@return a finite {@code double} if this {@code JsonValue} is an instance of
-     * {@link JsonNumber} and it can be translated from its string representation}
-     * If the string representation is outside the range of {@link Double#MAX_VALUE
-     * -Double.MAX_VALUE} and {@link Double#MAX_VALUE}, a {@code JsonAssertionException} is thrown.
+     * {@return a {@code double} if this {@code JsonValue} is an instance of {@link JsonNumber}
+     * that can be converted, as if by {@link Double#parseDouble Double.parseDouble}, to a finite
+     * {@code double} value; otherwise, throws a {@code JsonValueException}}
      *
-     * @apiNote Callers of this method should be aware of the potential loss in
-     * precision when the string representation of the JSON number is translated
-     * to a {@code double}.
+     * @apiNote Callers of this method should be aware of the potential loss in precision or
+     * magnitude when a {@code JsonNumber} is converted to a {@code double}. A JSON number
+     * may be rounded to the nearest representable {@code double} value, and a JSON number
+     * with more than about 15 decimal digits may lose precision. A JSON number with a
+     * magnitude larger than about 1.8&nbsp;&times;&nbsp;10<sup>308</sup> cannot be
+     * represented as a finite {@code double},
+     * and attempting to convert such a number will result in {@code JsonValueException}.
+     * (This differs from {@link Double#parseDouble Double.parseDouble}, which will return
+     * {@link Double#POSITIVE_INFINITY} or {@link Double#NEGATIVE_INFINITY} for such cases.)
+     * This method will never return {@link Double#NaN}. However, this method will
+     * properly convert and return negative zero ({@code -0.0}). To handle numbers of almost
+     * arbitrary precision and magnitude, consider converting to {@link java.math.BigDecimal
+     * BigDecimal} using {@code new BigDecimal(jsonNumber.toString())}. Note that
+     * {@code BigDecimal} cannot represent negative zero.
+     *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonNumber} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonNumber} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance
-     *      of {@code JsonNumber} nor can be represented as a {@code double}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance
+     *      of {@code JsonNumber} or is not representable as a finite {@code double}.
      */
-    default double toDouble() {
+    default double asDouble() {
         throw Utils.composeTypeError(this, "JsonNumber");
     }
 
     /**
      * {@return the {@code String} value represented by this {@code JsonValue} if
-     * it is an instance of {@link JsonString}}
-     * If this {@code JsonString} was created by parsing a JSON document, any
-     * escaped characters in the original JSON document are converted to their
+     * it is an instance of {@link JsonString}; otherwise, throws a
+     * {@code JsonValueException}}
+     * If this {@code JsonString} was created by parsing a JSON text, any
+     * escaped characters in the original JSON text are converted to their
      * unescaped form.
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonString} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonString} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of {@code JsonString}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of {@code JsonString}.
      */
-    default String string() {
+    default String asString() {
         throw Utils.composeTypeError(this, "JsonString");
     }
 
     /**
-     * {@return an unmodifiable list of the {@code JsonValue} elements if this
-     * {@code JsonValue} is an instance of {@link JsonArray}}
+     * {@return an unmodifiable list of the {@code JsonValue}s if this
+     * {@code JsonValue} is an instance of {@link JsonArray}; otherwise, throws a
+     * {@code JsonValueException}}
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonArray} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonArray} are expected to
      * provide an implementation of this method.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of {@code JsonArray}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of {@code JsonArray}.
      */
-    default List<JsonValue> elements() {
+    default List<JsonValue> asList() {
         throw Utils.composeTypeError(this, "JsonArray");
     }
 
     /**
      * {@return an unmodifiable map of {@code String} to {@code JsonValue} if this
-     * {@code JsonValue} is an instance of {@link JsonObject}}
+     * {@code JsonValue} is an instance of {@link JsonObject}; otherwise, throws a
+     * {@code JsonValueException}}
      *
      * @implSpec
      * The default implementation provided by {@code JsonValue} throws {@code
-     * JsonAssertionException}. As such, implementors of {@code JsonObject} are expected to
+     * JsonValueException}. As such, implementors of {@code JsonObject} are expected to
      * provide an implementation of this method.
+     * @implNote
+     * The JDK platform implementation of {@code JsonObject} preserves the
+     * encounter order of members. When a {@code JsonObject} is created by
+     * parsing, this corresponds to the order of members in the source JSON
+     * text. When created via the {@link JsonObject#of(Map)} factory method, the order
+     * follows the encounter order of the provided map.
      *
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of {@code JsonObject}.
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of {@code JsonObject}.
      */
-    default Map<String, JsonValue> members() {
+    default Map<String, JsonValue> asMap() {
         throw Utils.composeTypeError(this, "JsonObject");
     }
 
     // Access methods are able to provide a suitable default implementation directly
     // in JsonValue, and as such are not specified to be implemented by sub-interfaces.
     // However, relevant sub-interfaces will override them to explicitly have them
-    // declared in their Javadoc as well as make any specification changes.
-    // valueOrNull specification would be unchanged by all sub-interfaces, and as
-    // a result is left un-overridden.
+    // declared in their Javadoc as well as make any needed specification alterations.
 
     /**
-     * {@return the {@code JsonValue} associated with the given member name of a {@code JsonObject}}
+     * {@return the {@code JsonValue} associated with the given member name if this
+     * {@code JsonValue} is an instance of {@link JsonObject}; otherwise, throws a
+     * {@code JsonValueException}}
      *
      * @implSpec
      * The default implementation obtains a {@code JsonValue} which is the result
-     * of invoking {@link #members()}{@code .get(name)}. If {@code name} is absent,
-     * {@code JsonAssertionException} is thrown.
+     * of invoking {@link #asMap()}{@code .get(name)}. If {@code name} is absent,
+     * {@code JsonValueException} is thrown.
      *
      * @param name the member name
      * @throws NullPointerException if the member name is {@code null}
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of a {@code JsonObject} or
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of a {@code JsonObject} or
      * there is no association with the member name
      */
     default JsonValue get(String name) {
         Objects.requireNonNull(name);
-        return switch (members().get(name)) {
+        return switch (asMap().get(name)) {
             case JsonValue jv -> jv;
             case null -> throw Utils.composeError(this,
                     "JsonObject member \"%s\" does not exist.".formatted(name));
@@ -320,42 +257,46 @@ public sealed interface JsonValue permits JsonString, JsonNumber, JsonObject, Js
     }
 
     /**
-     * {@return an {@code Optional} containing the {@code JsonValue} associated with the given member
-     * name of a {@code JsonObject}, otherwise if there is no association an empty {@code Optional}}
+     * {@return an {@code Optional} containing the value of a given member of
+     * this {@link JsonObject}, or an empty {@code Optional} if the member is
+     * absent; throws {@code JsonValueException} if this {@code JsonValue} is
+     * not a {@code JsonObject}}
      *
      * @implSpec
      * The default implementation obtains an {@code Optional<JsonValue>} by invoking {@link
-     * #members()}{@code .get(name)}, which is then passed to {@link Optional#ofNullable}.
+     * #asMap()}{@code .get(name)}, which is then passed to {@link Optional#ofNullable}.
      *
      * @param name the member name
      * @throws NullPointerException if the member name is {@code null}
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of a {@code JsonObject}
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of a {@code JsonObject}
      */
-    default Optional<JsonValue> getOrAbsent(String name) {
+    default Optional<JsonValue> tryGet(String name) {
         Objects.requireNonNull(name);
-        return Optional.ofNullable(members().get(name));
+        return Optional.ofNullable(asMap().get(name));
     }
 
     /**
-     * {@return the {@code JsonValue} associated with the given index of a {@code JsonArray}}
+     * {@return the {@code JsonValue} associated with the given index if this
+     * {@code JsonValue} is an instance of {@link JsonArray}; otherwise, throws a
+     * {@code JsonValueException}}
      *
      * @implSpec
      * The default implementation obtains a {@code JsonValue} which is the result
-     * of invoking {@link #elements()}{@code .get(index)}. If {@code index} is
-     * out of bounds, {@code JsonAssertionException} is thrown.
+     * of invoking {@link #asList()}{@code .get(index)}. If {@code index} is
+     * out of bounds, {@code JsonValueException} is thrown.
      *
      * @param index the index of the array
-     * @throws JsonAssertionException if this {@code JsonValue} is not an instance of a {@code JsonArray}
+     * @throws JsonValueException if this {@code JsonValue} is not an instance of a {@code JsonArray}
      * or the given index is out of bounds
      */
-    default JsonValue element(int index) {
-        List<JsonValue> elements = elements();
+    default JsonValue get(int index) {
+        List<JsonValue> elements = asList();
         try {
             return elements.get(index);
-        } catch(IndexOutOfBoundsException e) {
-            throw Utils.composeError(this,
-                    "JsonArray index %d out of bounds for length %d."
-                            .formatted(index, elements.size()));
+        } catch (IndexOutOfBoundsException ignored) {
+            throw Utils.composeError(this, String.format(Locale.ROOT,
+                "JsonArray index %d out of bounds for length %d.",
+                index, elements.size()));
         }
     }
 
@@ -368,7 +309,7 @@ public sealed interface JsonValue permits JsonString, JsonNumber, JsonObject, Js
      * {@code JsonValue} is an instance of {@code JsonNull}; otherwise
      * {@link Optional#of} given this {@code JsonValue}.
      */
-    default Optional<JsonValue> valueOrNull() {
+    default Optional<JsonValue> tryValue() {
         return switch (this) {
             case JsonNull v -> Optional.empty();
             case JsonValue v -> Optional.of(this);

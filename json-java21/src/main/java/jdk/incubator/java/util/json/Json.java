@@ -24,49 +24,48 @@
  */
 package jdk.incubator.java.util.json;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
+
 import jdk.incubator.internal.util.json.JsonParser;
-import jdk.incubator.internal.util.json.Utils;
+import jdk.incubator.internal.util.json.JsonGenerator;
 
 /**
- * This class provides static methods for parsing and generating JSON documents
+ * This class provides static methods for parsing and generating JSON texts.
  *
  * <p>
  * {@link #parse(String)} and {@link #parse(char[])} produce a {@code JsonValue}
- * by parsing data adhering to the JSON syntax defined in RFC 8259. Unsuccessful
- * parsing throws a {@link JsonParseException}.
+ * by parsing data adhering to the JSON syntax defined in RFC 8259.
+ * {@snippet lang = java:
+ * JsonValue root = Json.parse(jsonText);
+ * }
+ * Successful parsing guarantees there are no syntax errors. Unsuccessful
+ * parsing throws a {@link JsonParseException}. Note that duplicate names in
+ * a {@code JsonObject} also result in this exception.
  * <p>
- * {@link #toDisplayString(JsonValue, int)} produces a
+ * {@link #toDisplayString(JsonValue, String)} produces a
  * JSON text representation of the given {@code JsonValue} suitable for display.
  *
  * @spec https://datatracker.ietf.org/doc/html/rfc8259 RFC 8259: The JavaScript
  *      Object Notation (JSON) Data Interchange Format
- * @since 99
+ * @since 28
  */
 public final class Json {
 
     /**
-     * Parses and creates a {@code JsonValue} from the given JSON document.
-     * If parsing succeeds, it guarantees that the input document conforms to
-     * the JSON syntax. If the document contains any JSON object that has
+     * Parses and creates a {@code JsonValue} from the given JSON text.
+     * If parsing succeeds, it guarantees that the input text conforms to
+     * the JSON syntax. If the text contains any JSON object that has
      * duplicate names, a {@code JsonParseException} is thrown.
      * <p>
-     * {@code JsonObject}s preserve the order of their members declared in and parsed from
-     * the JSON document.
+     * {@code JsonObject}s preserve the order of members in the input JSON
+     * text.
      *
      * @implNote {@code JsonValue}s created by this method may produce their
      * underlying value representation lazily.
      *
-     * @param in the input JSON document as {@code String}. Non-null.
-     * @throws JsonParseException if the input JSON document does not conform
-     *      to the JSON document format or a JSON object containing
+     * @param in the input JSON text as {@code String}. Non-null.
+     * @throws JsonParseException if the input JSON text does not conform
+     *      to the JSON text format or a JSON object containing
      *      duplicate names is encountered.
      * @throws NullPointerException if {@code in} is {@code null}
      * @return the parsed {@code JsonValue}
@@ -77,20 +76,21 @@ public final class Json {
     }
 
     /**
-     * Parses and creates a {@code JsonValue} from the given JSON document.
-     * If parsing succeeds, it guarantees that the input document conforms to
-     * the JSON syntax. If the document contains any JSON object that has
-     * duplicate names, a {@code JsonParseException} is thrown.
+     * Parses and creates a {@code JsonValue} from the given JSON text.
+     * If parsing succeeds, it guarantees that the input text conforms to
+     * the JSON syntax. If the text contains any JSON object that has
+     * duplicate names, a {@code JsonParseException} is thrown. After parsing,
+     * changes to the input array have no effect on the returned {@code JsonValue}.
      * <p>
      * {@code JsonObject}s preserve the order of their members declared in and parsed from
-     * the JSON document.
+     * the JSON text.
      *
      * @implNote {@code JsonValue}s created by this method may produce their
      * underlying value representation lazily.
      *
-     * @param in the input JSON document as {@code char[]}. Non-null.
-     * @throws JsonParseException if the input JSON document does not conform
-     *      to the JSON document format or a JSON object containing
+     * @param in the input JSON text as {@code char[]}. Non-null.
+     * @throws JsonParseException if the input JSON text does not conform
+     *      to the JSON text format or a JSON object containing
      *      duplicate names is encountered.
      * @throws NullPointerException if {@code in} is {@code null}
      * @return the parsed {@code JsonValue}
@@ -98,84 +98,34 @@ public final class Json {
     public static JsonValue parse(char[] in) {
         Objects.requireNonNull(in);
         // Defensive copy on input. Ensure source is immutable.
-        return new JsonParser(Arrays.copyOf(in, in.length)).parseRoot();
+        return new JsonParser(in.clone()).parseRoot();
     }
 
     /**
      * {@return the String representation of the given {@code JsonValue} that conforms
      * to the JSON syntax} As opposed to the compact output returned by {@link
-     * JsonValue#toString()}, this method returns a JSON string that is better
-     * suited for display.
+     * JsonValue#toString()}, this method returns JSON text that is better
+     * suited for display. The {@code indent} parameter specifies the indentation
+     * string used for each line and may contain only JSON insignificant whitespace
+     * characters: space ({@code ' '}), horizontal tab ({@code '\t'}), line feed
+     * ({@code '\n'}), or carriage return ({@code '\r'}).
      *
      * @param value the {@code JsonValue} to create the display string from. Non-null.
-     * @param indent the number of spaces used for the indentation. Zero or positive.
-     * @throws NullPointerException if {@code value} is {@code null}
-     * @throws IllegalArgumentException if {@code indent} is a negative number
+     * @param indent the {@code String} for the indentation. Non-null.
+     * @throws IllegalArgumentException if {@code indent} contains characters other
+     *      than insignificant whitespace characters.
+     * @throws NullPointerException if {@code value} or {@code indent} is {@code null}
      * @see JsonValue#toString()
      */
-    public static String toDisplayString(JsonValue value, int indent) {
+    public static String toDisplayString(JsonValue value, String indent) {
         Objects.requireNonNull(value);
-        if (indent < 0) {
-            throw new IllegalArgumentException("indent is negative");
+        Objects.requireNonNull(indent);
+        if (!indent.chars().allMatch(c ->
+            c == ' ' || c == '\t' || c == '\n' || c == '\r')) {
+            throw new IllegalArgumentException("indent contains non-insignificant" +
+                " whitespace: " + indent);
         }
-        var s = new StringBuilder();
-        toDisplayString(value, s, 0, indent, false);
-        return s.toString();
-    }
-
-    private static void toDisplayString(JsonValue jv, StringBuilder s, int col, int indent, boolean isField) {
-        switch (jv) {
-            case JsonObject jo -> toDisplayString(jo, s, col, indent, isField);
-            case JsonArray ja -> toDisplayString(ja, s, col, indent, isField);
-            default -> s.append(" ".repeat(isField ? 1 : col)).append(jv);
-        }
-    }
-
-    private static void toDisplayString(JsonObject jo, StringBuilder s,
-                                          int col, int indent, boolean isField) {
-        var prefix = " ".repeat(col);
-        if (isField) {
-            s.append(" ");
-        } else {
-            s.append(prefix);
-        }
-        if (jo.members().isEmpty()) {
-            s.append("{}");
-        } else {
-            s.append("{\n");
-            jo.members().forEach((name, val) -> {
-                s.append(prefix)
-                        .append(" ".repeat(indent))
-                        .append("\"")
-                        .append(name)
-                        .append("\":");
-                Json.toDisplayString(val, s, col + indent, indent, true);
-                s.append(",\n");
-            });
-            s.setLength(s.length() - 2); // trim final comma
-            s.append("\n").append(prefix).append("}");
-        }
-    }
-
-    private static void toDisplayString(JsonArray ja, StringBuilder s,
-                                          int col, int indent, boolean isField) {
-        var prefix = " ".repeat(col);
-        if (isField) {
-            s.append(" ");
-        } else {
-            s.append(prefix);
-        }
-        if (ja.elements().isEmpty()) {
-            s.append("[]");
-        } else {
-            s.append("[\n");
-            for (JsonValue v : ja.elements()) {
-                Json.toDisplayString(v, s, col + indent, indent, false);
-                s.append(",\n");
-            }
-            s.setLength(s.length() - 2); // trim final comma/newline
-            s.append("\n").append(prefix).append("]");
-        }
+        return JsonGenerator.toDisplayString(value, indent);
     }
 
     // no instantiation is allowed for this class

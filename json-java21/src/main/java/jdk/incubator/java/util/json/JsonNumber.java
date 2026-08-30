@@ -24,6 +24,7 @@
  */
 
 package jdk.incubator.java.util.json;
+
 import jdk.incubator.internal.util.json.JsonNumberImpl;
 
 /**
@@ -32,74 +33,71 @@ import jdk.incubator.internal.util.json.JsonNumberImpl;
  * <p>
  * A {@code JsonNumber} can be produced by {@link Json#parse(String)}.
  * When a JSON number is parsed, a {@code JsonNumber} object is created
- * as long as the parsed value adheres to the JSON number
+ * as long as the input number text adheres to the JSON number
  * <a href="https://datatracker.ietf.org/doc/html/rfc8259#section-6">
  * syntax</a>.
- * Alternatively, {@link #of(double)}, {@link #of(long)}, or {@link #of(String)}
- * can be used to obtain a {@code JsonNumber}.
+ * <p> Alternatively, {@link #of(int)}, {@link #of(long)}, {@link #of(double)},
+ * or {@link #of(String)} can be used to obtain a {@code JsonNumber}.
  * The value of the {@code JsonNumber} can be retrieved as an {@code int} with
- * {@link #toInt()}, as a {@code long} with {@link #toLong()}, or as a
- * {@code double} with {@link #toDouble()}. {@link #toString()} can be used to
- * return the string representation of the JSON number.
+ * {@link #asInt()}, as a {@code long} with {@link #asLong()}, or as a
+ * {@code double} with {@link #asDouble()}. {@link #toString()} can be used to
+ * return the string representation of the {@code JsonNumber}.
  *
  * @apiNote
- * To avoid precision loss when converting JSON numbers to Java types, or when
- * converting JSON numbers outside the range of {@code long} or {@code double},
+ * To avoid precision loss when converting {@code JsonNumber}s to Java types, or when
+ * converting {@code JsonNumber}s outside the range of {@code long} or {@code double},
  * use {@link #toString()} to create arbitrary-precision Java objects, for
  * example,
  * {@snippet lang="java" :
- * new BigDecimal(JsonNumber.toString())
+ * new BigDecimal(jsonNumber.toString())
  * // or if an integral number is preferred
- * new BigInteger(JsonNumber.toString())
+ * new BigInteger(jsonNumber.toString())
  * // for cases with an exponent or zero fractional part
- * new BigDecimal(JsonNumber.toString()).toBigIntegerExact()
+ * new BigDecimal(jsonNumber.toString()).toBigIntegerExact()
  * }
  *
  * @spec https://datatracker.ietf.org/doc/html/rfc8259#section-6 RFC 8259:
  *      The JavaScript Object Notation (JSON) Data Interchange Format - Numbers
- * @since 99
+ * @since 28
  */
 public non-sealed interface JsonNumber extends JsonValue {
 
     /**
      * {@inheritDoc}
      *
-     * @throws JsonAssertionException if this {@code JsonNumber} cannot
-     *      be represented as an {@code int}.
+     * @throws JsonValueException if this {@code JsonNumber} is not representable
+     *      as an {@code int}.
      */
     @Override
-    int toInt();
+    int asInt();
 
     /**
      * {@inheritDoc}
      *
-     * @throws JsonAssertionException if this {@code JsonNumber} cannot
-     *      be represented as a {@code long}.
+     * @throws JsonValueException if this {@code JsonNumber} is not representable
+     *      as a {@code long}.
      */
     @Override
-    long toLong();
+    long asLong();
 
     /**
      * {@inheritDoc}
      *
      * @apiNote {@inheritDoc}
-     * @implNote The JDK reference implementation uses {@link
-     * Double#parseDouble(String)} to perform the conversion from string to
-     * finite double.
      *
-     * @throws JsonAssertionException if this {@code JsonNumber} cannot
-     *      be represented as a finite {@code double}.
+     * @throws JsonValueException if this {@code JsonNumber} is not representable
+     *      as a finite {@code double}.
      */
     @Override
-    double toDouble();
+    double asDouble();
 
     /**
-     * Creates a JSON number from the given {@code double} value.
-     * The string representation of the JSON number created is produced by applying
+     * Creates a {@code JsonNumber} from the given {@code double} value.
+     * The string representation of the {@code JsonNumber} created is produced by applying
      * {@link Double#toString(double)} on {@code num}.
      *
      * @param num the given {@code double} value.
-     * @return a JSON number created from the {@code double} value
+     * @return a {@code JsonNumber} created from the {@code double} value
      * @throws IllegalArgumentException if the given {@code double} value
      * is not a finite floating-point value ({@link Double#NaN NaN},
      * {@link Double#POSITIVE_INFINITY positive infinity}, or
@@ -109,70 +107,63 @@ public non-sealed interface JsonNumber extends JsonValue {
         if (!Double.isFinite(num)) {
             throw new IllegalArgumentException("Not a valid JSON number");
         }
-        // Delegate to of(String) which correctly computes offsets via Json.parse()
-        // Upstream bug: hardcoded decimalOffset=0 and exponentOffset=0
-        return of(Double.toString(num));
+        var str = Double.toString(num);
+        return new JsonNumberImpl(str.toCharArray(), true, 0, str.length(), str.indexOf('.'), str.indexOf('E'));
     }
 
     /**
-     * Creates a JSON number from the given {@code int} value.
-     * The string representation of the JSON number created is produced by applying
+     * Creates a {@code JsonNumber} from the given {@code int} value.
+     * The string representation of the {@code JsonNumber} created is produced by applying
      * {@link Integer#toString(int)} on {@code num}.
      *
      * @param num the given {@code int} value.
-     * @return a JSON number created from the {@code int} value
+     * @return a {@code JsonNumber} created from the {@code int} value
      */
     static JsonNumber of(int num) {
         var str = Integer.toString(num);
-        return new JsonNumberImpl(str.toCharArray(), 0, str.length(), -1, -1);
+        return new JsonNumberImpl(str.toCharArray(), true, 0, str.length(), -1, -1);
     }
 
     /**
-     * Creates a JSON number from the given {@code long} value.
-     * The string representation of the JSON number created is produced by applying
+     * Creates a {@code JsonNumber} from the given {@code long} value.
+     * The string representation of the {@code JsonNumber} created is produced by applying
      * {@link Long#toString(long)} on {@code num}.
      *
      * @param num the given {@code long} value.
-     * @return a JSON number created from the {@code long} value
+     * @return a {@code JsonNumber} created from the {@code long} value
      */
     static JsonNumber of(long num) {
         var str = Long.toString(num);
-        return new JsonNumberImpl(str.toCharArray(), 0, str.length(), -1, -1);
+        return new JsonNumberImpl(str.toCharArray(), true, 0, str.length(), -1, -1);
     }
 
     /**
-     * Creates a JSON number from the given {@code String} value.
-     * The string representation of the JSON number created is equivalent to
-     * {@code num}.
-     *
-     * @implNote The value returned is equivalent to calling:
-     * {@snippet lang = "java":
-     * if (Json.parse(num) instanceof JsonNumber jn) {
-     *     return jn;
-     * }
-     * }
+     * Creates a {@code JsonNumber} from the given {@code String} value.
+     * The string representation of the {@code JsonNumber} created is equivalent to
+     * {@code num} with any leading or trailing JSON insignificant whitespaces removed.
      *
      * @param num the given {@code String} value.
      * @throws IllegalArgumentException if {@code num} is not a valid string
-     *      representation of a JSON number.
-     * @return a JSON number created from the {@code String} value
+     *      representation of a {@code JsonNumber}.
+     * @throws NullPointerException if {@code num} is {@code null}
+     * @return a {@code JsonNumber} created from the {@code String} value
      */
     static JsonNumber of(String num) {
         try {
-            if (Json.parse(num) instanceof JsonNumber jn) {
-                return jn;
+            if (Json.parse(num) instanceof JsonNumberImpl jn) {
+                return jn.toFactoryValue();
             }
-        } catch(JsonParseException e) {}
+        } catch (JsonParseException ignored) {}
         throw new IllegalArgumentException("Not a JSON number");
     }
 
     /**
      * {@return the string representation of this {@code JsonNumber}}
      *
-     * If this {@code JsonNumber} is created by parsing a JSON number in a JSON document,
-     * it preserves the string representation in the document, regardless of its
+     * If this {@code JsonNumber} is created by parsing a JSON number in a JSON text,
+     * it preserves the string representation in the JSON text, regardless of its
      * precision or range. For example, a JSON number like
-     * {@code 3.141592653589793238462643383279} in the JSON document will be
+     * "3.141592653589793238462643383279" in the JSON text will be
      * returned exactly as it appears.
      * If this {@code JsonNumber} is created via one of the factory methods,
      * such as {@link JsonNumber#of(double)}, then the string representation is
@@ -180,24 +171,4 @@ public non-sealed interface JsonNumber extends JsonValue {
      */
     @Override
     String toString();
-
-    /**
-     * {@return true if the given {@code obj} is equal to this {@code JsonNumber}}
-     * The comparison is based on the string representation of this {@code JsonNumber},
-     * ignoring the case.
-     *
-     * @see #toString()
-     */
-    @Override
-    boolean equals(Object obj);
-
-    /**
-     * {@return the hash code value of this {@code JsonNumber}} The returned hash code
-     * is derived from the string representation of this {@code JsonNumber},
-     * ignoring the case.
-     *
-     * @see #toString()
-     */
-    @Override
-    int hashCode();
 }
