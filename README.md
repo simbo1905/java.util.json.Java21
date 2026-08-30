@@ -289,9 +289,18 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ## Current Status
 
-**Final `java.util.json` sandbox-era release** (2026-05-19).
+**2026.08.30 — the `jdk.incubator.json` backport release.**
 
-This code is derived from the OpenJDK jdk-sandbox repository "json" branch at commit `43325738c` (2026-08-27), which is the current frontier of the incubator-era `jdk.incubator.json` API. The incubator promotion itself happened at commit `b956ae0` (2026-02-05); this branch completed the migration from the sandbox-era `java.util.json` naming to the incubator packages — see the notice below and issue #145.
+This is a Java 21+ backport of the JDK's incubating JSON API (`jdk.incubator.json`, [JEP 540](https://openjdk.org/jeps/540), targeted at JDK 28), taken from the upstream `json` branch **as of commit `43325738c` (2026-08-27)**. The public API lives in `jdk.incubator.java.util.json` and the implementation in `jdk.incubator.internal.util.json`, mirroring the upstream module layout at that frontier.
+
+> Note: the upstream commit may be a day or more old by the time you read this — the code here is exactly the upstream API and implementation **as of `43325738c`, 2026-08-27 23:24 UTC**, tracked continuously by the daily drift checker described below.
+
+### Release highlights
+
+- **The incubator API, not a legacy preview.** Conversion accessors are `asString()`, `asInt()`, `asLong()`, `asDouble()`, `asBoolean()`, `asList()`, `asMap()`; navigation is `get(String)`, `get(int)`, `tryGet(String)`, `tryValue()`; type and path errors throw `JsonValueException` with document paths; subtypes use identity `equals`/`hashCode`, matching the upstream specification. Earlier releases of this library exposed a different, sandbox-era API — migrating to this release is a small set of mechanical renames (`string()`→`asString()`, `toLong()`→`asLong()`, `elements()`→`asList()`, `members()`→`asMap()`, and so on).
+- **Upstream hardening included.** The parser uses upstream's explicit-stack (non-recursive) design; the ported test suite covers documents nested 10,000 levels deep.
+- **1,679 automated tests** (up from 1,355 in the previous release), including the complete upstream test suite ported to JUnit and hardened numeric-boundary coverage for `asInt`/`asLong`/`asDouble` ranges, precision, and `JsonNumber.of` conversions.
+- **Automated breaking-change detection.** A daily CI job compares this backport's public API against upstream HEAD and opens a deduplicated issue on any drift; upstream unreachability is always treated as drift, never as all-clear. Sync tooling under `updates/` targets the incubator module layout, making each future sync a mechanical fetch-transform-verify cycle.
 
 ### API Summary
 - `JsonValue` conversion methods: `asBoolean()`, `asString()`, `asInt()`, `asLong()`, `asDouble()`
@@ -300,8 +309,8 @@ This code is derived from the OpenJDK jdk-sandbox repository "json" branch at co
 - `JsonObject`: `asMap()`, `of(Map)`
 - `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, String indent)`
 
-### Upstream Migration Notice
-The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, `toInt()`→`asInt()`, etc.), `tryGet()`/`tryValue()` navigation, and identity (non-value) `equals`/`hashCode`. **That migration is now DONE in this branch** (issue #145): the public API lives in `jdk.incubator.java.util.json` and the implementation in `jdk.incubator.internal.util.json`, matching upstream frontier `43325738c`.
+### Upstream alignment
+Upstream promoted the API from the prototype `java.util.json` naming to the `jdk.incubator.json` incubator module (commit `b956ae0`, 2026-02-05); this release aligns fully with that module, including the renamed accessors, `tryGet()`/`tryValue()` navigation, and identity (non-value) `equals`/`hashCode`, at upstream frontier `43325738c` (issue #145).
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
