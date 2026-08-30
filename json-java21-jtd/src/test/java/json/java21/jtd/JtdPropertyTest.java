@@ -108,10 +108,10 @@ class JtdPropertyTest extends JtdTestBase {
       case TypeSchema(var type) -> createFailingTypeValues(type);
       case EnumSchema(var ignored) -> List.of(JsonString.of("invalid-enum-value"));
       case ElementsSchema(var elementSchema) -> {
-        if (compliant instanceof JsonArray arr && !arr.elements().isEmpty()) {
-          final var invalidElement = createFailingJtdDocuments(elementSchema, arr.elements().getFirst());
+        if (compliant instanceof JsonArray arr && !arr.asList().isEmpty()) {
+          final var invalidElement = createFailingJtdDocuments(elementSchema, arr.asList().getFirst());
           if (!invalidElement.isEmpty()) {
-            final var mixedArray = JsonArray.of(List.of(arr.elements().getFirst(), invalidElement.getFirst()));
+            final var mixedArray = JsonArray.of(List.of(arr.asList().getFirst(), invalidElement.getFirst()));
             yield List.of(mixedArray, JsonNull.of());
           }
         }
@@ -158,20 +158,20 @@ class JtdPropertyTest extends JtdTestBase {
   }
 
   private static JsonObject removeProperty(JsonObject original, String missingProperty) {
-    final var filtered = original.members().entrySet().stream().filter(entry -> !Objects.equals(entry.getKey(), missingProperty)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left, LinkedHashMap::new));
+    final var filtered = original.asMap().entrySet().stream().filter(entry -> !Objects.equals(entry.getKey(), missingProperty)).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (left, right) -> left, LinkedHashMap::new));
     return JsonObject.of(filtered);
   }
 
   @SuppressWarnings("SameParameterValue")
   private static JsonObject addExtraProperty(JsonObject original, String extraProperty) {
-    final var extended = new LinkedHashMap<>(original.members());
+    final var extended = new LinkedHashMap<>(original.asMap());
     extended.put(extraProperty, JsonString.of("extra-value"));
     return JsonObject.of(extended);
   }
 
   @SuppressWarnings("SameParameterValue")
   private static JsonValue replaceDiscriminatorValue(JsonObject original, String newValue) {
-    final var modified = new LinkedHashMap<>(original.members());
+    final var modified = new LinkedHashMap<>(original.asMap());
     // Find and replace discriminator field
     for (var entry : modified.entrySet()) {
       if (entry.getValue() instanceof JsonString) {
@@ -212,7 +212,7 @@ class JtdPropertyTest extends JtdTestBase {
       }
       case NullableSchema(var inner) -> {
         final var innerSchema = jtdSchemaToJsonObject(inner);
-        final var nullableMap = new LinkedHashMap<>(innerSchema.members());
+        final var nullableMap = new LinkedHashMap<>(innerSchema.asMap());
         nullableMap.put("nullable", JsonBoolean.of(true));
         yield JsonObject.of(nullableMap);
       }
@@ -416,8 +416,8 @@ class JtdPropertyTest extends JtdTestBase {
     if (!validationResult.isValid()) {
       String errorMessage = String.format(
         "ERROR: Compliant document failed validation!%nSchema JSON: %s%nDocument JSON: %s%nValidation Errors: %s%nSchema Description: %s%nFull Schema Object: %s",
-        Json.toDisplayString(schemaJson, 2),
-        Json.toDisplayString(compliantDocument, 2),
+        Json.toDisplayString(schemaJson, "  "),
+        Json.toDisplayString(compliantDocument, "  "),
         validationResult.errors(),
         schemaDescription,
         schema
@@ -445,8 +445,8 @@ class JtdPropertyTest extends JtdTestBase {
 
       if (failingResult.isValid()) {
         LOG.severe(() -> String.format("UNEXPECTED: Failing document passed validation!%nSchema JSON: %s%nDocument JSON: %s%nExpected: FAILURE, Got: SUCCESS", 
-                                   Json.toDisplayString(schemaJson, 2), 
-                                   Json.toDisplayString(failing, 2)));
+                                   Json.toDisplayString(schemaJson, "  "), 
+                                   Json.toDisplayString(failing, "  ")));
       }
 
       assertThat(failingResult.isValid()).as("Expected JTD validation failure for %s against schema %s", failing, schemaDescription).isFalse();

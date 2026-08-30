@@ -148,7 +148,7 @@ public sealed interface JtdSchema {
     boolean validateTimestampWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonString str) {
-        String value = str.string();
+        String value = str.asString();
         if (RFC3339.matcher(value).matches()) {
           try {
             // Replace :60 with :59 to allow leap seconds through parsing
@@ -169,7 +169,7 @@ public sealed interface JtdSchema {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonNumber num) {
         // Check for fractional component using toDouble first
-        double doubleValue = num.toDouble();
+        double doubleValue = num.asDouble();
         
         // Check for fractional component
         if (doubleValue != Math.floor(doubleValue)) {
@@ -189,7 +189,7 @@ public sealed interface JtdSchema {
         
         // Now check if the value is within range for the specific integer type
         // Convert to long for range checking
-        long longValue = num.toLong();
+        long longValue = num.asLong();
         boolean inRange = switch (type) {
           case "int8" -> longValue >= -128 && longValue <= 127;
           case "uint8" -> longValue >= 0 && longValue <= 255;
@@ -237,12 +237,12 @@ public sealed interface JtdSchema {
     public boolean validateWithFrame(Frame frame, java.util.List<String> errors, boolean verboseErrors) {
       JsonValue instance = frame.instance();
       if (instance instanceof JsonString str) {
-        if (values.contains(str.string())) {
+        if (values.contains(str.asString())) {
           return true;
         }
         String error = verboseErrors
-            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.string(), values)
-            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.string(), values);
+            ? Jtd.Error.VALUE_NOT_IN_ENUM.message(instance, str.asString(), values)
+            : Jtd.Error.VALUE_NOT_IN_ENUM.message(str.asString(), values);
         errors.add(Jtd.enrichedError(error, frame, instance));
         return false;
       }
@@ -268,7 +268,7 @@ public sealed interface JtdSchema {
     @Override
     public Jtd.Result validate(JsonValue instance, boolean verboseErrors) {
       if (instance instanceof JsonArray arr) {
-        for (JsonValue element : arr.elements()) {
+        for (JsonValue element : arr.asList()) {
           Jtd.Result result = elements.validate(element, verboseErrors);
           if (!result.isValid()) {
             return result;
@@ -331,7 +331,7 @@ public sealed interface JtdSchema {
         String key = entry.getKey();
         JtdSchema schema = entry.getValue();
         
-        JsonValue value = obj.members().get(key);
+        JsonValue value = obj.asMap().get(key);
         if (value == null) {
           return Jtd.Result.failure(Jtd.Error.MISSING_REQUIRED_PROPERTY.message(key));
         }
@@ -347,7 +347,7 @@ public sealed interface JtdSchema {
         String key = entry.getKey();
         JtdSchema schema = entry.getValue();
         
-        JsonValue value = obj.members().get(key);
+        JsonValue value = obj.asMap().get(key);
         if (value != null) {
           Jtd.Result result = schema.validate(value, verboseErrors);
           if (!result.isValid()) {
@@ -358,7 +358,7 @@ public sealed interface JtdSchema {
       
       // Check for additional properties if not allowed
       if (!additionalProperties) {
-        for (String key : obj.members().keySet()) {
+        for (String key : obj.asMap().keySet()) {
           if (!properties.containsKey(key) && !optionalProperties.containsKey(key)) {
             return Jtd.Result.failure(Jtd.Error.ADDITIONAL_PROPERTY_NOT_ALLOWED.message(key));
           }
@@ -409,7 +409,7 @@ public sealed interface JtdSchema {
         return Jtd.Result.failure(error);
       }
       
-      for (JsonValue value : obj.members().values()) {
+      for (JsonValue value : obj.asMap().values()) {
         Jtd.Result result = values.validate(value, verboseErrors);
         if (!result.isValid()) {
           return result;
@@ -462,7 +462,7 @@ public sealed interface JtdSchema {
         return Jtd.Result.failure(error);
       }
       
-      JsonValue discriminatorValue = obj.members().get(discriminator);
+      JsonValue discriminatorValue = obj.asMap().get(discriminator);
       if (!(discriminatorValue instanceof JsonString discStr)) {
         String error = verboseErrors
             ? Jtd.Error.DISCRIMINATOR_MUST_BE_STRING.message(discriminatorValue, discriminator)
@@ -470,7 +470,7 @@ public sealed interface JtdSchema {
         return Jtd.Result.failure(error);
       }
       
-      String discriminatorValueStr = discStr.string();
+      String discriminatorValueStr = discStr.asString();
       JtdSchema variantSchema = mapping.get(discriminatorValueStr);
       if (variantSchema == null) {
         String error = verboseErrors
@@ -482,7 +482,7 @@ public sealed interface JtdSchema {
       // Special-case: allow objects with only the discriminator key
       // This handles the case where discriminator maps to simple types like "boolean"
       // and the object contains only the discriminator field
-      if (obj.members().size() == 1 && obj.members().containsKey(discriminator)) {
+      if (obj.asMap().size() == 1 && obj.asMap().containsKey(discriminator)) {
         return Jtd.Result.success();
       }
       
@@ -503,7 +503,7 @@ public sealed interface JtdSchema {
         return false;
       }
       
-      JsonValue discriminatorValue = obj.members().get(discriminator);
+      JsonValue discriminatorValue = obj.asMap().get(discriminator);
       if (!(discriminatorValue instanceof JsonString discStr)) {
         String error = verboseErrors
             ? Jtd.Error.DISCRIMINATOR_MUST_BE_STRING.message(discriminatorValue, discriminator)
@@ -513,7 +513,7 @@ public sealed interface JtdSchema {
         return false;
       }
       
-      String discriminatorValueStr = discStr.string();
+      String discriminatorValueStr = discStr.asString();
       JtdSchema variantSchema = mapping.get(discriminatorValueStr);
       if (variantSchema == null) {
         String error = verboseErrors

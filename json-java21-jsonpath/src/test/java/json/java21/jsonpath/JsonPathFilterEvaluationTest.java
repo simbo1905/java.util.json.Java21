@@ -159,7 +159,7 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
     // Helper to extract integer field for assertions
     private int asInt(JsonValue v, @SuppressWarnings("SameParameterValue") String key) {
         if (v instanceof jdk.incubator.java.util.json.JsonObject obj) {
-            return (int) obj.members().get(key).toLong();
+            return (int) obj.asMap().get(key).asLong();
         }
         throw new IllegalArgumentException("Not an object");
     }

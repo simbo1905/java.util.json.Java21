@@ -43,8 +43,8 @@ public class ReadmeExamples {
         System.out.println("Value type: " + value.getClass().getSimpleName());
         
         JsonObject obj = (JsonObject) value;
-        String name = ((JsonString) obj.members().get("name")).string();
-        long age = ((JsonNumber) obj.members().get("age")).toLong();
+        String name = ((JsonString) obj.asMap().get("name")).asString();
+        long age = ((JsonNumber) obj.asMap().get("age")).asLong();
         
         System.out.println("Extracted name: " + name);
         System.out.println("Extracted age: " + age);
@@ -82,14 +82,14 @@ public class ReadmeExamples {
         // Parse JSON back to records
         JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
         Team reconstructed = new Team(
-            ((JsonString) parsed.members().get("teamName")).string(),
-            ((JsonArray) parsed.members().get("members")).elements().stream()
+            ((JsonString) parsed.asMap().get("teamName")).asString(),
+            ((JsonArray) parsed.asMap().get("members")).asList().stream()
                 .map(v -> {
                     JsonObject member = (JsonObject) v;
                     return new User(
-                        ((JsonString) member.members().get("name")).string(),
-                        ((JsonString) member.members().get("email")).string(),
-                        ((JsonBoolean) member.members().get("active")).bool()
+                        ((JsonString) member.asMap().get("name")).asString(),
+                        ((JsonString) member.asMap().get("email")).asString(),
+                        ((JsonBoolean) member.asMap().get("active")).asBoolean()
                     );
                 })
                 .toList()
@@ -122,7 +122,7 @@ public class ReadmeExamples {
         ));
         
         System.out.println("API Response:");
-        System.out.println(Json.toDisplayString(response, 2));
+        System.out.println(Json.toDisplayString(response, "  "));
         System.out.println();
     }
 
@@ -143,10 +143,10 @@ public class ReadmeExamples {
         
         // Process a large array of records
         JsonArray items = (JsonArray) Json.parse(largeJsonArray);
-        List<String> activeUserEmails = items.elements().stream()
+        List<String> activeUserEmails = items.asList().stream()
             .map(v -> (JsonObject) v)
-            .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
-            .map(obj -> ((JsonString) obj.members().get("email")).string())
+            .filter(obj -> ((JsonBoolean) obj.asMap().get("active")).asBoolean())
+            .map(obj -> ((JsonString) obj.asMap().get("email")).asString())
             .toList();
         
         System.out.println("Active user emails: " + activeUserEmails);
@@ -193,7 +193,7 @@ public class ReadmeExamples {
         ));
         
         // Format for display
-        String formatted = Json.toDisplayString(data, 2);
+        String formatted = Json.toDisplayString(data, "  ");
         System.out.println("Formatted JSON:");
         System.out.println(formatted);
         System.out.println();

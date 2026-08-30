@@ -18,8 +18,8 @@ public class ReadmeDemoTests {
 
     assertThat(value).isInstanceOf(JsonObject.class);
     JsonObject obj = (JsonObject) value;
-    assertThat(((JsonString) obj.members().get("name")).string()).isEqualTo("Alice");
-    assertThat(((JsonNumber) obj.members().get("age")).toLong()).isEqualTo(30L);
+    assertThat(((JsonString) obj.asMap().get("name")).asString()).isEqualTo("Alice");
+    assertThat(((JsonNumber) obj.asMap().get("age")).asLong()).isEqualTo(30L);
 
     String roundTrip = value.toString();
     assertThat(roundTrip).isEqualTo(jsonString);
@@ -55,22 +55,22 @@ public class ReadmeDemoTests {
     // Verify the JSON structure
     assertThat(teamJson).isInstanceOf(JsonObject.class);
     JsonObject teamObj = (JsonObject) teamJson;
-    assertThat(((JsonString) teamObj.members().get("teamName")).string()).isEqualTo("Engineering");
+    assertThat(((JsonString) teamObj.asMap().get("teamName")).asString()).isEqualTo("Engineering");
 
-    JsonArray members = (JsonArray) teamObj.members().get("members");
-    assertThat(members.elements()).hasSize(2);
+    JsonArray members = (JsonArray) teamObj.asMap().get("members");
+    assertThat(members.asList()).hasSize(2);
 
     // Parse JSON back to records
     JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
     Team reconstructed = new Team(
-        ((JsonString) parsed.members().get("teamName")).string(),
-        ((JsonArray) parsed.members().get("members")).elements().stream()
+        ((JsonString) parsed.asMap().get("teamName")).asString(),
+        ((JsonArray) parsed.asMap().get("members")).asList().stream()
             .map(v -> {
               JsonObject member = (JsonObject) v;
               return new User(
-                  ((JsonString) member.members().get("name")).string(),
-                  ((JsonString) member.members().get("email")).string(),
-                  ((JsonBoolean) member.members().get("active")).bool()
+                  ((JsonString) member.asMap().get("name")).asString(),
+                  ((JsonString) member.asMap().get("email")).asString(),
+                  ((JsonBoolean) member.asMap().get("active")).asBoolean()
               );
             })
             .toList()
@@ -106,19 +106,19 @@ public class ReadmeDemoTests {
     ));
 
     // Verify structure
-    assertThat(((JsonString) response.members().get("status")).string()).isEqualTo("success");
+    assertThat(((JsonString) response.asMap().get("status")).asString()).isEqualTo("success");
 
-    JsonObject data = (JsonObject) response.members().get("data");
-    JsonObject user = (JsonObject) data.members().get("user");
-    assertThat(((JsonNumber) user.members().get("id")).toLong()).isEqualTo(12345L);
-    assertThat(((JsonString) user.members().get("name")).string()).isEqualTo("John Doe");
+    JsonObject data = (JsonObject) response.asMap().get("data");
+    JsonObject user = (JsonObject) data.asMap().get("user");
+    assertThat(((JsonNumber) user.asMap().get("id")).asLong()).isEqualTo(12345L);
+    assertThat(((JsonString) user.asMap().get("name")).asString()).isEqualTo("John Doe");
 
-    JsonArray roles = (JsonArray) user.members().get("roles");
-    assertThat(roles.elements()).hasSize(2);
-    assertThat(((JsonString) roles.elements().getFirst()).string()).isEqualTo("admin");
+    JsonArray roles = (JsonArray) user.asMap().get("roles");
+    assertThat(roles.asList()).hasSize(2);
+    assertThat(((JsonString) roles.asList().getFirst()).asString()).isEqualTo("admin");
 
-    JsonArray errors = (JsonArray) response.members().get("errors");
-    assertThat(errors.elements()).isEmpty();
+    JsonArray errors = (JsonArray) response.asMap().get("errors");
+    assertThat(errors.asList()).isEmpty();
   }
 
   @Test
@@ -136,10 +136,10 @@ public class ReadmeDemoTests {
 
     // Process a large array of records
     JsonArray items = (JsonArray) Json.parse(largeJsonArray);
-    List<String> activeUserEmails = items.elements().stream()
+    List<String> activeUserEmails = items.asList().stream()
         .map(v -> (JsonObject) v)
-        .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
-        .map(obj -> ((JsonString) obj.members().get("email")).string())
+        .filter(obj -> ((JsonBoolean) obj.asMap().get("active")).asBoolean())
+        .map(obj -> ((JsonString) obj.asMap().get("email")).asString())
         .toList();
 
     // Verify we got only active users
@@ -177,7 +177,7 @@ public class ReadmeDemoTests {
     ));
 
     // Format for display
-    String formatted = Json.toDisplayString(data, 2);
+    String formatted = Json.toDisplayString(data, "  ");
 
     // Verify it contains proper formatting (checking key parts)
     assertThat(formatted).contains("{\n");

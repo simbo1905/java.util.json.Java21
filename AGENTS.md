@@ -124,7 +124,7 @@ throw new IllegalArgumentException("enum contains duplicate values: " +
 
 // Include the problematic schema portion
 throw new IllegalArgumentException("Type schema contains unknown key: " + key + 
-    " in schema: " + Json.toDisplayString(obj, 0));
+    " in schema: " + Json.toDisplayString(obj, ""));
 
 // Include both expected and actual values
 throw new IllegalArgumentException("unknown type: '" + typeStr + 
@@ -138,7 +138,7 @@ throw new IllegalArgumentException("invalid schema"); // Too vague
 throw new IllegalArgumentException("bad value"); // No specifics
 ```
 
-Use `Json.toDisplayString(value, depth)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
+Use `Json.toDisplayString(value, indent)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
 
 ## JSON Compatibility Suite
 

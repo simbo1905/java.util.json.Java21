@@ -34,7 +34,7 @@ public final class JsonPathStreams {
     /// @throws ClassCastException if the value is not a `JsonNumber`
     public static double asDouble(JsonValue v) {
         if (v instanceof JsonNumber n) {
-            return n.toDouble();
+            return n.asDouble();
         }
         throw new ClassCastException("Expected JsonNumber but got " + v.getClass().getSimpleName());
     }
@@ -42,7 +42,7 @@ public final class JsonPathStreams {
     /// @throws ClassCastException if the value is not a `JsonNumber`
     public static long asLong(JsonValue v) {
         if (v instanceof JsonNumber n) {
-            return n.toLong();
+            return n.asLong();
         }
         throw new ClassCastException("Expected JsonNumber but got " + v.getClass().getSimpleName());
     }
@@ -50,7 +50,7 @@ public final class JsonPathStreams {
     /// @throws ClassCastException if the value is not a `JsonString`
     public static String asString(JsonValue v) {
         if (v instanceof JsonString s) {
-            return s.string();
+            return s.asString();
         }
         throw new ClassCastException("Expected JsonString but got " + v.getClass().getSimpleName());
     }
@@ -58,24 +58,24 @@ public final class JsonPathStreams {
     /// @throws ClassCastException if the value is not a `JsonBoolean`
     public static boolean asBoolean(JsonValue v) {
         if (v instanceof JsonBoolean b) {
-            return b.bool();
+            return b.asBoolean();
         }
         throw new ClassCastException("Expected JsonBoolean but got " + v.getClass().getSimpleName());
     }
 
     public static Double asDoubleOrNull(JsonValue v) {
-        return (v instanceof JsonNumber n) ? n.toDouble() : null;
+        return (v instanceof JsonNumber n) ? n.asDouble() : null;
     }
 
     public static Long asLongOrNull(JsonValue v) {
-        return (v instanceof JsonNumber n) ? n.toLong() : null;
+        return (v instanceof JsonNumber n) ? n.asLong() : null;
     }
 
     public static String asStringOrNull(JsonValue v) {
-        return (v instanceof JsonString s) ? s.string() : null;
+        return (v instanceof JsonString s) ? s.asString() : null;
     }
 
     public static Boolean asBooleanOrNull(JsonValue v) {
-        return (v instanceof JsonBoolean b) ? b.bool() : null;
+        return (v instanceof JsonBoolean b) ? b.asBoolean() : null;
     }
 }

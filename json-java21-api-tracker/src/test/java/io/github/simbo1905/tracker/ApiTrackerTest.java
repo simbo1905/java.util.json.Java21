@@ -69,20 +69,20 @@ public class ApiTrackerTest {
 
             assertThat(api).isNotNull();
             // Check if extraction succeeded or failed
-            if (api.members().containsKey("error")) {
+            if (api.asMap().containsKey("error")) {
                 // If file not found, that's expected for some source setups
-                final var error = ((JsonString) api.members().get("error")).string();
+                final var error = ((JsonString) api.asMap().get("error")).asString();
                 assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
             } else {
                 // If extraction succeeded, validate structure
-                assertThat(api.members()).containsKey("className");
-                assertThat(((JsonString) api.members().get("className")).string()).isEqualTo("JsonObject");
+                assertThat(api.asMap()).containsKey("className");
+                assertThat(((JsonString) api.asMap().get("className")).asString()).isEqualTo("JsonObject");
 
-                assertThat(api.members()).containsKey("packageName");
-                assertThat(((JsonString) api.members().get("packageName")).string()).isEqualTo("jdk.incubator.java.util.json");
+                assertThat(api.asMap()).containsKey("packageName");
+                assertThat(((JsonString) api.asMap().get("packageName")).asString()).isEqualTo("jdk.incubator.java.util.json");
 
-                assertThat(api.members()).containsKey("isInterface");
-                assertThat(api.members().get("isInterface")).isEqualTo(JsonBoolean.of(true));
+                assertThat(api.asMap()).containsKey("isInterface");
+                assertThat(api.asMap().get("isInterface")).isEqualTo(JsonBoolean.of(true));
             }
         }
 
@@ -92,17 +92,17 @@ public class ApiTrackerTest {
             final var api = ApiTracker.extractLocalApiFromSource("jdk.incubator.java.util.json.JsonValue");
 
             // Check if extraction succeeded or failed
-            if (api.members().containsKey("error")) {
+            if (api.asMap().containsKey("error")) {
                 // If file not found, that's expected for some source setups
-                final var error = ((JsonString) api.members().get("error")).string();
+                final var error = ((JsonString) api.asMap().get("error")).asString();
                 assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
             } else {
                 // If extraction succeeded, validate structure
-                assertThat(api.members()).containsKey("isSealed");
-                assertThat(api.members().get("isSealed")).isEqualTo(JsonBoolean.of(true));
+                assertThat(api.asMap()).containsKey("isSealed");
+                assertThat(api.asMap().get("isSealed")).isEqualTo(JsonBoolean.of(true));
 
-                assertThat(api.members()).containsKey("permits");
-                final var permits = (JsonArray) api.members().get("permits");
+                assertThat(api.asMap()).containsKey("permits");
+                final var permits = (JsonArray) api.asMap().get("permits");
                 // May be empty in source parsing if permits aren't explicitly listed
                 assertThat(permits).isNotNull();
             }
@@ -113,8 +113,8 @@ public class ApiTrackerTest {
         void testExtractLocalApiMissingFile() {
             final var api = ApiTracker.extractLocalApiFromSource("jdk.incubator.java.util.json.NonExistentClass");
 
-            assertThat(api.members()).containsKey("error");
-            final var error = ((JsonString) api.members().get("error")).string();
+            assertThat(api.asMap()).containsKey("error");
+            final var error = ((JsonString) api.asMap().get("error")).asString();
             assertThat(error).contains("LOCAL_FILE_NOT_FOUND");
         }
     }
@@ -178,9 +178,9 @@ public class ApiTrackerTest {
 
             final var result = ApiTracker.compareApis(local, upstream);
 
-            assertThat(result.members()).containsKey("status");
-            assertThat(((JsonString) result.members().get("status")).string()).isEqualTo("UPSTREAM_ERROR");
-            assertThat(result.members()).containsKey("error");
+            assertThat(result.asMap()).containsKey("status");
+            assertThat(((JsonString) result.asMap().get("status")).asString()).isEqualTo("UPSTREAM_ERROR");
+            assertThat(result.asMap()).containsKey("error");
         }
     }
 
@@ -194,7 +194,7 @@ public class ApiTrackerTest {
             final var report = ApiTracker.runFullComparison();
 
             assertThat(report).isNotNull();
-            assertThat(report.members()).containsKeys(
+            assertThat(report.asMap()).containsKeys(
                 "timestamp",
                 "localPackage",
                 "upstreamPackage",
@@ -203,8 +203,8 @@ public class ApiTrackerTest {
                 "durationMs"
             );
 
-            final var summary = (JsonObject) report.members().get("summary");
-            assertThat(summary.members()).containsKeys(
+            final var summary = (JsonObject) report.asMap().get("summary");
+            assertThat(summary.asMap()).containsKeys(
                 "totalClasses",
                 "matchingClasses",
                 "missingUpstream",
@@ -212,7 +212,7 @@ public class ApiTrackerTest {
             );
 
             // Total classes should be greater than 0
-            final var totalClasses = summary.members().get("totalClasses");
+            final var totalClasses = summary.asMap().get("totalClasses");
             assertThat(totalClasses).isNotNull();
         }
     }

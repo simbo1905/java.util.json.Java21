@@ -60,9 +60,9 @@ JsonValue value = Json.parse(json);
 
 // Access as map-like structure
 JsonObject obj = (JsonObject) value;
-String name = ((JsonString) obj.members().get("name")).string();
-long age = ((JsonNumber) obj.members().get("age")).toLong();
-boolean active = ((JsonBoolean) obj.members().get("active")).bool();
+String name = ((JsonString) obj.asMap().get("name")).asString();
+long age = ((JsonNumber) obj.asMap().get("age")).asLong();
+boolean active = ((JsonBoolean) obj.asMap().get("active")).asBoolean();
 ```
 
 ### Simple Record Mapping
@@ -77,9 +77,9 @@ JsonObject jsonObj = (JsonObject) Json.parse(userJson);
 
 // Map to record
 User user = new User(
-    ((JsonString) jsonObj.members().get("name")).string(),
-    ((JsonNumber) jsonObj.members().get("age")).toLong(),
-    ((JsonBoolean) jsonObj.members().get("active")).bool()
+    ((JsonString) jsonObj.asMap().get("name")).asString(),
+    ((JsonNumber) jsonObj.asMap().get("age")).asLong(),
+    ((JsonBoolean) jsonObj.asMap().get("active")).asBoolean()
 );
 
 // Convert records back to JSON using typed factories
@@ -117,9 +117,9 @@ JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
 JsonObject obj = (JsonObject) parsed;
 
 // Use the new type-safe accessor methods
-String name = obj.get("name").string();      // Returns "John"
-long age = obj.get("age").toLong();          // Returns 30L
-double ageDouble = obj.get("age").toDouble(); // Returns 30.0
+String name = obj.get("name").asString();      // Returns "John"
+long age = obj.get("age").asLong();          // Returns 30L
+double ageDouble = obj.get("age").asDouble(); // Returns 30.0
 ```
 
 The accessor methods on `JsonValue`:
@@ -162,14 +162,14 @@ JsonValue teamJson = JsonObject.of(Map.of(
 // Parse JSON back to records
 JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
 Team reconstructed = new Team(
-    ((JsonString) parsed.members().get("teamName")).string(),
-    ((JsonArray) parsed.members().get("members")).elements().stream()
+    ((JsonString) parsed.asMap().get("teamName")).asString(),
+    ((JsonArray) parsed.asMap().get("members")).asList().stream()
         .map(v -> {
             JsonObject member = (JsonObject) v;
             return new User(
-                ((JsonString) member.members().get("name")).string(),
-                ((JsonString) member.members().get("email")).string(),
-                ((JsonBoolean) member.members().get("active")).bool()
+                ((JsonString) member.asMap().get("name")).asString(),
+                ((JsonString) member.asMap().get("email")).asString(),
+                ((JsonBoolean) member.asMap().get("active")).asBoolean()
             );
         })
         .toList()
@@ -206,10 +206,10 @@ Process JSON arrays efficiently with Java streams:
 ```java
 // Filter active users from a JSON array
 JsonArray users = (JsonArray) Json.parse(jsonArrayString);
-List<String> activeUserEmails = users.elements().stream()
+List<String> activeUserEmails = users.asList().stream()
     .map(v -> (JsonObject) v)
-    .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
-    .map(obj -> ((JsonString) obj.members().get("email")).string())
+    .filter(obj -> ((JsonBoolean) obj.asMap().get("active")).asBoolean())
+    .map(obj -> ((JsonString) obj.asMap().get("email")).asString())
     .toList();
 ```
 
@@ -242,7 +242,7 @@ JsonObject data = JsonObject.of(Map.of(
     ))
 ));
 
-String formatted = Json.toDisplayString(data, 2);
+String formatted = Json.toDisplayString(data, "  ");
 // Output:
 // {
 //   "name": "Alice",
@@ -296,7 +296,7 @@ This code is derived from the OpenJDK jdk-sandbox repository "json" branch at co
 - `JsonValue` navigation methods: `get(String)`, `get(int)`, `getOrAbsent(String)`, `valueOrNull()`
 - `JsonArray`: `elements()`, `of(List)`
 - `JsonObject`: `members()`, `of(Map)`
-- `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, int)`
+- `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, String indent)`
 
 ### Upstream Migration Notice
 The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, etc.) and new methods (`asInt()`). A separate branch tracks the incubator upgrade — see issue #145.
@@ -415,7 +415,7 @@ JsonValue doc = Json.parse("""
 var authors = JsonPath.parse("$.store.book[*].author")
     .query(doc)
     .stream()
-    .map(JsonValue::string)
+    .map(JsonValue::asString)
     .toList();
 
 System.out.println("Authors count: " + authors.size());     // prints '3'
@@ -425,7 +425,7 @@ System.out.println("Last author: " + authors.getLast());    // prints 'Marek Ily
 var cheapTitles = JsonPath.parse("$.store.book[?(@.price < 10)].title")
     .query(doc)
     .stream()
-    .map(JsonValue::string)
+    .map(JsonValue::asString)
     .toList();
 
 var priceStats = JsonPath.parse("$.store.book[*].price")

@@ -46,7 +46,7 @@ public class ApiTrackerRunner {
 
       // Pretty print the report
       System.out.println("=== Comparison Report ===");
-      final var jsonOutput = Json.toDisplayString(report, 2);
+      final var jsonOutput = Json.toDisplayString(report, "  ");
       System.out.println(jsonOutput);
 
       // Generate fingerprint and summary

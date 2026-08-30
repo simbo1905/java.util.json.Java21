@@ -127,7 +127,7 @@ public class JsonCompatibilitySummary {
         LOGGER.fine(() -> "Starting JSON report generation");
         TestResults results = runTests();
         JsonObject report = createJsonReport(results);
-        System.out.println(Json.toDisplayString(report, 2));
+        System.out.println(Json.toDisplayString(report, "  "));
     }
 
     private TestResults runTests() throws Exception {

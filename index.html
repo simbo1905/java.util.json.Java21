@@ -183,8 +183,8 @@
 
 JsonObject obj = (JsonObject) Json.parse("{\"name\":\"Alice\",\"age\":30}");
 
-String name = obj.get("name").string();
-long age = obj.get("age").toLong();</code></pre>
+String name = obj.get("name").asString();
+long age = obj.get("age").asLong();</code></pre>
             </section>
 
             <section>
@@ -192,7 +192,7 @@ long age = obj.get("age").toLong();</code></pre>
                 <ul>
                     <li><strong>Immutable JSON values:</strong> <code>JsonObject</code>, <code>JsonArray</code>, <code>JsonString</code>, <code>JsonNumber</code>, <code>JsonBoolean</code>, <code>JsonNull</code></li>
                     <li><strong>Typed factories:</strong> build JSON with <code>JsonObject.of</code>, <code>JsonArray.of</code>, <code>JsonString.of</code>, <code>JsonNumber.of</code>, <code>JsonBoolean.of</code></li>
-                    <li><strong>Type-safe accessors:</strong> <code>obj.get("x").string()</code>, <code>value.toLong()</code>, <code>value.toDouble()</code>, <code>value.bool()</code></li>
+                    <li><strong>Type-safe accessors:</strong> <code>obj.get("x").asString()</code>, <code>value.asLong()</code>, <code>value.asDouble()</code>, <code>value.asBoolean()</code></li>
                     <li><strong>JTD validator (RFC 8927):</strong> module <code>json-java21-jtd</code> for real-world JSON-heavy logic</li>
                 </ul>
             </section>

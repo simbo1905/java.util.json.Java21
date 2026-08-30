@@ -32,7 +32,7 @@ class JtdSpecConformanceTest extends JtdTestBase {
       assert root instanceof JsonObject : "expected top-level object";
       final var obj = (JsonObject) root;
 
-      return obj.members().entrySet().stream()
+      return obj.asMap().entrySet().stream()
           .map(entry -> Arguments.of(
               entry.getKey(),
               entry.getValue()));
@@ -45,18 +45,18 @@ class JtdSpecConformanceTest extends JtdTestBase {
     LOG.info("SPEC: " + name);
 
     final var caseObj = (JsonObject) caseValue;
-    final var schema = caseObj.members().get("schema");
-    final var instance = caseObj.members().get("instance");
-    final var expectedErrors = (JsonArray) caseObj.members().get("errors");
+    final var schema = caseObj.asMap().get("schema");
+    final var instance = caseObj.asMap().get("instance");
+    final var expectedErrors = (JsonArray) caseObj.asMap().get("errors");
 
     final var validator = JtdValidator.compileInterpreter(schema);
     final var result = validator.validate(instance);
 
-    final var expected = expectedErrors.elements().stream()
+    final var expected = expectedErrors.asList().stream()
         .map(e -> {
           final var errObj = (JsonObject) e;
-          final var ip = toJsonPointer((JsonArray) errObj.members().get("instancePath"));
-          final var sp = toJsonPointer((JsonArray) errObj.members().get("schemaPath"));
+          final var ip = toJsonPointer((JsonArray) errObj.asMap().get("instancePath"));
+          final var sp = toJsonPointer((JsonArray) errObj.asMap().get("schemaPath"));
           return new JtdValidationError(ip, sp);
         })
         .sorted(ERR_CMP)
@@ -72,11 +72,11 @@ class JtdSpecConformanceTest extends JtdTestBase {
   }
 
   private static String toJsonPointer(JsonArray tokens) {
-    if (tokens.elements().isEmpty()) return "";
+    if (tokens.asList().isEmpty()) return "";
     final var sb = new StringBuilder();
-    for (final var token : tokens.elements()) {
+    for (final var token : tokens.asList()) {
       sb.append('/');
-      sb.append(((JsonString) token).string());
+      sb.append(((JsonString) token).asString());
     }
     return sb.toString();
   }

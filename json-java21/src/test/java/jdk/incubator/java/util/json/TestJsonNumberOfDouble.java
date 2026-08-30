@@ -14,7 +14,7 @@ public class TestJsonNumberOfDouble {
     @Test
     void ofDoubleToDoubleWorks() {
         var jn = JsonNumber.of(123.45);
-        assertThat(jn.toDouble()).isEqualTo(123.45);
+        assertThat(jn.asDouble()).isEqualTo(123.45);
     }
     
     @Test
@@ -22,13 +22,13 @@ public class TestJsonNumberOfDouble {
         // 123.0 should be convertible to long 123
         var jn = JsonNumber.of(123.0);
         System.out.println("toString: " + jn.toString());
-        assertThat(jn.toLong()).isEqualTo(123L);
+        assertThat(jn.asLong()).isEqualTo(123L);
     }
     
     @Test
     void ofDoubleThenToLongForNonIntegralShouldThrow() {
         var jn = JsonNumber.of(123.45);
-        assertThatThrownBy(() -> jn.toLong())
-            .isInstanceOf(jdk.incubator.java.util.json.JsonAssertionException.class);
+        assertThatThrownBy(() -> jn.asLong())
+            .isInstanceOf(jdk.incubator.java.util.json.JsonValueException.class);
     }
 }
