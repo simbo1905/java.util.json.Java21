@@ -154,7 +154,7 @@
     <div class="container">
         <header>
             <h1>java.util.json Backport for JDK 21+</h1>
-            <p class="subhead">A backport of the experimental <code>java.util.json</code> API from the OpenJDK jdk-sandbox “json” branch, plus an incubating JSON Type Definition (JTD) validator (RFC 8927).</p>
+            <p class="subhead">A Java 21+ backport of the JDK's incubating <code>jdk.incubator.json</code> API (JEP 540, targeted at JDK 28), plus a JSON Type Definition (JTD) validator (RFC 8927).</p>
             <div class="callout">
                 <strong>Early access / unstable:</strong> APIs and behaviour may change as upstream evolves.
             </div>
@@ -254,7 +254,7 @@ Jtd.Result result = new Jtd().validate(schema, data);
 // result.isValid() == true</code></pre>
 
         <h2>Status</h2>
-        <p class="meta">This code (as of 2026-01-25) is derived from the OpenJDK jdk-sandbox repository “json” branch. The API may evolve as the upstream design develops.</p>
+        <p class="meta">This code is the upstream incubator API and implementation as of commit <code>43325738c</code> (2026-08-27) on the OpenJDK <code>json</code> branch, tracked daily for upstream drift. The API may evolve as upstream evolves.</p>
 
         <h2>License</h2>
         <p class="meta">GNU General Public License version 2 with Classpath exception (same as OpenJDK).</p>
