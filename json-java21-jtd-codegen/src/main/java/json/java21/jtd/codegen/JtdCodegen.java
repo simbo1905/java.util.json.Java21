@@ -9,7 +9,7 @@ import java.lang.invoke.MethodHandles;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 import json.java21.jtd.Jtd;
 
 /// Compiles a JTD schema into a bytecode-generated [JtdValidator].

@@ -77,16 +77,16 @@ wc -l .tmp/upstream-sync/jdk/internal/util/json/*.java
 Create parallel structure in `.tmp/backported/` with our package names:
 
 ```bash
-mkdir -p .tmp/backported/jdk/sandbox/java/util/json
-mkdir -p .tmp/backported/jdk/sandbox/internal/util/json
+mkdir -p .tmp/backported/jdk/incubator/java/util/json
+mkdir -p .tmp/backported/jdk/incubator/internal/util/json
 ```
 
 ### Step 4: Apply Backporting Transformations
 For each downloaded file, apply these transformations using Python heredocs (not sed/perl for multi-line):
 
 #### 4.1 Package Renaming
-- `java.util.json` → `jdk.sandbox.java.util.json`
-- `jdk.internal.util.json` → `jdk.sandbox.internal.util.json`
+- `java.util.json` → `jdk.incubator.java.util.json`
+- `jdk.internal.util.json` → `jdk.incubator.internal.util.json`
 
 #### 4.2 Remove Preview Feature Annotations
 Delete lines containing:
@@ -119,7 +119,7 @@ javadoc and `@Serial serialVersionUID` stripped; behaviour identical). Take the 
 with the standard transforms of 4.1/4.2; do not treat it as local-only.
 
 #### 4.6 Preserve Demo File
-The file `jdk/sandbox/demo/JsonDemo.java` is a local addition for demonstration purposes. Preserve it. Fix it. 
+The file `jdk/incubator/demo/JsonDemo.java` is a local addition for demonstration purposes. Preserve it. Fix it. 
 
 ### Step 5: Verify Compilation with javac
 Before copying to the main source tree, verify the backported code compiles:
@@ -129,7 +129,7 @@ Before copying to the main source tree, verify the backported code compiles:
 find .tmp/backported -name "*.java" > .tmp/sources.txt
 
 # Also include our polyfill
-echo "json-java21/src/main/java/jdk/sandbox/internal/util/json/LazyConstant.java" >> .tmp/sources.txt
+echo "json-java21/src/main/java/jdk/incubator/internal/util/json/LazyConstant.java" >> .tmp/sources.txt
 
 # Compile with Java 21
 javac --release 21 -d .tmp/classes @.tmp/sources.txt
@@ -141,20 +141,20 @@ Only after javac succeeds:
 
 ```bash
 # Backup current sources (optional)
-cp -r json-java21/src/main/java/jdk/sandbox .tmp/backup-sandbox
+cp -r json-java21/src/main/java/jdk/incubator .tmp/backup-incubator
 
 # Copy backported files (excluding our local additions)
-cp .tmp/backported/jdk/sandbox/java/util/json/*.java \
-   json-java21/src/main/java/jdk/sandbox/java/util/json/
+cp .tmp/backported/jdk/incubator/java/util/json/*.java \
+   json-java21/src/main/java/jdk/incubator/java/util/json/
 
-cp .tmp/backported/jdk/sandbox/internal/util/json/*.java \
-   json-java21/src/main/java/jdk/sandbox/internal/util/json/
+cp .tmp/backported/jdk/incubator/internal/util/json/*.java \
+   json-java21/src/main/java/jdk/incubator/internal/util/json/
 
 # Restore our local additions if overwritten
 # (LazyConstant.java should not be in backported/)
 ```
 
-The file `jdk/sandbox/demo/JsonDemo.java` should be the example code in our README.md, as it may have changed to reflect upstream changes. You MUST update the README.md to include examples of the upgraded code in this file, which you must MANUALLY VERIFY IS GOOD post-upgrade. 
+The file `jdk/incubator/demo/JsonDemo.java` should be the example code in our README.md, as it may have changed to reflect upstream changes. You MUST update the README.md to include examples of the upgraded code in this file, which you must MANUALLY VERIFY IS GOOD post-upgrade. 
 
 ### Step 7: Full Maven Build
 
@@ -166,8 +166,8 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) clean test -pl json-ja
 
 | File | Purpose |
 |------|---------|
-| `jdk/sandbox/internal/util/json/LazyConstant.java` | Java 21 polyfill for the JDK `java.lang.LazyConstant` API used by upstream since `c1a4f80` |
-| `jdk/sandbox/demo/JsonDemo.java` | Demonstration/example code |
+| `jdk/incubator/internal/util/json/LazyConstant.java` | Java 21 polyfill for the JDK `java.lang.LazyConstant` API used by upstream since `c1a4f80` |
+| `jdk/incubator/demo/JsonDemo.java` | Demonstration/example code |
 
 Note: `JsonAssertionException.java` is shipped upstream (see step 4.5) and
 `StableValue.java` is unused legacy pending removal; neither is a local addition anymore.
@@ -188,9 +188,9 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
 
 **Backported version:**
 ```java
-package jdk.sandbox.internal.util.json;
+package jdk.incubator.internal.util.json;
 
-import jdk.sandbox.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonString;
 // LazyConstant is package-local (our polyfill for java.lang.LazyConstant), no import needed
 
 public final class JsonStringImpl implements JsonString, JsonValueImpl {

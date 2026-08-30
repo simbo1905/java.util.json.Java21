@@ -1,7 +1,7 @@
 package json.java21.jdt.demo;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonValue;
 import json.java21.jtd.Jtd;
 import json.java21.jtd.JtdTestBase;
 import org.junit.jupiter.api.Test;

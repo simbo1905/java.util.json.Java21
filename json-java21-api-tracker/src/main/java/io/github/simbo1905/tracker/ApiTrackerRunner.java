@@ -1,6 +1,6 @@
 package io.github.simbo1905.tracker;
 
-import jdk.sandbox.java.util.json.Json;
+import jdk.incubator.java.util.json.Json;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -31,7 +31,7 @@ public class ApiTrackerRunner {
     configureLogging(logLevel);
 
     System.out.println("=== JSON API Tracker ===");
-    System.out.println("Comparing local jdk.sandbox.java.util.json with upstream jdk.incubator.json");
+    System.out.println("Comparing local jdk.incubator.java.util.json with upstream jdk.incubator.json");
     System.out.println("Log level: " + logLevel);
     System.out.println("Mode: " + mode);
     if (sourcePath != null) {

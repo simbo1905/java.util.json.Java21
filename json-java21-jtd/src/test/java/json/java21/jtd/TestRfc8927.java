@@ -1,8 +1,8 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
-import jdk.sandbox.java.util.json.JsonNumber;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonNumber;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

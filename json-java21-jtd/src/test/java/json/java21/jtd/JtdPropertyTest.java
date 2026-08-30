@@ -1,6 +1,6 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import net.jqwik.api.*;
 import org.junit.jupiter.api.Assertions;
 

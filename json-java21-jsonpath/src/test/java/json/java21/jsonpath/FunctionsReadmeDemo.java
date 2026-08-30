@@ -1,6 +1,6 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

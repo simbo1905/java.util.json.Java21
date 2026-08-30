@@ -17,7 +17,7 @@ This repo is organized into the following modules:
 | `json-java21-jtd` | JTD (RFC 8927) stack-machine interpreter — ideal for infrequent config parsing and one-time validation | 21+ |
 | `json-java21-jtd-codegen` | Bytecode code generator for JTD schemas — ahead-of-time compiled validators for repeated hot-path validation | 24+ (auto-skipped on JDK 21) |
 | `jdt2jar` | CLI + distroless container to pre-compile JTD schemas into standalone validator JARs (eliminates JDK 24+ runtime requirement) | 24+ (auto-skipped on JDK 21) |
-| `json-java21-jsonpath` | JsonPath query engine over `jdk.sandbox.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
+| `json-java21-jsonpath` | JsonPath query engine over `jdk.incubator.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
 | `json-compatibility-suite` | JSON Test Suite conformance reporter (tests against [nst/JSONTestSuite](https://github.com/nst/JSONTestSuite)) | 21+ |
 | `json-java21-api-tracker` | Daily upstream API drift detector — fetches OpenJDK sandbox sources, compares public API signatures, reports differences | 25+ |
 
@@ -31,7 +31,7 @@ To try the examples from this README, build the project and run the standalone e
 
 ```bash
 ./mvnw package
-java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.sandbox.java.util.json.examples.ReadmeExamples
+java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.incubator.java.util.json.examples.ReadmeExamples
 ```
 
 ## API Overview
@@ -307,7 +307,7 @@ The JSON compatibitlity tests in this repo suggest 99% conformance with a leadin
 
 ### CI: Upstream API Tracking
 
-The `daily-api-tracker.yml` workflow runs daily at 02:00 UTC: it fetches the upstream `jdk.incubator.json` sources from the [jdk-sandbox `json` branch](https://github.com/openjdk/jdk-sandbox/tree/json) HEAD and compares public API signatures against the local `jdk.sandbox.java.util.json` classes. When they differ it creates a fingerprint-deduplicated "API drift detected" issue; reports are uploaded as workflow artifacts (`target/api-tracker/`) with 90-day retention. The check can also be run locally:
+The `daily-api-tracker.yml` workflow runs daily at 02:00 UTC: it fetches the upstream `jdk.incubator.json` sources from the [jdk-sandbox `json` branch](https://github.com/openjdk/jdk-sandbox/tree/json) HEAD and compares public API signatures against the local `jdk.incubator.java.util.json` classes. When they differ it creates a fingerprint-deduplicated "API drift detected" issue; reports are uploaded as workflow artifacts (`target/api-tracker/`) with 90-day retention. The check can also be run locally:
 
 ```bash
 $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker exec:java \
@@ -361,7 +361,7 @@ Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
 
 ```java
 import json.java21.jtd.Jtd;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 JsonValue schema = Json.parse("{\"properties\":{\"name\":{\"type\":\"string\"}}}");
 JsonValue data = Json.parse("{\"name\":\"Alice\"}");
@@ -400,7 +400,7 @@ This repo also includes a JsonPath query engine (module `json-java21-jsonpath`),
 https://goessner.net/articles/JsonPath/
 
 ```java
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 import json.java21.jsonpath.JsonPathStreams;
 

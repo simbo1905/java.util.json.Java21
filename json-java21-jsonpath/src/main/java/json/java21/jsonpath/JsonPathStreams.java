@@ -1,6 +1,6 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 /// Helpers for stream-based processing of `JsonPath.query(...)` results.
 public final class JsonPathStreams {

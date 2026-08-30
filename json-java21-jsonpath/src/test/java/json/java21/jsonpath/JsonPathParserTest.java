@@ -1,7 +1,7 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonValue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;

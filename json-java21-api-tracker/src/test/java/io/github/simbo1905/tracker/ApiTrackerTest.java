@@ -7,10 +7,10 @@ import org.junit.jupiter.api.Nested;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import jdk.sandbox.java.util.json.JsonBoolean;
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonBoolean;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonString;
 
 import java.util.Set;
 import java.util.Map;
@@ -37,17 +37,17 @@ public class ApiTrackerTest {
             // Should find core JSON interfaces
             assertThat(classes.stream().map(Class::getName))
                 .contains(
-                    "jdk.sandbox.java.util.json.JsonValue",
-                    "jdk.sandbox.java.util.json.JsonObject",
-                    "jdk.sandbox.java.util.json.JsonArray",
-                    "jdk.sandbox.java.util.json.JsonString",
-                    "jdk.sandbox.java.util.json.JsonNumber",
-                    "jdk.sandbox.java.util.json.JsonBoolean",
-                    "jdk.sandbox.java.util.json.JsonNull"
+                    "jdk.incubator.java.util.json.JsonValue",
+                    "jdk.incubator.java.util.json.JsonObject",
+                    "jdk.incubator.java.util.json.JsonArray",
+                    "jdk.incubator.java.util.json.JsonString",
+                    "jdk.incubator.java.util.json.JsonNumber",
+                    "jdk.incubator.java.util.json.JsonBoolean",
+                    "jdk.incubator.java.util.json.JsonNull"
                 );
 
             // Should NOT find internal implementation classes (public API only)
-            assertThat(classes.stream().anyMatch(c -> c.getName().startsWith("jdk.sandbox.internal.util.json")))
+            assertThat(classes.stream().anyMatch(c -> c.getName().startsWith("jdk.incubator.internal.util.json")))
                 .as("Should not find internal implementation classes - public API only")
                 .isFalse();
 
@@ -65,7 +65,7 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should extract API from JsonObject interface source")
         void testExtractLocalApiJsonObject() {
-            final var api = ApiTracker.extractLocalApiFromSource("jdk.sandbox.java.util.json.JsonObject");
+            final var api = ApiTracker.extractLocalApiFromSource("jdk.incubator.java.util.json.JsonObject");
 
             assertThat(api).isNotNull();
             // Check if extraction succeeded or failed
@@ -79,7 +79,7 @@ public class ApiTrackerTest {
                 assertThat(((JsonString) api.members().get("className")).string()).isEqualTo("JsonObject");
 
                 assertThat(api.members()).containsKey("packageName");
-                assertThat(((JsonString) api.members().get("packageName")).string()).isEqualTo("jdk.sandbox.java.util.json");
+                assertThat(((JsonString) api.members().get("packageName")).string()).isEqualTo("jdk.incubator.java.util.json");
 
                 assertThat(api.members()).containsKey("isInterface");
                 assertThat(api.members().get("isInterface")).isEqualTo(JsonBoolean.of(true));
@@ -89,7 +89,7 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should extract API from JsonValue sealed interface source")
         void testExtractLocalApiJsonValue() {
-            final var api = ApiTracker.extractLocalApiFromSource("jdk.sandbox.java.util.json.JsonValue");
+            final var api = ApiTracker.extractLocalApiFromSource("jdk.incubator.java.util.json.JsonValue");
 
             // Check if extraction succeeded or failed
             if (api.members().containsKey("error")) {
@@ -111,7 +111,7 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should handle missing source file gracefully")
         void testExtractLocalApiMissingFile() {
-            final var api = ApiTracker.extractLocalApiFromSource("jdk.sandbox.java.util.json.NonExistentClass");
+            final var api = ApiTracker.extractLocalApiFromSource("jdk.incubator.java.util.json.NonExistentClass");
 
             assertThat(api.members()).containsKey("error");
             final var error = ((JsonString) api.members().get("error")).string();
@@ -126,10 +126,10 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should map local class names to upstream paths")
         void testMapToUpstreamPath() {
-            assertThat(ApiTracker.mapToUpstreamPath("jdk.sandbox.java.util.json.JsonObject"))
+            assertThat(ApiTracker.mapToUpstreamPath("jdk.incubator.java.util.json.JsonObject"))
                 .isEqualTo("jdk/incubator/json/JsonObject.java");
 
-            assertThat(ApiTracker.mapToUpstreamPath("jdk.sandbox.internal.util.json.JsonObjectImpl"))
+            assertThat(ApiTracker.mapToUpstreamPath("jdk.incubator.internal.util.json.JsonObjectImpl"))
                 .isEqualTo("jdk/incubator/json/impl/JsonObjectImpl.java");
         }
 
@@ -224,7 +224,7 @@ public class ApiTrackerTest {
         @Test
         @DisplayName("Should normalize type names correctly")
         void testNormalizeTypeName() {
-            assertThat(ApiTracker.normalizeTypeName("jdk.sandbox.java.util.json.JsonValue"))
+            assertThat(ApiTracker.normalizeTypeName("jdk.incubator.java.util.json.JsonValue"))
                 .isEqualTo("JsonValue");
 
             assertThat(ApiTracker.normalizeTypeName("java.lang.String"))

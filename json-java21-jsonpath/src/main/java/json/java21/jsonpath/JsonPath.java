@@ -1,6 +1,6 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -26,7 +26,7 @@ For **infrequent validation** (config loading, startup checks, one-off validatio
 ## Usage
 
 ```java
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import json.java21.jtd.codegen.JtdValidator;
 
 JsonValue schema = Json.parse("""

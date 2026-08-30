@@ -1,7 +1,7 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.*;
-import jdk.sandbox.internal.util.json.*;
+import jdk.incubator.java.util.json.*;
+import jdk.incubator.internal.util.json.*;
 
 import java.util.ArrayList;
 import java.util.Collections;

@@ -1,10 +1,10 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonString;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonValue;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;

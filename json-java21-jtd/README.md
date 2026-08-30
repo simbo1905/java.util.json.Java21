@@ -23,7 +23,7 @@ For **repeated hot-path validation** (e.g., event processing, API gateways), con
 
 ```java
 import json.java21.jtd.Jtd;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 // Create a JTD schema
 String schemaJson = """
@@ -202,7 +202,7 @@ A schema can be compiled into a reusable `JtdValidator` -- a functional interfac
 ```java
 import json.java21.jtd.JtdValidator;
 import json.java21.jtd.JtdValidationResult;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 String schemaJson = """
     { "type": "string" }

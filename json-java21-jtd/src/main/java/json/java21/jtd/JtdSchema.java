@@ -1,6 +1,6 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;

@@ -1,11 +1,11 @@
 package io.github.simbo1905.tracker;
 
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonString;
-import jdk.sandbox.java.util.json.JsonValue;
-import jdk.sandbox.java.util.json.JsonNumber;
-import jdk.sandbox.java.util.json.JsonBoolean;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonNumber;
+import jdk.incubator.java.util.json.JsonBoolean;
 
 import java.io.IOException;
 import java.net.URI;
@@ -97,14 +97,14 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     }
 
     /// Discovers all classes in the local JSON API packages
-    /// @return sorted set of classes from jdk.sandbox.java.util.json and jdk.sandbox.internal.util.json
+    /// @return sorted set of classes from jdk.incubator.java.util.json and jdk.incubator.internal.util.json
     static Set<Class<?>> discoverLocalJsonClasses() {
         LOGGER.info("Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>(Comparator.comparing(Class::getName));
 
         // Packages to scan - only public API, not internal implementation
         final var packages = List.of(
-            "jdk.sandbox.java.util.json"
+            "jdk.incubator.java.util.json"
         );
 
         final var classLoader = Thread.currentThread().getContextClassLoader();
@@ -225,7 +225,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 continue;
             }
 
-            // Map package name from jdk.sandbox.* to standard java.*
+            // Map package name from jdk.incubator.* to standard java.*
             final var upstreamPath = mapToUpstreamPath(className);
             final var url = GITHUB_BASE_URL + upstreamPath;
 
@@ -266,10 +266,10 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Maps local class name to upstream GitHub path
     static String mapToUpstreamPath(String className) {
-        // Remove jdk.sandbox prefix and map to the jdk.incubator.json module packages
+        // Remove jdk.incubator prefix and map to the jdk.incubator.json module packages
         String path = className
-            .replace("jdk.sandbox.java.util.json", "jdk/incubator/json")
-            .replace("jdk.sandbox.internal.util.json", "jdk/incubator/json/impl")
+            .replace("jdk.incubator.java.util.json", "jdk/incubator/json")
+            .replace("jdk.incubator.internal.util.json", "jdk/incubator/json/impl")
             .replace('.', '/');
 
         return path + ".java";
@@ -865,9 +865,9 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         // Handle generic types
         var normalized = typeName;
 
-        // Replace jdk.sandbox.* with the upstream incubator packages
-        normalized = normalized.replace("jdk.sandbox.java.util.json", "jdk.incubator.json");
-        normalized = normalized.replace("jdk.sandbox.internal.util.json", "jdk.incubator.json.impl");
+        // Replace jdk.incubator.* with the upstream incubator packages
+        normalized = normalized.replace("jdk.incubator.java.util.json", "jdk.incubator.json");
+        normalized = normalized.replace("jdk.incubator.internal.util.json", "jdk.incubator.json.impl");
 
         // Remove any remaining package prefixes for comparison
         if (normalized.contains(".")) {
@@ -886,7 +886,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
         final var reportMap = new LinkedHashMap<String, JsonValue>();
         reportMap.put("timestamp", JsonString.of(startTime.toString()));
-        reportMap.put("localPackage", JsonString.of("jdk.sandbox.java.util.json"));
+        reportMap.put("localPackage", JsonString.of("jdk.incubator.java.util.json"));
         reportMap.put("upstreamPackage", JsonString.of("jdk.incubator.json"));
 
         // Discover local classes

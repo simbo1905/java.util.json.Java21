@@ -1,6 +1,6 @@
 package json.java21.jtd.codegen;
 
-import jdk.sandbox.java.util.json.Json;
+import jdk.incubator.java.util.json.Json;
 import json.java21.jtd.JtdValidationError;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;

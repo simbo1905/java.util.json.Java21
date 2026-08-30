@@ -179,7 +179,7 @@
 </code></pre>
 
                 <h3>Parse and access</h3>
-                <pre><code>import jdk.sandbox.java.util.json.*;
+                <pre><code>import jdk.incubator.java.util.json.*;
 
 JsonObject obj = (JsonObject) Json.parse("{\"name\":\"Alice\",\"age\":30}");
 
@@ -199,7 +199,7 @@ long age = obj.get("age").toLong();</code></pre>
         </div>
 
         <h2>Record Mapping (explicit, typed)</h2>
-        <pre><code>import jdk.sandbox.java.util.json.*;
+        <pre><code>import jdk.incubator.java.util.json.*;
 import java.util.*;
 
 record User(String name, String email, boolean active) {}
@@ -224,7 +224,7 @@ JsonValue teamJson = JsonObject.of(Map.of(
         <h2>Run the README Examples</h2>
         <pre><code>mvn package
 java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
-  jdk.sandbox.java.util.json.examples.ReadmeExamples</code></pre>
+  jdk.incubator.java.util.json.examples.ReadmeExamples</code></pre>
         <p class="meta">Replace <code>*</code> with the actual version number from the JAR filename.</p>
 
         <h2>JSON Test Suite Compatibility</h2>
@@ -237,7 +237,7 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"</code></pre>
         <h2>JSON Type Definition (JTD) Validator</h2>
         <p class="meta">This repo includes an incubating JTD validator (RFC 8927) in module <code>json-java21-jtd</code>. Per RFC 8927, the empty schema <code>{}</code> accepts all JSON instances.</p>
         <pre><code>import json.java21.jtd.Jtd;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 JsonValue schema = Json.parse("""
   {

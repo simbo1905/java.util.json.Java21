@@ -1,6 +1,6 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 
 import java.util.Objects;
 import java.util.logging.Logger;
