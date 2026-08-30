@@ -1,6 +1,9 @@
 import os, sys, re, shutil
 
-SRC = 'updates/2025-09-04/upstream/jdk.internal.util.json'
+# Refreshed 2026-08-30 for the upstream jdk.incubator.json module layout (issue #154).
+# Scope: impl files fetched into the snapshot dir (see RefreshFromUpstream.java).
+# Public API files follow the manual process in json-java21/AGENTS.md.
+SRC = 'updates/2025-09-04/upstream/jdk.incubator.json.impl'
 DST = 'json-java21/src/main/java/jdk/incubator/internal/util/json'
 
 def read(path):
@@ -27,10 +30,11 @@ def write_safe(path, text):
     return True
 
 def transform(text, name):
-    # package
-    text = re.sub(r'^package\s+jdk\.internal\.util\.json;', 'package jdk.incubator.internal.util.json;', text, flags=re.M)
-    # imports for public API
-    text = re.sub(r'^(\s*import\s+)java\.util\.json\.', r'\1jdk.incubator.java.util.json.', text, flags=re.M)
+    # package: upstream impl package -> our internal package
+    text = re.sub(r'^package\s+jdk\.incubator\.json\.impl;', 'package jdk.incubator.internal.util.json;', text, flags=re.M)
+    # imports: impl-internal first (defensive; upstream impl rarely imports itself), then public API
+    text = re.sub(r'^(\s*import\s+)jdk\.incubator\.json\.impl\.', r'\1jdk.incubator.internal.util.json.', text, flags=re.M)
+    text = re.sub(r'^(\s*import\s+)jdk\.incubator\.json\.', r'\1jdk.incubator.java.util.json.', text, flags=re.M)
     # annotations (single-line)
     text = re.sub(r'^\s*@(?:jdk\.internal\..*|ValueBased|StableValue).*\n', '', text, flags=re.M)
     # remove import of ValueBased if present
@@ -57,9 +61,6 @@ def main():
     for name in os.listdir(SRC):
         if not name.endswith('.java'):
             continue
-        if name in ('StableValue.java', 'Utils.java'):
-            # Keep local backport helper and existing Utils for now
-            continue
         src_path = os.path.join(SRC, name)
         dst_path = os.path.join(DST, name)
         data = read(src_path)
@@ -69,6 +70,7 @@ def main():
     if not ok:
         sys.exit(2)
     print('Transform complete')
+    print('Reminder: after transforming, re-append the Utils.powExact polyfill (Java 21 lacks Math.powExact) and keep LazyConstant.java untouched (local polyfill).')
 
 if __name__ == '__main__':
     main()
