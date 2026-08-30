@@ -1,5 +1,6 @@
 // Compact single-file Java 25 script to refresh and compare impl sources
 // Run: java RefreshFromUpstream.java
+// Refreshed 2026-08-30 for the upstream jdk.incubator.json module layout (issue #154).
 
 import java.io.*;
 import java.net.URI;
@@ -37,19 +38,20 @@ void main() throws Exception {
 
     // Work dirs (not checked in)
     Path updatesDir = repoRoot.resolve("updates/2025-09-04");
-    Path upstreamDir = updatesDir.resolve("upstream/jdk.internal.util.json");
+    Path upstreamDir = updatesDir.resolve("upstream/jdk.incubator.json.impl");
     Path reportDir = updatesDir.resolve("reports");
     Files.createDirectories(upstreamDir);
     Files.createDirectories(reportDir);
 
-    // Upstream raw base for impl package
-    String upstreamBase = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/jdk/internal/util/json/";
+    // Upstream raw base for the incubator module impl package
+    String upstreamBase = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/jdk.incubator.json/share/classes/jdk/incubator/json/impl/";
 
-    // Discover local impl files
+    // Discover local impl files (LazyConstant.java is a local-only polyfill with no upstream counterpart)
     List<Path> localFiles;
     try (var stream = Files.list(localImplDir)) {
         localFiles = stream
             .filter(p -> p.getFileName().toString().endsWith(".java"))
+            .filter(p -> !p.getFileName().toString().equals("LazyConstant.java"))
             .sorted()
             .toList();
     }
