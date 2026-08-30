@@ -320,7 +320,7 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tr
 This is a simplified backport with the following changes from the original:
 - Replaced `LazyConstant` with a package-local polyfill using double-checked locking pattern.
 - Added `Utils.powExact()` polyfill for `Math.powExact(long, int)` which is not available in Java 21.
-- Replaced unnamed variables `_` with `ignored` for Java 21 compatibility.
+- Replaced unnamed variables `_` with named variables (`e`, `v`, `k`) for Java 21 compatibility.
 - Removed `@ValueBased` annotations.
 - Removed `@PreviewFeature` annotations.
 - Compatible with JDK 21.

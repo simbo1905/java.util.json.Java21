@@ -93,26 +93,30 @@ Delete lines containing:
 - `import jdk.internal.javac.PreviewFeature;`
 - `@PreviewFeature(feature = PreviewFeature.Feature.JSON)`
 
-#### 4.3 StableValue Polyfill
-Upstream uses `jdk.internal.lang.stable.StableValue` which is not available in Java 21.
+#### 4.3 LazyConstant Polyfill
+Upstream (since commit `c1a4f80`, 2026-02-05) uses `java.lang.LazyConstant` (implicit
+`java.lang` import, no import line to rewrite) which is not available in Java 21.
 
-**Replace imports:**
-- `import jdk.internal.lang.stable.StableValue;` → (remove, our polyfill is package-local)
+**The polyfill `LazyConstant.java`** (already in our repo, package-local) provides:
+- `LazyConstant.of(Supplier<T>)` - creates a lazy constant
+- `.get()` - gets the value (computing if needed, double-checked locking)
 
-**The polyfill `StableValue.java`** (already in our repo) provides:
-- `StableValue.of()` - creates empty holder
-- `orElse(T defaultValue)` - returns value or default
-- `orElseSet(Supplier<T>)` - lazy initialization with double-checked locking
-- `setOrThrow(T)` - one-time set
-- `StableValue.supplier(Supplier<T>)` - memoizing supplier wrapper
+Because the polyfill exposes the identical API and lives in the same (impl) package as the
+upstream call sites, **no import or call-site rewrite is needed**; upstream `LazyConstant`
+usages compile unchanged against the polyfill.
 
-This file is NOT from upstream and must be preserved during sync.
+This file is NOT from upstream and must be preserved during sync. The legacy
+`StableValue.java` polyfill (for the pre-`c1a4f80` upstream API) is unused dead code and is
+removed during the incubator uplift.
 
 #### 4.4 DO NOT Convert JavaDoc to JEP 467 Markdown
 If upstream uses `/** ... */` style, DO NOT convert them to our `/// ...` format; we will not edit the upstream files more than the absolute minimum to get them to run on Java 21. 
 
-#### 4.5 Add JsonAssertionException (Our Addition)
-The file `JsonAssertionException.java` is a local addition not in upstream. Preserve it.
+#### 4.5 JsonAssertionException (Shipped Upstream)
+Upstream at `c1a4f80` DOES ship `java/util/json/JsonAssertionException.java`; it is NOT a local
+addition. Our copy is a minimized mechanical backport of the upstream file (copyright header,
+javadoc and `@Serial serialVersionUID` stripped; behaviour identical). Take the upstream file
+with the standard transforms of 4.1/4.2; do not treat it as local-only.
 
 #### 4.6 Preserve Demo File
 The file `jdk/sandbox/demo/JsonDemo.java` is a local addition for demonstration purposes. Preserve it. Fix it. 
@@ -124,9 +128,8 @@ Before copying to the main source tree, verify the backported code compiles:
 # Find all Java files in the backported structure
 find .tmp/backported -name "*.java" > .tmp/sources.txt
 
-# Also include our polyfill and local additions
-echo "json-java21/src/main/java/jdk/sandbox/internal/util/json/StableValue.java" >> .tmp/sources.txt
-echo "json-java21/src/main/java/jdk/sandbox/java/util/json/JsonAssertionException.java" >> .tmp/sources.txt
+# Also include our polyfill
+echo "json-java21/src/main/java/jdk/sandbox/internal/util/json/LazyConstant.java" >> .tmp/sources.txt
 
 # Compile with Java 21
 javac --release 21 -d .tmp/classes @.tmp/sources.txt
@@ -148,7 +151,7 @@ cp .tmp/backported/jdk/sandbox/internal/util/json/*.java \
    json-java21/src/main/java/jdk/sandbox/internal/util/json/
 
 # Restore our local additions if overwritten
-# (StableValue.java, JsonAssertionException.java should not be in backported/)
+# (LazyConstant.java should not be in backported/)
 ```
 
 The file `jdk/sandbox/demo/JsonDemo.java` should be the example code in our README.md, as it may have changed to reflect upstream changes. You MUST update the README.md to include examples of the upgraded code in this file, which you must MANUALLY VERIFY IS GOOD post-upgrade. 
@@ -163,21 +166,22 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) clean test -pl json-ja
 
 | File | Purpose |
 |------|---------|
-| `jdk/sandbox/internal/util/json/StableValue.java` | Java 21 polyfill for future JDK StableValue API |
-| `jdk/sandbox/java/util/json/JsonAssertionException.java` | Custom exception for type assertion errors |
+| `jdk/sandbox/internal/util/json/LazyConstant.java` | Java 21 polyfill for the JDK `java.lang.LazyConstant` API used by upstream since `c1a4f80` |
 | `jdk/sandbox/demo/JsonDemo.java` | Demonstration/example code |
+
+Note: `JsonAssertionException.java` is shipped upstream (see step 4.5) and
+`StableValue.java` is unused legacy pending removal; neither is a local addition anymore.
 
 ## Transformation Example
 
-**Upstream `JsonStringImpl.java` (excerpt):**
+**Upstream `JsonStringImpl.java` (excerpt, commit `c1a4f80`):**
 ```java
 package jdk.internal.util.json;
 
 import java.util.json.JsonString;
-import jdk.internal.lang.stable.StableValue;
 
 public final class JsonStringImpl implements JsonString, JsonValueImpl {
-    private final StableValue<String> jsonStr = StableValue.of();
+    private final LazyConstant<String> jsonStr = LazyConstant.of(this::initJsonStr);
     // ...
 }
 ```
@@ -187,10 +191,10 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
 package jdk.sandbox.internal.util.json;
 
 import jdk.sandbox.java.util.json.JsonString;
-// StableValue is package-local, no import needed
+// LazyConstant is package-local (our polyfill for java.lang.LazyConstant), no import needed
 
 public final class JsonStringImpl implements JsonString, JsonValueImpl {
-    private final StableValue<String> jsonStr = StableValue.of();
+    private final LazyConstant<String> jsonStr = LazyConstant.of(this::initJsonStr);
     // ...
 }
 ```
@@ -199,7 +203,7 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
 
 ### Compilation Errors After Sync
 1. Check package names are correctly transformed
-2. Verify StableValue polyfill is present
+2. Verify LazyConstant polyfill is present
 3. Check for new upstream APIs that may need additional polyfills
 
 ### Test Failures After Sync
