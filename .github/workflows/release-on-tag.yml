@@ -63,6 +63,7 @@ jobs:
             See [jdt2jar/README.md](https://github.com/${{ github.repository }}/blob/main/jdt2jar/README.md) for usage.
 
       - name: Build and Deploy to Central (release profile)
+        id: deploy
         env:
           CENTRAL_USERNAME: ${{ secrets.CENTRAL_USERNAME }}
           CENTRAL_PASSWORD: ${{ secrets.CENTRAL_PASSWORD }}
@@ -70,10 +71,27 @@ jobs:
           KN="${{ secrets.GPG_KEYNAME }}"
           EXTRA=""
           if [ -n "$KN" ]; then EXTRA="-Dgpg.keyname=$KN"; fi
-          mvn -B -ntp -P release \
+          if mvn -B -ntp -P release \
             -Dgpg.passphrase="${{ secrets.GPG_PASSPHRASE }}" \
             $EXTRA \
-            clean deploy
+            clean deploy; then
+            echo "Central deploy succeeded (fresh publish)."
+          else
+            # Idempotency guard (issue #160): a deployment of this exact
+            # version may already be live on Maven Central (e.g. after a
+            # re-tag). Maven Central versions are immutable; "already
+            # exists" means the release is live, so treat it as success.
+            V="${{ steps.version.outputs.version }}"
+            if curl -fsSL -o /dev/null \
+                "https://repo1.maven.org/maven2/io/github/simbo1905/json/parent/${V}/parent-${V}.pom" \
+              && curl -fsSL -o /dev/null \
+                "https://repo1.maven.org/maven2/io/github/simbo1905/json/java.util.json/${V}/java.util.json-${V}.pom"; then
+              echo "Artifacts for ${V} are already live on Maven Central; treating duplicate-publish as success." | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              echo "Central deploy failed and artifacts for ${V} are NOT live on Maven Central." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 1
+            fi
+          fi
 
       - name: Configure Git identity
         run: |
