@@ -123,14 +123,16 @@ double ageDouble = obj.get("age").asDouble(); // Returns 30.0
 ```
 
 The accessor methods on `JsonValue`:
-- `string()` - Returns the String value (for JsonString)
-- `toLong()` - Returns the long value (for JsonNumber, if representable)
-- `toDouble()` - Returns the double value (for JsonNumber, if representable)
-- `bool()` - Returns the boolean value (for JsonBoolean)
-- `elements()` - Returns List<JsonValue> (for JsonArray)
-- `members()` - Returns Map<String, JsonValue> (for JsonObject)
+- `asString()` - Returns the String value (for JsonString)
+- `asLong()` - Returns the long value (for JsonNumber, if representable)
+- `asDouble()` - Returns the double value (for JsonNumber, if representable)
+- `asBoolean()` - Returns the boolean value (for JsonBoolean)
+- `asList()` - Returns List<JsonValue> (for JsonArray)
+- `asMap()` - Returns Map<String, JsonValue> (for JsonObject)
 - `get(String name)` - Access JsonObject member by name
-- `element(int index)` - Access JsonArray element by index
+- `get(int index)` - Access JsonArray element by index
+- `tryGet(String name)` - Returns Optional<JsonValue> for a JsonObject member
+- `tryValue()` - Returns Optional<JsonValue>, empty for JsonNull
 
 ### Realistic Record Mapping
 
@@ -222,9 +224,9 @@ try {
     JsonValue value = Json.parse(userInput);
     // Process valid JSON
 } catch (JsonParseException e) {
-    // Handle malformed JSON with line/column information
-    System.err.println("Invalid JSON at line " + e.getLine() + 
-                       ", column " + e.getColumn() + ": " + e.getMessage());
+    // Handle malformed JSON with line/position information
+    System.err.println("Invalid JSON at line " + e.getErrorLine() + 
+                       ", position " + e.getErrorPosition() + ": " + e.getMessage());
 }
 ```
 
@@ -289,17 +291,17 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 **Final `java.util.json` sandbox-era release** (2026-05-19).
 
-This code is derived from the OpenJDK jdk-sandbox repository "json" branch at commit `c1a4f80` (2026-02-05), which was the last commit before the API was moved to `jdk.incubator.json`.
+This code is derived from the OpenJDK jdk-sandbox repository "json" branch at commit `43325738c` (2026-08-27), which is the current frontier of the incubator-era `jdk.incubator.json` API. The incubator promotion itself happened at commit `b956ae0` (2026-02-05); this branch completed the migration from the sandbox-era `java.util.json` naming to the incubator packages — see the notice below and issue #145.
 
 ### API Summary
-- `JsonValue` conversion methods: `asBoolean()`, `toInt()`, `toLong()`, `toDouble()`, `asString()`
-- `JsonValue` navigation methods: `get(String)`, `get(int)`, `getOrAbsent(String)`, `valueOrNull()`
-- `JsonArray`: `elements()`, `of(List)`
-- `JsonObject`: `members()`, `of(Map)`
+- `JsonValue` conversion methods: `asBoolean()`, `asString()`, `asInt()`, `asLong()`, `asDouble()`
+- `JsonValue` navigation methods: `get(String)`, `get(int)`, `tryGet(String)`, `tryValue()`
+- `JsonArray`: `asList()`, `of(List)`
+- `JsonObject`: `asMap()`, `of(Map)`
 - `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, String indent)`
 
 ### Upstream Migration Notice
-The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, etc.) and new methods (`asInt()`). A separate branch tracks the incubator upgrade — see issue #145.
+The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, `toInt()`→`asInt()`, etc.), `tryGet()`/`tryValue()` navigation, and identity (non-value) `equals`/`hashCode`. **That migration is now DONE in this branch** (issue #145): the public API lives in `jdk.incubator.java.util.json` and the implementation in `jdk.incubator.internal.util.json`, matching upstream frontier `43325738c`.
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
@@ -327,9 +329,9 @@ This is a simplified backport with the following changes from the original:
 
 ### Upstream Bug Fixes
 
-The following fixes have been applied to address bugs in the upstream OpenJDK jdk-sandbox code. These are upstream issues that should be reported to the [core-libs-dev@openjdk.org](mailto:core-libs-dev@openjdk.org) mailing list per OpenJDK process:
+Historically this backport carried local fixes against the upstream OpenJDK jdk-sandbox code. With the uplift to upstream frontier `43325738c` their disposition is:
 
-- **`JsonNumber.of(double)` offset bug** ([#118](https://github.com/simbo1905/java.util.json.Java21/issues/118)): The upstream implementation hardcodes `decimalOffset=0` and `exponentOffset=0`, causing `toLong()` to fail for integral doubles like `123.0`. Our fix delegates to `JsonNumber.of(String)` which correctly computes offsets via `Json.parse()`.
+- **`JsonNumber.of(double)` offset bug** ([#118](https://github.com/simbo1905/java.util.json.Java21/issues/118)): **CLOSED BY UPSTREAM — no longer carried.** Upstream reworked the numeric logic: `of(double)` now computes the decimal/exponent offsets from `Double.toString` output via `indexOf`, and `JsonNumberImpl` was rewritten with `LazyConstant`-cached conversions, trailing-zero stripping and sign/scale handling. Verified equivalent to our historic `of(String)` delegation fix by `JsonNumberOfDoubleMatrixTest` (integral doubles such as `123.0` and `1.0E2`, fractions, negatives, zero variants, out-of-range `asInt`/`asLong` throwing `JsonValueException`, and very large/small magnitudes) plus the ported upstream `TestJsonNumber`. The historic delegation hack has been removed with the uplifted upstream source.
 
 ## Security Considerations
 
