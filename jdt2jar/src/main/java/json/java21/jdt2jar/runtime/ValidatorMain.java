@@ -1,10 +1,10 @@
 package json.java21.jdt2jar.runtime;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonParseException;
-import jdk.sandbox.java.util.json.JsonString;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonParseException;
+import jdk.incubator.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonValue;
 import json.java21.jtd.JtdValidationResult;
 
 import java.io.IOException;
@@ -120,8 +120,8 @@ public final class ValidatorMain {
 
   private static JsonObject toJson(JtdValidationResult result) {
     return JsonObject.of(java.util.Map.of(
-        "valid", jdk.sandbox.java.util.json.JsonBoolean.of(result.isValid()),
-        "errors", jdk.sandbox.java.util.json.JsonArray.of(result.errors().stream()
+        "valid", jdk.incubator.java.util.json.JsonBoolean.of(result.isValid()),
+        "errors", jdk.incubator.java.util.json.JsonArray.of(result.errors().stream()
             .map(error -> JsonObject.of(java.util.Map.of(
                 "instancePath", JsonString.of(error.instancePath()),
                 "schemaPath", JsonString.of(error.schemaPath()))))

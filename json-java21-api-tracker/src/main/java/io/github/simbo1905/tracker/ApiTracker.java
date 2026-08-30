@@ -1,11 +1,11 @@
 package io.github.simbo1905.tracker;
 
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonString;
-import jdk.sandbox.java.util.json.JsonValue;
-import jdk.sandbox.java.util.json.JsonNumber;
-import jdk.sandbox.java.util.json.JsonBoolean;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonString;
+import jdk.incubator.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonNumber;
+import jdk.incubator.java.util.json.JsonBoolean;
 
 import java.io.IOException;
 import java.net.URI;
@@ -63,8 +63,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     // Cache for HTTP responses to avoid repeated fetches
     Map<String, String> FETCH_CACHE = new ConcurrentHashMap<>();
 
-    // GitHub base URL for upstream sources
-    String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/java.base/share/classes/";
+    // GitHub base URL for upstream sources (JDK 28 JEP 540 incubator module layout)
+    String GITHUB_BASE_URL = "https://raw.githubusercontent.com/openjdk/jdk-sandbox/refs/heads/json/src/jdk.incubator.json/share/classes/";
 
     // HttpClient factory method for proper resource management
     static HttpClient createHttpClient() {
@@ -97,14 +97,14 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     }
 
     /// Discovers all classes in the local JSON API packages
-    /// @return sorted set of classes from jdk.sandbox.java.util.json and jdk.sandbox.internal.util.json
+    /// @return sorted set of classes from jdk.incubator.java.util.json
     static Set<Class<?>> discoverLocalJsonClasses() {
         LOGGER.info("Starting class discovery for JSON API packages");
         final var classes = new TreeSet<Class<?>>(Comparator.comparing(Class::getName));
 
         // Packages to scan - only public API, not internal implementation
         final var packages = List.of(
-            "jdk.sandbox.java.util.json"
+            "jdk.incubator.java.util.json"
         );
 
         final var classLoader = Thread.currentThread().getContextClassLoader();
@@ -225,7 +225,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
                 continue;
             }
 
-            // Map package name from jdk.sandbox.* to standard java.*
+            // Map package name from jdk.incubator.* to standard java.*
             final var upstreamPath = mapToUpstreamPath(className);
             final var url = GITHUB_BASE_URL + upstreamPath;
 
@@ -266,10 +266,10 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Maps local class name to upstream GitHub path
     static String mapToUpstreamPath(String className) {
-        // Remove jdk.sandbox prefix and map to standard packages
+        // Remove jdk.incubator prefix and map to the jdk.incubator.json module packages
         String path = className
-            .replace("jdk.sandbox.java.util.json", "java/util/json")
-            .replace("jdk.sandbox.internal.util.json", "jdk/internal/util/json")
+            .replace("jdk.incubator.java.util.json", "jdk/incubator/json")
+            .replace("jdk.incubator.internal.util.json", "jdk/incubator/json/impl")
             .replace('.', '/');
 
         return path + ".java";
@@ -400,24 +400,24 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             """));
 
         // JsonValue base interface stub
-        compilationUnits.add(new InMemoryJavaFileObject("java.util.json.JsonValue", """
-            package java.util.json;
+        compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json.JsonValue", """
+            package jdk.incubator.json;
             public sealed interface JsonValue permits JsonObject, JsonArray, JsonString, JsonNumber, JsonBoolean, JsonNull {}
             """));
 
         // Basic JSON type stubs
         final var jsonTypes = List.of("JsonObject", "JsonArray", "JsonString", "JsonNumber", "JsonBoolean", "JsonNull");
         for (final var type : jsonTypes) {
-            compilationUnits.add(new InMemoryJavaFileObject("java.util.json." + type,
-                "package java.util.json; public non-sealed interface " + type + " extends JsonValue {}"));
+            compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json." + type,
+                "package jdk.incubator.json; public non-sealed interface " + type + " extends JsonValue {}"));
         }
 
         // Internal implementation stubs
-        compilationUnits.add(new InMemoryJavaFileObject("jdk.internal.util.json.JsonObjectImpl", """
-            package jdk.internal.util.json;
+        compilationUnits.add(new InMemoryJavaFileObject("jdk.incubator.json.impl.JsonObjectImpl", """
+            package jdk.incubator.json.impl;
             import java.util.Map;
-            import java.util.json.JsonObject;
-            import java.util.json.JsonValue;
+            import jdk.incubator.json.JsonObject;
+            import jdk.incubator.json.JsonValue;
             public class JsonObjectImpl implements JsonObject {
                 public JsonObjectImpl(Map<String, JsonValue> map) {}
                 public Map<String, JsonValue> members() { return null; }
@@ -597,26 +597,17 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         final var diffMap = new LinkedHashMap<String, JsonValue>();
 
         // Extract class name safely
-        final var localClassName = local.members().get("className");
+        final var localClassName = local.asMap().get("className");
         final var className = localClassName instanceof JsonString js ?
-            js.string() : "Unknown";
+            js.asString() : "Unknown";
 
         diffMap.put("className", JsonString.of(className));
 
         // Check for upstream errors
-        if (upstream.members().containsKey("error")) {
+        if (upstream.asMap().containsKey("error")) {
             diffMap.put("status", JsonString.of("UPSTREAM_ERROR"));
-            diffMap.put("error", upstream.members().get("error"));
+            diffMap.put("error", upstream.asMap().get("error"));
             return JsonObject.of(diffMap);
-        }
-
-        // Check if status is NOT_IMPLEMENTED (from parsing)
-        if (upstream.members().containsKey("status")) {
-            final var status = ((JsonString) upstream.members().get("status")).string();
-            if ("NOT_IMPLEMENTED".equals(status)) {
-                diffMap.put("status", JsonString.of("PARSE_NOT_IMPLEMENTED"));
-                return JsonObject.of(diffMap);
-            }
         }
 
         // Perform detailed comparison
@@ -657,8 +648,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares a simple boolean attribute
     static boolean compareAttribute(String attrName, JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localValue = local.members().get(attrName);
-        final var upstreamValue = upstream.members().get(attrName);
+        final var localValue = local.asMap().get(attrName);
+        final var upstreamValue = upstream.asMap().get(attrName);
 
         if (!Objects.equals(localValue, upstreamValue)) {
             differences.add(JsonObject.of(Map.of(
@@ -674,18 +665,18 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares class modifiers
     static boolean compareModifiers(JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localMods = (JsonArray) local.members().get("modifiers");
-        final var upstreamMods = (JsonArray) upstream.members().get("modifiers");
+        final var localMods = (JsonArray) local.asMap().get("modifiers");
+        final var upstreamMods = (JsonArray) upstream.asMap().get("modifiers");
 
         if (localMods == null || upstreamMods == null) {
             return false;
         }
 
-        final var localSet = localMods.elements().stream()
-            .map(v -> ((JsonString) v).string())
+        final var localSet = localMods.asList().stream()
+            .map(v -> ((JsonString) v).asString())
             .collect(Collectors.toSet());
-        final var upstreamSet = upstreamMods.elements().stream()
-            .map(v -> ((JsonString) v).string())
+        final var upstreamSet = upstreamMods.asList().stream()
+            .map(v -> ((JsonString) v).asString())
             .collect(Collectors.toSet());
 
         if (!localSet.equals(upstreamSet)) {
@@ -701,18 +692,18 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares inheritance hierarchy
     static boolean compareInheritance(JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localExtends = (JsonArray) local.members().get("extends");
-        final var upstreamExtends = (JsonArray) upstream.members().get("extends");
+        final var localExtends = (JsonArray) local.asMap().get("extends");
+        final var upstreamExtends = (JsonArray) upstream.asMap().get("extends");
 
         if (localExtends == null || upstreamExtends == null) {
             return false;
         }
 
-        final var localTypes = localExtends.elements().stream()
-            .map(v -> normalizeTypeName(((JsonString) v).string()))
+        final var localTypes = localExtends.asList().stream()
+            .map(v -> normalizeTypeName(((JsonString) v).asString()))
             .collect(Collectors.toSet());
-        final var upstreamTypes = upstreamExtends.elements().stream()
-            .map(v -> normalizeTypeName(((JsonString) v).string()))
+        final var upstreamTypes = upstreamExtends.asList().stream()
+            .map(v -> normalizeTypeName(((JsonString) v).asString()))
             .collect(Collectors.toSet());
 
         if (!localTypes.equals(upstreamTypes)) {
@@ -728,8 +719,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares methods between local and upstream
     static boolean compareMethods(JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localMethods = (JsonObject) local.members().get("methods");
-        final var upstreamMethods = (JsonObject) upstream.members().get("methods");
+        final var localMethods = (JsonObject) local.asMap().get("methods");
+        final var upstreamMethods = (JsonObject) upstream.asMap().get("methods");
 
         if (localMethods == null || upstreamMethods == null) {
             return false;
@@ -738,8 +729,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         var hasChanges = false;
 
         // Check for removed methods (in local but not upstream)
-        for (final var entry : localMethods.members().entrySet()) {
-            if (!upstreamMethods.members().containsKey(entry.getKey())) {
+        for (final var entry : localMethods.asMap().entrySet()) {
+            if (!upstreamMethods.asMap().containsKey(entry.getKey())) {
                 differences.add(JsonObject.of(Map.of(
                     "type", JsonString.of("methodRemoved"),
                     "method", JsonString.of(entry.getKey()),
@@ -750,8 +741,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         }
 
         // Check for added methods (in upstream but not local)
-        for (final var entry : upstreamMethods.members().entrySet()) {
-            if (!localMethods.members().containsKey(entry.getKey())) {
+        for (final var entry : upstreamMethods.asMap().entrySet()) {
+            if (!localMethods.asMap().containsKey(entry.getKey())) {
                 differences.add(JsonObject.of(Map.of(
                     "type", JsonString.of("methodAdded"),
                     "method", JsonString.of(entry.getKey()),
@@ -762,11 +753,11 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         }
 
         // Check for changed methods
-        for (final var entry : localMethods.members().entrySet()) {
+        for (final var entry : localMethods.asMap().entrySet()) {
             final var methodName = entry.getKey();
-            if (upstreamMethods.members().containsKey(methodName)) {
+            if (upstreamMethods.asMap().containsKey(methodName)) {
                 final var localMethod = (JsonObject) entry.getValue();
-                final var upstreamMethod = (JsonObject) upstreamMethods.members().get(methodName);
+                final var upstreamMethod = (JsonObject) upstreamMethods.asMap().get(methodName);
 
                 if (!compareMethodSignature(localMethod, upstreamMethod)) {
                     differences.add(JsonObject.of(Map.of(
@@ -786,24 +777,24 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// Compares method signatures
     static boolean compareMethodSignature(JsonObject localMethod, JsonObject upstreamMethod) {
         // Compare return types
-        final var localReturn = normalizeTypeName(((JsonString) localMethod.members().get("returnType")).string());
-        final var upstreamReturn = normalizeTypeName(((JsonString) upstreamMethod.members().get("returnType")).string());
+        final var localReturn = normalizeTypeName(((JsonString) localMethod.asMap().get("returnType")).asString());
+        final var upstreamReturn = normalizeTypeName(((JsonString) upstreamMethod.asMap().get("returnType")).asString());
         if (!localReturn.equals(upstreamReturn)) {
             return false;
         }
 
         // Compare parameters
-        final var localParams = (JsonArray) localMethod.members().get("parameters");
-        final var upstreamParams = (JsonArray) upstreamMethod.members().get("parameters");
+        final var localParams = (JsonArray) localMethod.asMap().get("parameters");
+        final var upstreamParams = (JsonArray) upstreamMethod.asMap().get("parameters");
 
-        if (localParams.elements().size() != upstreamParams.elements().size()) {
+        if (localParams.asList().size() != upstreamParams.asList().size()) {
             return false;
         }
 
         // Compare each parameter
-        for (int i = 0; i < localParams.elements().size(); i++) {
-            final var localParam = normalizeTypeName(((JsonString) localParams.elements().get(i)).string());
-            final var upstreamParam = normalizeTypeName(((JsonString) upstreamParams.elements().get(i)).string());
+        for (int i = 0; i < localParams.asList().size(); i++) {
+            final var localParam = normalizeTypeName(((JsonString) localParams.asList().get(i)).asString());
+            final var upstreamParam = normalizeTypeName(((JsonString) upstreamParams.asList().get(i)).asString());
             if (!localParam.equals(upstreamParam)) {
                 return false;
             }
@@ -814,8 +805,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares fields between local and upstream
     static boolean compareFields(JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localFields = (JsonObject) local.members().get("fields");
-        final var upstreamFields = (JsonObject) upstream.members().get("fields");
+        final var localFields = (JsonObject) local.asMap().get("fields");
+        final var upstreamFields = (JsonObject) upstream.asMap().get("fields");
 
         if (localFields == null || upstreamFields == null) {
             return false;
@@ -824,8 +815,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         var hasChanges = false;
 
         // Check for field differences
-        final var localFieldNames = localFields.members().keySet();
-        final var upstreamFieldNames = upstreamFields.members().keySet();
+        final var localFieldNames = localFields.asMap().keySet();
+        final var upstreamFieldNames = upstreamFields.asMap().keySet();
 
         if (!localFieldNames.equals(upstreamFieldNames)) {
             differences.add(JsonObject.of(Map.of(
@@ -841,18 +832,18 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
     /// Compares constructors between local and upstream
     static boolean compareConstructors(JsonObject local, JsonObject upstream, List<JsonValue> differences) {
-        final var localConstructors = (JsonArray) local.members().get("constructors");
-        final var upstreamConstructors = (JsonArray) upstream.members().get("constructors");
+        final var localConstructors = (JsonArray) local.asMap().get("constructors");
+        final var upstreamConstructors = (JsonArray) upstream.asMap().get("constructors");
 
         if (localConstructors == null || upstreamConstructors == null) {
             return false;
         }
 
-        if (localConstructors.elements().size() != upstreamConstructors.elements().size()) {
+        if (localConstructors.asList().size() != upstreamConstructors.asList().size()) {
             differences.add(JsonObject.of(Map.of(
                 "type", JsonString.of("constructorsChanged"),
-                "localCount", JsonNumber.of(localConstructors.elements().size()),
-                "upstreamCount", JsonNumber.of(upstreamConstructors.elements().size())
+                "localCount", JsonNumber.of(localConstructors.asList().size()),
+                "upstreamCount", JsonNumber.of(upstreamConstructors.asList().size())
             )));
             return true;
         }
@@ -865,9 +856,9 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         // Handle generic types
         var normalized = typeName;
 
-        // Replace jdk.sandbox.* with standard packages
-        normalized = normalized.replace("jdk.sandbox.java.util.json", "java.util.json");
-        normalized = normalized.replace("jdk.sandbox.internal.util.json", "jdk.internal.util.json");
+        // Replace jdk.incubator.* with the upstream incubator packages
+        normalized = normalized.replace("jdk.incubator.java.util.json", "jdk.incubator.json");
+        normalized = normalized.replace("jdk.incubator.internal.util.json", "jdk.incubator.json.impl");
 
         // Remove any remaining package prefixes for comparison
         if (normalized.contains(".")) {
@@ -886,8 +877,8 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
 
         final var reportMap = new LinkedHashMap<String, JsonValue>();
         reportMap.put("timestamp", JsonString.of(startTime.toString()));
-        reportMap.put("localPackage", JsonString.of("jdk.sandbox.java.util.json"));
-        reportMap.put("upstreamPackage", JsonString.of("java.util.json"));
+        reportMap.put("localPackage", JsonString.of("jdk.incubator.java.util.json"));
+        reportMap.put("upstreamPackage", JsonString.of("jdk.incubator.json"));
 
         // Discover local classes
         final var localClasses = discoverLocalJsonClasses();
@@ -908,7 +899,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
             differences.add(diff);
 
             // Count statistics
-            final var status = ((JsonString) diff.members().get("status")).string();
+            final var status = ((JsonString) diff.asMap().get("status")).asString();
             switch (status) {
                 case "MATCHING" -> matchingCount++;
                 case "UPSTREAM_ERROR" -> missingUpstream++;
@@ -961,24 +952,24 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         }
         
         // Build a stable, sorted representation of just the essential diff info
-        final var differences = (JsonArray) report.members().get("differences");
+        final var differences = (JsonArray) report.asMap().get("differences");
         final var stableLines = new ArrayList<String>();
         
-        for (final var diff : differences.elements()) {
+        for (final var diff : differences.asList()) {
             final var diffObj = (JsonObject) diff;
-            final var status = ((JsonString) diffObj.members().get("status")).string();
+            final var status = ((JsonString) diffObj.asMap().get("status")).asString();
             
             if (!"DIFFERENT".equals(status)) continue;
             
-            final var className = ((JsonString) diffObj.members().get("className")).string();
-            final var classDiffs = (JsonArray) diffObj.members().get("differences");
+            final var className = ((JsonString) diffObj.asMap().get("className")).asString();
+            final var classDiffs = (JsonArray) diffObj.asMap().get("differences");
             
             if (classDiffs != null) {
-                for (final var change : classDiffs.elements()) {
+                for (final var change : classDiffs.asList()) {
                     final var changeObj = (JsonObject) change;
-                    final var type = ((JsonString) changeObj.members().get("type")).string();
-                    final var methodValue = changeObj.members().get("method");
-                    final var method = methodValue instanceof JsonString js ? js.string() : "";
+                    final var type = ((JsonString) changeObj.asMap().get("type")).asString();
+                    final var methodValue = changeObj.asMap().get("method");
+                    final var method = methodValue instanceof JsonString js ? js.asString() : "";
                     // Create stable line: "ClassName:changeType:methodName"
                     stableLines.add(className + ":" + type + ":" + method);
                 }
@@ -1007,13 +998,13 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// @param report the comparison report
     /// @return the count of classes with different APIs
     private static long getDifferentApiCount(JsonObject report) {
-        final var summary = (JsonObject) report.members().get("summary");
+        final var summary = (JsonObject) report.asMap().get("summary");
         if (summary == null) {
             return 0;
         }
-        final var differentApiValue = summary.members().get("differentApi");
+        final var differentApiValue = summary.asMap().get("differentApi");
         if (differentApiValue instanceof JsonNumber num) {
-            return num.toLong();
+            return num.asLong();
         }
         return 0;
     }
@@ -1024,13 +1015,13 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
     /// @return markdown-formatted summary
     static String generateSummary(JsonObject report) {
         final var sb = new StringBuilder();
-        final var summary = (JsonObject) report.members().get("summary");
-        final var differences = (JsonArray) report.members().get("differences");
+        final var summary = (JsonObject) report.asMap().get("summary");
+        final var differences = (JsonArray) report.asMap().get("differences");
         
-        final var totalClasses = ((JsonNumber) summary.members().get("totalClasses")).toLong();
-        final var matchingClasses = ((JsonNumber) summary.members().get("matchingClasses")).toLong();
+        final var totalClasses = ((JsonNumber) summary.asMap().get("totalClasses")).asLong();
+        final var matchingClasses = ((JsonNumber) summary.asMap().get("matchingClasses")).asLong();
         final var differentApi = getDifferentApiCount(report);
-        final var missingUpstream = ((JsonNumber) summary.members().get("missingUpstream")).toLong();
+        final var missingUpstream = ((JsonNumber) summary.asMap().get("missingUpstream")).asLong();
         
         sb.append("## API Comparison Summary\n\n");
         sb.append("| Metric | Count |\n");
@@ -1043,22 +1034,22 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         if (differentApi > 0) {
             sb.append("## Changes Detected\n\n");
             
-            for (final var diff : differences.elements()) {
+            for (final var diff : differences.asList()) {
                 final var diffObj = (JsonObject) diff;
-                final var status = ((JsonString) diffObj.members().get("status")).string();
+                final var status = ((JsonString) diffObj.asMap().get("status")).asString();
                 
                 if (!"DIFFERENT".equals(status)) continue;
                 
-                final var className = ((JsonString) diffObj.members().get("className")).string();
+                final var className = ((JsonString) diffObj.asMap().get("className")).asString();
                 sb.append("### ").append(className).append("\n\n");
                 
-                final var classDiffs = (JsonArray) diffObj.members().get("differences");
+                final var classDiffs = (JsonArray) diffObj.asMap().get("differences");
                 if (classDiffs != null) {
-                    for (final var change : classDiffs.elements()) {
+                    for (final var change : classDiffs.asList()) {
                         final var changeObj = (JsonObject) change;
-                        final var type = ((JsonString) changeObj.members().get("type")).string();
-                        final var methodValue = changeObj.members().get("method");
-                        final var method = methodValue instanceof JsonString js ? js.string() : "unknown";
+                        final var type = ((JsonString) changeObj.asMap().get("type")).asString();
+                        final var methodValue = changeObj.asMap().get("method");
+                        final var method = methodValue instanceof JsonString js ? js.asString() : "unknown";
                         
                         final var emoji = switch (type) {
                             case "methodRemoved" -> "➖";
@@ -1078,7 +1069,7 @@ public sealed interface ApiTracker permits ApiTracker.Nothing {
         }
         
         sb.append("---\n");
-        final var timestamp = ((JsonString) report.members().get("timestamp")).string();
+        final var timestamp = ((JsonString) report.asMap().get("timestamp")).asString();
         sb.append("*Generated by API Tracker on ").append(timestamp.split("T")[0]).append("*\n");
         
         return sb.toString();

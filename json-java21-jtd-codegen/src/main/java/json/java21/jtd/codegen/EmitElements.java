@@ -65,7 +65,7 @@ final class EmitElements {
                                String prefix, String childSchemaPath) {
     cob.aload(instSlot);
     cob.checkcast(CD_JsonArray);
-    cob.invokeinterface(CD_JsonArray, "elements", MTD_List);
+    cob.invokeinterface(CD_JsonArray, "asList", MTD_List);
     int listSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(listSlot);
 
@@ -111,7 +111,7 @@ final class EmitElements {
                                       int prefixSlot, String childSchemaPath) {
     cob.aload(instSlot);
     cob.checkcast(CD_JsonArray);
-    cob.invokeinterface(CD_JsonArray, "elements", MTD_List);
+    cob.invokeinterface(CD_JsonArray, "asList", MTD_List);
     int listSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(listSlot);
 

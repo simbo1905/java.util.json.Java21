@@ -1,6 +1,6 @@
 # JsonPath
 
-This module provides a JSONPath-style query engine for JSON documents parsed with `jdk.sandbox.java.util.json`.
+This module provides a JSONPath-style query engine for JSON documents parsed with `jdk.incubator.java.util.json`.
 
 It is based on the original Stefan Goessner JSONPath article:
 https://goessner.net/articles/JsonPath/
@@ -8,7 +8,7 @@ https://goessner.net/articles/JsonPath/
 ## Quick Start
 
 ```java
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 
 JsonValue doc = Json.parse("""

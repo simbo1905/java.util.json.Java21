@@ -60,7 +60,7 @@ Following modern Java patterns, we use a package-private sealed interface with r
 ```java
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 /// Package-private sealed interface for schema types
 sealed interface JtdSchema 
@@ -250,7 +250,7 @@ record CompiledSchema(
 ## Usage Example
 
 ```java
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import json.java21.jtd.Jtd;
 
 // Create JTD validator

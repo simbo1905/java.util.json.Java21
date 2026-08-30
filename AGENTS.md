@@ -124,7 +124,7 @@ throw new IllegalArgumentException("enum contains duplicate values: " +
 
 // Include the problematic schema portion
 throw new IllegalArgumentException("Type schema contains unknown key: " + key + 
-    " in schema: " + Json.toDisplayString(obj, 0));
+    " in schema: " + Json.toDisplayString(obj, ""));
 
 // Include both expected and actual values
 throw new IllegalArgumentException("unknown type: '" + typeStr + 
@@ -138,7 +138,7 @@ throw new IllegalArgumentException("invalid schema"); // Too vague
 throw new IllegalArgumentException("bad value"); // No specifics
 ```
 
-Use `Json.toDisplayString(value, depth)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
+Use `Json.toDisplayString(value, indent)` to render JSON fragments in error messages, and include relevant context like schema paths, actual vs expected values, and specific constraint violations.
 
 ## JSON Compatibility Suite
 
@@ -151,7 +151,7 @@ See `README.md` for user-facing commands. When running locally as an agent, use 
 - `json-java21-api-tracker`: API evolution tracking utilities.
 - `json-compatibility-suite`: JSON Test Suite compatibility validation.
 - `json-java21-jtd`: JSON Type Definition (JTD) validator based on RFC 8927.
-- `json-java21-jsonpath`: JsonPath query engine over `jdk.sandbox.java.util.json` values.
+- `json-java21-jsonpath`: JsonPath query engine over `jdk.incubator.java.util.json` values.
 
 Only when you are asked to work on a specific module, start by reading that module's `README.md`, then its `AGENTS.md`.
 
@@ -159,7 +159,7 @@ These modules are treated as separate subsystems; do not read their docs unless 
 
 ### Core Components
 
-#### Public API (`jdk.sandbox.java.util.json`)
+#### Public API (`jdk.incubator.java.util.json`)
 - `Json`: Static utilities for parsing, formatting, and conversion.
 - `JsonValue`: Sealed root interface for all JSON types.
 - `JsonObject`: JSON objects (key-value pairs).
@@ -169,14 +169,14 @@ These modules are treated as separate subsystems; do not read their docs unless 
 - `JsonBoolean`: JSON booleans.
 - `JsonNull`: JSON null.
 
-IMPORTANT: This API **MUST NOT** deviate from the upstream jdk.sandbox repo which is will track.  
+IMPORTANT: This API **MUST NOT** deviate from the upstream jdk.incubator repo which is will track.  
 
-#### Internal Implementation (`jdk.sandbox.internal.util.json`)
+#### Internal Implementation (`jdk.incubator.internal.util.json`)
 - `JsonParser`: Recursive descent JSON parser.
 - `Json*Impl`: Immutable implementations of `Json*` types.
 - `Utils`: Internal utilities and factory methods.
 
-IMPORTANT: Bugs in upstream-derived core logic MUST be fixed upstream. Do not patch `jdk.sandbox.*` sources in this repo unless the user explicitly agrees (for example, to carry a temporary local backport while the upstream fix is in progress).
+IMPORTANT: Bugs in upstream-derived core logic MUST be fixed upstream. Do not patch `jdk.incubator.*` sources in this repo unless the user explicitly agrees (for example, to carry a temporary local backport while the upstream fix is in progress).
 
 Only bugs in local, non-upstream code (for example, backporting shims/polyfills or other modules in this repo) should be fixed here using normal TDD.
 
@@ -480,7 +480,7 @@ flowchart LR
 python3 - <<'PY'
 import os, sys, re
 src = 'updates/2025-09-04/upstream/jdk.internal.util.json'
-dst = 'json-java21/src/main/java/jdk/sandbox/internal/util/json'
+dst = 'json-java21/src/main/java/jdk/incubator/internal/util/json'
 def xform(text):
     # old old python3 stuff here
 print('OK')

@@ -1,6 +1,6 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -53,7 +53,7 @@ final class InterpreterValidator implements JtdValidator {
     final var node = frame.schema();
 
     if (node instanceof JtdSchema.NullableSchema nullable) {
-      if (frame.instance() instanceof jdk.sandbox.java.util.json.JsonNull) return;
+      if (frame.instance() instanceof jdk.incubator.java.util.json.JsonNull) return;
       stepRfc8927(new Frame(nullable.wrapped(), frame.instance(), frame.ptr(),
           frame.crumbs(), frame.schemaPath(), frame.discriminatorKey()), stack, errors);
       return;
@@ -79,10 +79,10 @@ final class InterpreterValidator implements JtdValidator {
   private void stepType(Frame frame, JtdSchema.TypeSchema type, List<JtdValidationError> errors) {
     final var instance = frame.instance();
     final var ok = switch (type.type()) {
-      case "boolean" -> instance instanceof jdk.sandbox.java.util.json.JsonBoolean;
-      case "string" -> instance instanceof jdk.sandbox.java.util.json.JsonString;
+      case "boolean" -> instance instanceof jdk.incubator.java.util.json.JsonBoolean;
+      case "string" -> instance instanceof jdk.incubator.java.util.json.JsonString;
       case "timestamp" -> isTimestamp(instance);
-      case "float32", "float64" -> instance instanceof jdk.sandbox.java.util.json.JsonNumber;
+      case "float32", "float64" -> instance instanceof jdk.incubator.java.util.json.JsonNumber;
       case "int8" -> isIntInRange(instance, -128, 127);
       case "uint8" -> isIntInRange(instance, 0, 255);
       case "int16" -> isIntInRange(instance, -32768, 32767);
@@ -97,21 +97,21 @@ final class InterpreterValidator implements JtdValidator {
   }
 
   private void stepEnum(Frame frame, JtdSchema.EnumSchema enumS, List<JtdValidationError> errors) {
-    if (!(frame.instance() instanceof jdk.sandbox.java.util.json.JsonString str)
-        || !enumS.values().contains(str.string())) {
+    if (!(frame.instance() instanceof jdk.incubator.java.util.json.JsonString str)
+        || !enumS.values().contains(str.asString())) {
       errors.add(new JtdValidationError(frame.ptr(), frame.schemaPath() + "/enum"));
     }
   }
 
   private void stepElements(Frame frame, JtdSchema.ElementsSchema elems,
                             java.util.Deque<Frame> stack, List<JtdValidationError> errors) {
-    if (!(frame.instance() instanceof jdk.sandbox.java.util.json.JsonArray arr)) {
+    if (!(frame.instance() instanceof jdk.incubator.java.util.json.JsonArray arr)) {
       errors.add(new JtdValidationError(frame.ptr(), frame.schemaPath() + "/elements"));
       return;
     }
     final var childSchemaPath = frame.schemaPath() + "/elements";
     int i = 0;
-    for (final var element : arr.elements()) {
+    for (final var element : arr.asList()) {
       stack.push(new Frame(elems.elements(), element,
           frame.ptr() + "/" + i,
           frame.crumbs().withArrayIndex(i),
@@ -122,13 +122,13 @@ final class InterpreterValidator implements JtdValidator {
 
   private void stepProperties(Frame frame, JtdSchema.PropertiesSchema props,
                               java.util.Deque<Frame> stack, List<JtdValidationError> errors) {
-    if (!(frame.instance() instanceof jdk.sandbox.java.util.json.JsonObject obj)) {
+    if (!(frame.instance() instanceof jdk.incubator.java.util.json.JsonObject obj)) {
       final var guardPath = props.properties().isEmpty() ? "/optionalProperties" : "/properties";
       errors.add(new JtdValidationError(frame.ptr(), frame.schemaPath() + guardPath));
       return;
     }
 
-    final var members = obj.members();
+    final var members = obj.asMap();
     final var discKey = frame.discriminatorKey();
     final var sp = frame.schemaPath();
 
@@ -176,12 +176,12 @@ final class InterpreterValidator implements JtdValidator {
 
   private void stepValues(Frame frame, JtdSchema.ValuesSchema vals,
                           java.util.Deque<Frame> stack, List<JtdValidationError> errors) {
-    if (!(frame.instance() instanceof jdk.sandbox.java.util.json.JsonObject obj)) {
+    if (!(frame.instance() instanceof jdk.incubator.java.util.json.JsonObject obj)) {
       errors.add(new JtdValidationError(frame.ptr(), frame.schemaPath() + "/values"));
       return;
     }
     final var childSchemaPath = frame.schemaPath() + "/values";
-    for (final var entry : obj.members().entrySet()) {
+    for (final var entry : obj.asMap().entrySet()) {
       stack.push(new Frame(vals.values(), entry.getValue(),
           frame.ptr() + "/" + entry.getKey(),
           frame.crumbs().withObjectField(entry.getKey()),
@@ -191,12 +191,12 @@ final class InterpreterValidator implements JtdValidator {
 
   private void stepDiscriminator(Frame frame, JtdSchema.DiscriminatorSchema disc,
                                  java.util.Deque<Frame> stack, List<JtdValidationError> errors) {
-    if (!(frame.instance() instanceof jdk.sandbox.java.util.json.JsonObject obj)) {
+    if (!(frame.instance() instanceof jdk.incubator.java.util.json.JsonObject obj)) {
       errors.add(new JtdValidationError(frame.ptr(), frame.schemaPath() + "/discriminator"));
       return;
     }
 
-    final var members = obj.members();
+    final var members = obj.asMap();
     final var sp = frame.schemaPath();
 
     if (!members.containsKey(disc.discriminator())) {
@@ -205,14 +205,14 @@ final class InterpreterValidator implements JtdValidator {
     }
 
     final var tagValue = members.get(disc.discriminator());
-    if (!(tagValue instanceof jdk.sandbox.java.util.json.JsonString tagStr)) {
+    if (!(tagValue instanceof jdk.incubator.java.util.json.JsonString tagStr)) {
       errors.add(new JtdValidationError(
           frame.ptr() + "/" + disc.discriminator(),
           sp + "/discriminator"));
       return;
     }
 
-    final var variant = disc.mapping().get(tagStr.string());
+    final var variant = disc.mapping().get(tagStr.asString());
     if (variant == null) {
       errors.add(new JtdValidationError(
           frame.ptr() + "/" + disc.discriminator(),
@@ -222,7 +222,7 @@ final class InterpreterValidator implements JtdValidator {
 
     stack.push(new Frame(variant, frame.instance(), frame.ptr(),
         frame.crumbs(),
-        sp + "/mapping/" + tagStr.string(),
+        sp + "/mapping/" + tagStr.asString(),
         disc.discriminator()));
   }
 
@@ -231,8 +231,8 @@ final class InterpreterValidator implements JtdValidator {
   // ------------------------------------------------------------------
 
   private static boolean isTimestamp(JsonValue instance) {
-    if (!(instance instanceof jdk.sandbox.java.util.json.JsonString str)) return false;
-    final var value = str.string();
+    if (!(instance instanceof jdk.incubator.java.util.json.JsonString str)) return false;
+    final var value = str.asString();
     if (!JtdSchema.TypeSchema.RFC3339.matcher(value).matches()) return false;
     try {
       final var normalized = value.replace(":60", ":59");
@@ -244,11 +244,11 @@ final class InterpreterValidator implements JtdValidator {
   }
 
   private static boolean isIntInRange(JsonValue instance, long min, long max) {
-    if (!(instance instanceof jdk.sandbox.java.util.json.JsonNumber num)) return false;
-    final var d = num.toDouble();
+    if (!(instance instanceof jdk.incubator.java.util.json.JsonNumber num)) return false;
+    final var d = num.asDouble();
     if (d != Math.floor(d)) return false;
     if (d > Long.MAX_VALUE || d < Long.MIN_VALUE) return false;
-    final var l = num.toLong();
+    final var l = num.asLong();
     return l >= min && l <= max;
   }
 }

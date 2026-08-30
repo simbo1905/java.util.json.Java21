@@ -1,7 +1,7 @@
 import os, sys, re, shutil
 
 SRC = 'updates/2025-09-04/upstream/jdk.internal.util.json'
-DST = 'json-java21/src/main/java/jdk/sandbox/internal/util/json'
+DST = 'json-java21/src/main/java/jdk/incubator/internal/util/json'
 
 def read(path):
     f = open(path, 'r')
@@ -28,9 +28,9 @@ def write_safe(path, text):
 
 def transform(text, name):
     # package
-    text = re.sub(r'^package\s+jdk\.internal\.util\.json;', 'package jdk.sandbox.internal.util.json;', text, flags=re.M)
+    text = re.sub(r'^package\s+jdk\.internal\.util\.json;', 'package jdk.incubator.internal.util.json;', text, flags=re.M)
     # imports for public API
-    text = re.sub(r'^(\s*import\s+)java\.util\.json\.', r'\1jdk.sandbox.java.util.json.', text, flags=re.M)
+    text = re.sub(r'^(\s*import\s+)java\.util\.json\.', r'\1jdk.incubator.java.util.json.', text, flags=re.M)
     # annotations (single-line)
     text = re.sub(r'^\s*@(?:jdk\.internal\..*|ValueBased|StableValue).*\n', '', text, flags=re.M)
     # remove import of ValueBased if present

@@ -1,6 +1,6 @@
 package io.github.simbo1905.tracker;
 
-import jdk.sandbox.java.util.json.Json;
+import jdk.incubator.java.util.json.Json;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,32 +11,22 @@ import java.util.logging.Logger;
 
 /// Command-line runner for the API Tracker
 ///
-/// Usage: java io.github.simbo1905.tracker.ApiTrackerRunner [loglevel] [mode] [sourcepath]
+/// Usage: java io.github.simbo1905.tracker.ApiTrackerRunner [loglevel]
 ///
 /// Arguments:
 /// - loglevel: SEVERE, WARNING, INFO, FINE, FINER, FINEST (default: INFO)
-/// - mode: binary|source (default: binary)
-///   - binary: Compare binary reflection (local) vs source parsing (remote)
-///   - source: Compare source parsing (local) vs source parsing (remote) for accurate parameter names
-/// - sourcepath: Path to local source files (required for source mode)
 @SuppressWarnings("JavadocReference")
 public class ApiTrackerRunner {
 
   public static void main(String[] args) {
     // Parse command line arguments
     final var logLevel = args.length > 0 ? Level.parse(args[0].toUpperCase()) : Level.INFO;
-    final var mode = args.length > 1 ? args[1].toLowerCase() : "binary";
-    final var sourcePath = args.length > 2 ? args[2] : null;
 
     configureLogging(logLevel);
 
     System.out.println("=== JSON API Tracker ===");
-    System.out.println("Comparing local jdk.sandbox.java.util.json with upstream java.util.json");
+    System.out.println("Comparing local jdk.incubator.java.util.json with upstream jdk.incubator.json");
     System.out.println("Log level: " + logLevel);
-    System.out.println("Mode: " + mode);
-    if (sourcePath != null) {
-      System.out.println("Local source path: " + sourcePath);
-    }
     System.out.println();
 
     try {
@@ -46,7 +36,7 @@ public class ApiTrackerRunner {
 
       // Pretty print the report
       System.out.println("=== Comparison Report ===");
-      final var jsonOutput = Json.toDisplayString(report, 2);
+      final var jsonOutput = Json.toDisplayString(report, "  ");
       System.out.println(jsonOutput);
 
       // Generate fingerprint and summary

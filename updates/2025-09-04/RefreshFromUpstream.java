@@ -29,7 +29,7 @@ void main() throws Exception {
 
     // Local repo paths
     Path repoRoot = Paths.get("").toAbsolutePath().normalize();
-    Path localImplDir = repoRoot.resolve("json-java21/src/main/java/jdk/sandbox/internal/util/json");
+    Path localImplDir = repoRoot.resolve("json-java21/src/main/java/jdk/incubator/internal/util/json");
     if (!Files.isDirectory(localImplDir)) {
         System.err.println("Local impl dir not found: " + localImplDir);
         System.exit(1);

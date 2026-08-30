@@ -179,12 +179,12 @@
 </code></pre>
 
                 <h3>Parse and access</h3>
-                <pre><code>import jdk.sandbox.java.util.json.*;
+                <pre><code>import jdk.incubator.java.util.json.*;
 
 JsonObject obj = (JsonObject) Json.parse("{\"name\":\"Alice\",\"age\":30}");
 
-String name = obj.get("name").string();
-long age = obj.get("age").toLong();</code></pre>
+String name = obj.get("name").asString();
+long age = obj.get("age").asLong();</code></pre>
             </section>
 
             <section>
@@ -192,14 +192,14 @@ long age = obj.get("age").toLong();</code></pre>
                 <ul>
                     <li><strong>Immutable JSON values:</strong> <code>JsonObject</code>, <code>JsonArray</code>, <code>JsonString</code>, <code>JsonNumber</code>, <code>JsonBoolean</code>, <code>JsonNull</code></li>
                     <li><strong>Typed factories:</strong> build JSON with <code>JsonObject.of</code>, <code>JsonArray.of</code>, <code>JsonString.of</code>, <code>JsonNumber.of</code>, <code>JsonBoolean.of</code></li>
-                    <li><strong>Type-safe accessors:</strong> <code>obj.get("x").string()</code>, <code>value.toLong()</code>, <code>value.toDouble()</code>, <code>value.bool()</code></li>
+                    <li><strong>Type-safe accessors:</strong> <code>obj.get("x").asString()</code>, <code>value.asLong()</code>, <code>value.asDouble()</code>, <code>value.asBoolean()</code></li>
                     <li><strong>JTD validator (RFC 8927):</strong> module <code>json-java21-jtd</code> for real-world JSON-heavy logic</li>
                 </ul>
             </section>
         </div>
 
         <h2>Record Mapping (explicit, typed)</h2>
-        <pre><code>import jdk.sandbox.java.util.json.*;
+        <pre><code>import jdk.incubator.java.util.json.*;
 import java.util.*;
 
 record User(String name, String email, boolean active) {}
@@ -224,7 +224,7 @@ JsonValue teamJson = JsonObject.of(Map.of(
         <h2>Run the README Examples</h2>
         <pre><code>mvn package
 java -cp ./json-java21/target/java.util.json-*.jar:./json-java21/target/test-classes \
-  jdk.sandbox.java.util.json.examples.ReadmeExamples</code></pre>
+  jdk.incubator.java.util.json.examples.ReadmeExamples</code></pre>
         <p class="meta">Replace <code>*</code> with the actual version number from the JAR filename.</p>
 
         <h2>JSON Test Suite Compatibility</h2>
@@ -237,7 +237,7 @@ mvn exec:java -pl json-compatibility-suite -Dexec.args="--json"</code></pre>
         <h2>JSON Type Definition (JTD) Validator</h2>
         <p class="meta">This repo includes an incubating JTD validator (RFC 8927) in module <code>json-java21-jtd</code>. Per RFC 8927, the empty schema <code>{}</code> accepts all JSON instances.</p>
         <pre><code>import json.java21.jtd.Jtd;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 JsonValue schema = Json.parse("""
   {

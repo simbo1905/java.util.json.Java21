@@ -3,13 +3,11 @@ package json.java21.jtd.codegen;
 import java.lang.classfile.*;
 import java.lang.classfile.attribute.SourceFileAttribute;
 import java.lang.constant.ClassDesc;
-import java.lang.constant.ConstantDescs;
-import java.lang.constant.MethodTypeDesc;
 import java.lang.invoke.MethodHandles;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Logger;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 import json.java21.jtd.Jtd;
 
 /// Compiles a JTD schema into a bytecode-generated [JtdValidator].

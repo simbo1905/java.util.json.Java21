@@ -1,6 +1,6 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -139,7 +139,7 @@ public final class JsonPath {
             List<JsonValue> results) {
 
         if (current instanceof JsonObject obj) {
-            final var value = obj.members().get(prop.name());
+            final var value = obj.asMap().get(prop.name());
             if (value != null) {
                 evaluateSegments(segments, index + 1, value, root, results);
             }
@@ -155,7 +155,7 @@ public final class JsonPath {
             List<JsonValue> results) {
 
         if (current instanceof JsonArray array) {
-            final var elements = array.elements();
+            final var elements = array.asList();
             int idx = arr.index();
 
             // Handle negative indices (from end)
@@ -178,7 +178,7 @@ public final class JsonPath {
             List<JsonValue> results) {
 
         if (current instanceof JsonArray array) {
-            final var elements = array.elements();
+            final var elements = array.asList();
             final int size = elements.size();
 
             final int step = slice.step() != null ? slice.step() : 1;
@@ -225,11 +225,11 @@ public final class JsonPath {
             List<JsonValue> results) {
 
         if (current instanceof JsonObject obj) {
-            for (final var value : obj.members().values()) {
+            for (final var value : obj.asMap().values()) {
                 evaluateSegments(segments, index + 1, value, root, results);
             }
         } else if (current instanceof JsonArray array) {
-            for (final var element : array.elements()) {
+            for (final var element : array.asList()) {
                 evaluateSegments(segments, index + 1, element, root, results);
             }
         }
@@ -248,11 +248,11 @@ public final class JsonPath {
 
         // Then recurse into children
         if (current instanceof JsonObject obj) {
-            for (final var value : obj.members().values()) {
+            for (final var value : obj.asMap().values()) {
                 evaluateRecursiveDescent(desc, segments, index, value, root, results);
             }
         } else if (current instanceof JsonArray array) {
-            for (final var element : array.elements()) {
+            for (final var element : array.asList()) {
                 evaluateRecursiveDescent(desc, segments, index, element, root, results);
             }
         }
@@ -269,7 +269,7 @@ public final class JsonPath {
         switch (target) {
             case JsonPathAst.PropertyAccess prop -> {
                 if (current instanceof JsonObject obj) {
-                    final var value = obj.members().get(prop.name());
+                    final var value = obj.asMap().get(prop.name());
                     if (value != null) {
                         evaluateSegments(segments, index + 1, value, root, results);
                     }
@@ -277,18 +277,18 @@ public final class JsonPath {
             }
             case JsonPathAst.Wildcard ignored -> {
                 if (current instanceof JsonObject obj) {
-                    for (final var value : obj.members().values()) {
+                    for (final var value : obj.asMap().values()) {
                         evaluateSegments(segments, index + 1, value, root, results);
                     }
                 } else if (current instanceof JsonArray array) {
-                    for (final var element : array.elements()) {
+                    for (final var element : array.asList()) {
                         evaluateSegments(segments, index + 1, element, root, results);
                     }
                 }
             }
             case JsonPathAst.ArrayIndex arr -> {
                 if (current instanceof JsonArray array) {
-                    final var elements = array.elements();
+                    final var elements = array.asList();
                     int idx = arr.index();
                     if (idx < 0) idx = elements.size() + idx;
                     if (idx >= 0 && idx < elements.size()) {
@@ -310,7 +310,7 @@ public final class JsonPath {
             List<JsonValue> results) {
 
         if (current instanceof JsonArray array) {
-            for (final var element : array.elements()) {
+            for (final var element : array.asList()) {
                 if (matchesFilter(filter.expression(), element)) {
                     evaluateSegments(segments, index + 1, element, root, results);
                 }
@@ -359,7 +359,7 @@ public final class JsonPath {
         JsonValue value = current;
         for (final var prop : path.properties()) {
             if (value instanceof JsonObject obj) {
-                value = obj.members().get(prop);
+                value = obj.asMap().get(prop);
                 if (value == null) {
                     return null;
                 }
@@ -373,9 +373,9 @@ public final class JsonPath {
     private static Object jsonValueToComparable(JsonValue value) {
         if (value == null) return null;
         return switch (value) {
-            case JsonString s -> s.string();
-            case JsonNumber n -> n.toDouble();
-            case JsonBoolean b -> b.bool();
+            case JsonString s -> s.asString();
+            case JsonNumber n -> n.asDouble();
+            case JsonBoolean b -> b.asBoolean();
             case JsonNull ignored -> null;
             default -> value;
         };
@@ -470,9 +470,9 @@ public final class JsonPath {
             // Simple support for @.length-1 pattern
             final var scriptText = script.script().trim();
             if (scriptText.equals("@.length-1")) {
-                final int lastIndex = array.elements().size() - 1;
+                final int lastIndex = array.asList().size() - 1;
                 if (lastIndex >= 0) {
-                    evaluateSegments(segments, index + 1, array.elements().get(lastIndex), root, results);
+                    evaluateSegments(segments, index + 1, array.asList().get(lastIndex), root, results);
                 }
             } else {
                 LOG.warning(() -> "Unsupported script expression: " + scriptText);

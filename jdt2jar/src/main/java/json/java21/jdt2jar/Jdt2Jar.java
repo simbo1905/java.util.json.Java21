@@ -1,6 +1,6 @@
 package json.java21.jdt2jar;
 
-import jdk.sandbox.java.util.json.Json;
+import jdk.incubator.java.util.json.Json;
 import json.java21.jtd.codegen.JtdCodegen;
 
 import java.io.ByteArrayOutputStream;
@@ -158,8 +158,8 @@ public final class Jdt2Jar {
   }
 
   private static boolean shouldCopyRuntime(String path) {
-    return (path.startsWith("jdk/sandbox/java/util/json/")
-        || path.startsWith("jdk/sandbox/internal/util/json/")
+    return (path.startsWith("jdk/incubator/java/util/json/")
+        || path.startsWith("jdk/incubator/internal/util/json/")
         || path.startsWith("json/java21/jtd/"))
         && !path.startsWith("json/java21/jtd/codegen/")
         || path.startsWith("json/java21/jtd/codegen/JtdValidator.class")
@@ -202,7 +202,7 @@ public final class Jdt2Jar {
     final var source = """
         package %s;
 
-        import jdk.sandbox.java.util.json.JsonValue;
+        import jdk.incubator.java.util.json.JsonValue;
         import json.java21.jtd.JtdValidationResult;
         import json.java21.jdt2jar.runtime.ValidatorMain;
 

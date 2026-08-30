@@ -77,45 +77,49 @@ wc -l .tmp/upstream-sync/jdk/internal/util/json/*.java
 Create parallel structure in `.tmp/backported/` with our package names:
 
 ```bash
-mkdir -p .tmp/backported/jdk/sandbox/java/util/json
-mkdir -p .tmp/backported/jdk/sandbox/internal/util/json
+mkdir -p .tmp/backported/jdk/incubator/java/util/json
+mkdir -p .tmp/backported/jdk/incubator/internal/util/json
 ```
 
 ### Step 4: Apply Backporting Transformations
 For each downloaded file, apply these transformations using Python heredocs (not sed/perl for multi-line):
 
 #### 4.1 Package Renaming
-- `java.util.json` → `jdk.sandbox.java.util.json`
-- `jdk.internal.util.json` → `jdk.sandbox.internal.util.json`
+- `java.util.json` → `jdk.incubator.java.util.json`
+- `jdk.internal.util.json` → `jdk.incubator.internal.util.json`
 
 #### 4.2 Remove Preview Feature Annotations
 Delete lines containing:
 - `import jdk.internal.javac.PreviewFeature;`
 - `@PreviewFeature(feature = PreviewFeature.Feature.JSON)`
 
-#### 4.3 StableValue Polyfill
-Upstream uses `jdk.internal.lang.stable.StableValue` which is not available in Java 21.
+#### 4.3 LazyConstant Polyfill
+Upstream (since commit `c1a4f80`, 2026-02-05) uses `java.lang.LazyConstant` (implicit
+`java.lang` import, no import line to rewrite) which is not available in Java 21.
 
-**Replace imports:**
-- `import jdk.internal.lang.stable.StableValue;` → (remove, our polyfill is package-local)
+**The polyfill `LazyConstant.java`** (already in our repo, package-local) provides:
+- `LazyConstant.of(Supplier<T>)` - creates a lazy constant
+- `.get()` - gets the value (computing if needed, double-checked locking)
 
-**The polyfill `StableValue.java`** (already in our repo) provides:
-- `StableValue.of()` - creates empty holder
-- `orElse(T defaultValue)` - returns value or default
-- `orElseSet(Supplier<T>)` - lazy initialization with double-checked locking
-- `setOrThrow(T)` - one-time set
-- `StableValue.supplier(Supplier<T>)` - memoizing supplier wrapper
+Because the polyfill exposes the identical API and lives in the same (impl) package as the
+upstream call sites, **no import or call-site rewrite is needed**; upstream `LazyConstant`
+usages compile unchanged against the polyfill.
 
-This file is NOT from upstream and must be preserved during sync.
+This file is NOT from upstream and must be preserved during sync. The legacy
+`StableValue.java` polyfill (for the pre-`c1a4f80` upstream API) was unused dead code and was
+removed during the incubator uplift.
 
 #### 4.4 DO NOT Convert JavaDoc to JEP 467 Markdown
 If upstream uses `/** ... */` style, DO NOT convert them to our `/// ...` format; we will not edit the upstream files more than the absolute minimum to get them to run on Java 21. 
 
-#### 4.5 Add JsonAssertionException (Our Addition)
-The file `JsonAssertionException.java` is a local addition not in upstream. Preserve it.
+#### 4.5 JsonValueException (Shipped Upstream)
+Upstream at `c1a4f80` DOES ship `java/util/json/JsonValueException.java`; it is NOT a local
+addition. Our copy is a minimized mechanical backport of the upstream file (copyright header,
+javadoc and `@Serial serialVersionUID` stripped; behaviour identical). Take the upstream file
+with the standard transforms of 4.1/4.2; do not treat it as local-only.
 
 #### 4.6 Preserve Demo File
-The file `jdk/sandbox/demo/JsonDemo.java` is a local addition for demonstration purposes. Preserve it. Fix it. 
+The file `jdk/incubator/demo/JsonDemo.java` is a local addition for demonstration purposes. Preserve it. Fix it. 
 
 ### Step 5: Verify Compilation with javac
 Before copying to the main source tree, verify the backported code compiles:
@@ -124,9 +128,8 @@ Before copying to the main source tree, verify the backported code compiles:
 # Find all Java files in the backported structure
 find .tmp/backported -name "*.java" > .tmp/sources.txt
 
-# Also include our polyfill and local additions
-echo "json-java21/src/main/java/jdk/sandbox/internal/util/json/StableValue.java" >> .tmp/sources.txt
-echo "json-java21/src/main/java/jdk/sandbox/java/util/json/JsonAssertionException.java" >> .tmp/sources.txt
+# Also include our polyfill
+echo "json-java21/src/main/java/jdk/incubator/internal/util/json/LazyConstant.java" >> .tmp/sources.txt
 
 # Compile with Java 21
 javac --release 21 -d .tmp/classes @.tmp/sources.txt
@@ -138,20 +141,20 @@ Only after javac succeeds:
 
 ```bash
 # Backup current sources (optional)
-cp -r json-java21/src/main/java/jdk/sandbox .tmp/backup-sandbox
+cp -r json-java21/src/main/java/jdk/incubator .tmp/backup-incubator
 
 # Copy backported files (excluding our local additions)
-cp .tmp/backported/jdk/sandbox/java/util/json/*.java \
-   json-java21/src/main/java/jdk/sandbox/java/util/json/
+cp .tmp/backported/jdk/incubator/java/util/json/*.java \
+   json-java21/src/main/java/jdk/incubator/java/util/json/
 
-cp .tmp/backported/jdk/sandbox/internal/util/json/*.java \
-   json-java21/src/main/java/jdk/sandbox/internal/util/json/
+cp .tmp/backported/jdk/incubator/internal/util/json/*.java \
+   json-java21/src/main/java/jdk/incubator/internal/util/json/
 
 # Restore our local additions if overwritten
-# (StableValue.java, JsonAssertionException.java should not be in backported/)
+# (LazyConstant.java should not be in backported/)
 ```
 
-The file `jdk/sandbox/demo/JsonDemo.java` should be the example code in our README.md, as it may have changed to reflect upstream changes. You MUST update the README.md to include examples of the upgraded code in this file, which you must MANUALLY VERIFY IS GOOD post-upgrade. 
+The file `jdk/incubator/demo/JsonDemo.java` should be the example code in our README.md, as it may have changed to reflect upstream changes. You MUST update the README.md to include examples of the upgraded code in this file, which you must MANUALLY VERIFY IS GOOD post-upgrade. 
 
 ### Step 7: Full Maven Build
 
@@ -163,34 +166,36 @@ $(command -v mvnd || command -v mvn || command -v ./mvnw) clean test -pl json-ja
 
 | File | Purpose |
 |------|---------|
-| `jdk/sandbox/internal/util/json/StableValue.java` | Java 21 polyfill for future JDK StableValue API |
-| `jdk/sandbox/java/util/json/JsonAssertionException.java` | Custom exception for type assertion errors |
-| `jdk/sandbox/demo/JsonDemo.java` | Demonstration/example code |
+| `jdk/incubator/internal/util/json/LazyConstant.java` | Java 21 polyfill for the JDK `java.lang.LazyConstant` API used by upstream since `c1a4f80` |
+| `jdk/incubator/demo/JsonDemo.java` | Demonstration/example code |
+
+Note: since the `43325738c` uplift, upstream ships `JsonValueException.java` instead of
+`JsonValueException.java`, and `StableValue.java` has been removed; neither is a
+local addition.
 
 ## Transformation Example
 
-**Upstream `JsonStringImpl.java` (excerpt):**
+**Upstream `JsonStringImpl.java` (excerpt, commit `c1a4f80`):**
 ```java
 package jdk.internal.util.json;
 
 import java.util.json.JsonString;
-import jdk.internal.lang.stable.StableValue;
 
 public final class JsonStringImpl implements JsonString, JsonValueImpl {
-    private final StableValue<String> jsonStr = StableValue.of();
+    private final LazyConstant<String> jsonStr = LazyConstant.of(this::initJsonStr);
     // ...
 }
 ```
 
 **Backported version:**
 ```java
-package jdk.sandbox.internal.util.json;
+package jdk.incubator.internal.util.json;
 
-import jdk.sandbox.java.util.json.JsonString;
-// StableValue is package-local, no import needed
+import jdk.incubator.java.util.json.JsonString;
+// LazyConstant is package-local (our polyfill for java.lang.LazyConstant), no import needed
 
 public final class JsonStringImpl implements JsonString, JsonValueImpl {
-    private final StableValue<String> jsonStr = StableValue.of();
+    private final LazyConstant<String> jsonStr = LazyConstant.of(this::initJsonStr);
     // ...
 }
 ```
@@ -199,7 +204,7 @@ public final class JsonStringImpl implements JsonString, JsonValueImpl {
 
 ### Compilation Errors After Sync
 1. Check package names are correctly transformed
-2. Verify StableValue polyfill is present
+2. Verify LazyConstant polyfill is present
 3. Check for new upstream APIs that may need additional polyfills
 
 ### Test Failures After Sync

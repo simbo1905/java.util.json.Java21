@@ -2,7 +2,6 @@ package json.java21.jtd.codegen;
 
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
-import java.lang.constant.ConstantDescs;
 
 import json.java21.jtd.JtdSchema;
 
@@ -26,7 +25,7 @@ final class EmitDiscriminator {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 
@@ -52,7 +51,7 @@ final class EmitDiscriminator {
 
     cob.aload(tagValSlot);
     cob.checkcast(CD_JsonString);
-    cob.invokeinterface(CD_JsonString, "string", MTD_String);
+    cob.invokeinterface(CD_JsonString, "asString", MTD_String);
     int tagStrSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(tagStrSlot);
 
@@ -113,7 +112,7 @@ final class EmitDiscriminator {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 
@@ -137,7 +136,7 @@ final class EmitDiscriminator {
 
     cob.aload(tagValSlot);
     cob.checkcast(CD_JsonString);
-    cob.invokeinterface(CD_JsonString, "string", MTD_String);
+    cob.invokeinterface(CD_JsonString, "asString", MTD_String);
     int tagStrSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(tagStrSlot);
 

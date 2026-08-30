@@ -1,13 +1,11 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
 import org.junit.jupiter.api.Test;
 
 import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /// Tests for the [JtdValidator] functional interface and [InterpreterValidator].
 ///

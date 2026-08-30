@@ -1,6 +1,6 @@
 package json.java21.jtd.codegen;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 import json.java21.jtd.JtdValidationResult;
 
 import java.util.Objects;

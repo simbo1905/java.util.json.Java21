@@ -30,7 +30,7 @@ final class EmitProperties {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 
@@ -85,7 +85,7 @@ final class EmitProperties {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 
