@@ -9,8 +9,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import jdk.incubator.java.util.json.JsonBoolean;
 import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonNumber;
 import jdk.incubator.java.util.json.JsonObject;
 import jdk.incubator.java.util.json.JsonString;
+import jdk.incubator.java.util.json.Json;
 
 import java.util.Set;
 import java.util.Map;
@@ -232,6 +234,110 @@ public class ApiTrackerTest {
 
             assertThat(ApiTracker.normalizeTypeName("String"))
                 .isEqualTo("String");
+        }
+    }
+
+    @Nested
+    @DisplayName("Drift Detection Gates")
+    class DriftDetectionGateTests {
+
+        private static JsonObject upstreamErrorDiff(String className, String error) {
+            return JsonObject.of(Map.of(
+                "className", JsonString.of(className),
+                "status", JsonString.of("UPSTREAM_ERROR"),
+                "error", JsonString.of(error)
+            ));
+        }
+
+        private static JsonObject report(long differentApi, long missingUpstream, JsonArray differences) {
+            return JsonObject.of(Map.of(
+                "timestamp", JsonString.of("2026-08-30T00:00:00Z"),
+                "summary", JsonObject.of(Map.of(
+                    "totalClasses", JsonNumber.of(differentApi + missingUpstream),
+                    "matchingClasses", JsonNumber.of(0),
+                    "differentApi", JsonNumber.of(differentApi),
+                    "missingUpstream", JsonNumber.of(missingUpstream)
+                )),
+                "differences", differences
+            ));
+        }
+
+        @Test
+        @DisplayName("Upstream fetch failures must count as drift, not all-clear")
+        void testHasDifferencesTreatsUpstreamErrorAsDrift() {
+            LoggingControl.setupCleanLogging();
+            java.util.logging.Logger.getLogger(getClass().getName())
+                .info(() -> "TEST: testHasDifferencesTreatsUpstreamErrorAsDrift");
+            final var allErrors = report(0, 2, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found"),
+                upstreamErrorDiff("JsonObject", "HTTP_ERROR: Status 500")
+            )));
+
+            assertThat(ApiTracker.hasDifferences(allErrors))
+                .as("a fully-blind detector run (every class UPSTREAM_ERROR) must report drift")
+                .isTrue();
+
+            final var mixed = report(1, 1, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found"),
+                JsonObject.of(Map.of(
+                    "className", JsonString.of("JsonValue"),
+                    "status", JsonString.of("DIFFERENT"),
+                    "differences", JsonArray.of(java.util.List.of())
+                ))
+            )));
+            assertThat(ApiTracker.hasDifferences(mixed)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Fingerprint covers UPSTREAM_ERROR classes and is stable and distinct")
+        void testFingerprintCoversUpstreamErrors() {
+            LoggingControl.setupCleanLogging();
+            java.util.logging.Logger.getLogger(getClass().getName())
+                .info(() -> "TEST: testFingerprintCoversUpstreamErrors");
+            final var none = report(0, 0, JsonArray.of(java.util.List.of()));
+            assertThat(ApiTracker.generateFingerprint(none)).isEqualTo("0000000");
+
+            final var errorsA = report(0, 2, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found"),
+                upstreamErrorDiff("JsonObject", "NOT_FOUND: Upstream file not found")
+            )));
+            final var errorsAgain = report(0, 2, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonObject", "NOT_FOUND: Upstream file not found"),
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found")
+            )));
+            final var errorsB = report(0, 1, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found")
+            )));
+
+            final var fpA = ApiTracker.generateFingerprint(errorsA);
+            assertThat(fpA)
+                .as("fetch-failure drift must not hash to the no-differences sentinel")
+                .isNotEqualTo("0000000");
+            assertThat(ApiTracker.generateFingerprint(errorsAgain))
+                .as("same error set in different order must fingerprint identically")
+                .isEqualTo(fpA);
+            assertThat(ApiTracker.generateFingerprint(errorsB))
+                .as("different error sets must fingerprint differently")
+                .isNotEqualTo(fpA);
+        }
+
+        @Test
+        @DisplayName("Summary renders a Missing Upstream section for fetch failures")
+        void testSummaryRendersMissingUpstreamSection() {
+            LoggingControl.setupCleanLogging();
+            java.util.logging.Logger.getLogger(getClass().getName())
+                .info(() -> "TEST: testSummaryRendersMissingUpstreamSection");
+            final var allErrors = report(0, 2, JsonArray.of(java.util.List.of(
+                upstreamErrorDiff("JsonNumber", "NOT_FOUND: Upstream file not found (possibly deleted or renamed)"),
+                upstreamErrorDiff("JsonObject", "HTTP_ERROR: Status 500")
+            )));
+
+            final var summary = ApiTracker.generateSummary(allErrors);
+
+            assertThat(summary).contains("Missing Upstream");
+            assertThat(summary).contains("JsonNumber");
+            assertThat(summary).contains("JsonObject");
+            assertThat(summary).contains("NOT_FOUND: Upstream file not found (possibly deleted or renamed)");
         }
     }
 }
