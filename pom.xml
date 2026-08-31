@@ -228,7 +228,7 @@
             </activation>
             <modules>
                 <module>json-java21-jtd-codegen</module>
-                <module>jdt2jar</module>
+                <module>jtd2jar</module>
             </modules>
         </profile>
     </profiles>
