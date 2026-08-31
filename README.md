@@ -36,6 +36,7 @@ This repo is organized into the following modules:
 | `json-java21-jsonpath` | JsonPath query engine over `jdk.incubator.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
 | `json-compatibility-suite` | JSON Test Suite conformance reporter (tests against [nst/JSONTestSuite](https://github.com/nst/JSONTestSuite)) | 21+ |
 | `json-java21-api-tracker` | Daily upstream API drift detector — fetches OpenJDK sandbox sources, compares public API signatures, reports differences | 25+ |
+| `jtd-esm-codegen` | Experimental JTD → ES2020 ESM validator code generator for JS/browser consumers | 21+ |
 
 We welcome contributions to the incubating modules.
 
@@ -412,6 +413,40 @@ Jtd.Result result = validator.validate(schema, data);
 An optional `jtd2jar` CLI tool and distroless Docker image are available for pre-compiling JTD schemas into standalone validator JARs at build time. This eliminates the JDK 24+ runtime requirement for generated validators — the JARs run on JDK 21+.
 
 See [`jtd2jar/README.md`](jtd2jar/README.md) for build instructions, container usage, and the pre-built image on GitHub Container Registry (`ghcr.io`).
+
+## JTD to ESM Validator Codegen (Experimental)
+
+This repo also contains an **experimental** CLI tool that reads a JTD schema (RFC 8927) and generates a **vanilla ES2020 module** exporting a `validate(instance)` function. The intended use case is validating JSON event payloads in the browser (for example, across tabs using `BroadcastChannel`) without a build step. The generator passes the full official JTD conformance suite (316/316 cases from `validation.json`) and its output is executed in GraalJS during the test run.
+
+### Supported JTD subset (flat schemas only)
+
+This tool deliberately supports only:
+- `properties` (required properties)
+- `optionalProperties`
+- `type` primitives (`string`, `boolean`, `timestamp`, `int8`, `int16`, `int32`, `uint8`, `uint16`, `uint32`, `float32`, `float64`)
+- `enum`
+- `metadata.id` (used for the output filename prefix)
+
+It rejects other JTD features (`elements`, `values`, `discriminator`/`mapping`, `ref`/`definitions`) and also rejects **nested `properties`** (object schemas inside properties).
+
+When rejected, the error message is:
+
+`Unsupported JTD feature: <feature>. This experimental tool only supports flat schemas with properties, optionalProperties, type, and enum.`
+
+### Build and run
+
+```bash
+./mvnw -pl jtd-esm-codegen -am package
+java -jar ./jtd-esm-codegen/target/jtd-esm-codegen.jar schema.jtd.json
+```
+
+The output file is written to the current directory as:
+
+`<metadata.id>-<sha256_prefix_8>.js`
+
+Where `<sha256_prefix_8>` is the first 8 characters of the SHA-256 hash of the input schema file bytes.
+
+See [`jtd-esm-codegen/JTD_CODEGEN_SPEC.md`](jtd-esm-codegen/JTD_CODEGEN_SPEC.md) for the generated-code specification.
 
 ## Building
 

@@ -41,4 +41,3 @@ pom.xml.versionsBackup
 jtd*.log
 **/jtd*.log
 .DS_Store
-jtd-esm-codegen/
