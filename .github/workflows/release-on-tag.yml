@@ -27,7 +27,10 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          # JDK 25 activates the jtd-codegen profile ([24,)) so the
+          # json-java21-jtd-codegen and jtd2jar modules join the reactor
+          # and are published too (issue #165).
+          java-version: '25'
           cache: maven
           server-id: central
           # setup-java expects ENVIRONMENT VARIABLE NAMES here, not values;
@@ -51,6 +54,10 @@ jobs:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
           body: |
+            ## Maven Central Artifacts
+
+            All reactor modules are published under `io.github.simbo1905.json` at version `${{ steps.version.outputs.version }}`: [`java.util.json`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json), [`java.util.json.jsonpath`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jsonpath), [`java.util.json.jtd`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd), [`java.util.json.jtd.codegen`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd.codegen), [`jtd2jar`](https://central.sonatype.com/artifact/io.github.simbo1905.json/jtd2jar), [`json-compatibility-suite`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-compatibility-suite), [`json-java21-api-tracker`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-java21-api-tracker).
+
             ## Docker Image
 
             Pre-built distroless container image available on GitHub Container Registry:
