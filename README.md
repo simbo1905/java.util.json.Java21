@@ -9,6 +9,22 @@ References:
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
 You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
 
+## Published Artifacts
+
+Every tagged release publishes all reactor modules to Maven Central under `io.github.simbo1905.json` (version = release date, e.g. `2026.08.30`):
+
+| Artifact | Purpose | Runtime |
+|---|---|---|
+| [`java.util.json`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json) | Core JSON API (incubator backport) | JDK 21+ |
+| [`java.util.json.jsonpath`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jsonpath) | JsonPath query engine over `JsonValue` | JDK 21+ |
+| [`java.util.json.jtd`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd) | JSON Type Definition validator (RFC 8927) | JDK 21+ |
+| [`java.util.json.jtd.codegen`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd.codegen) | Codegen validators (~9x faster than the interpreter) | JDK 25+ |
+| [`jtd2jar`](https://central.sonatype.com/artifact/io.github.simbo1905.json/jtd2jar) | Compiles a JTD schema into a standalone validator JAR | JDK 21+ |
+| [`json-compatibility-suite`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-compatibility-suite) | JSON Test Suite compatibility validation | JDK 21+ |
+| [`json-java21-api-tracker`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-java21-api-tracker) | Upstream API drift tracking | JDK 21+ |
+
+The `jtd2jar` distroless container image is additionally published to GHCR: `ghcr.io/simbo1905/java.util.json.java21/jtd2jar:<version>`.
+
 This repo is organized into the following modules:
 
 | Module | What it is | JDK |
