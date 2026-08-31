@@ -1,4 +1,4 @@
-package json.java21.jdt2jar.runtime;
+package json.java21.jtd2jar.runtime;
 
 import jdk.incubator.java.util.json.Json;
 import jdk.incubator.java.util.json.JsonObject;
@@ -19,7 +19,7 @@ import java.util.Properties;
 /// The CLI jar copies this class into the generated output when `--main` is
 /// requested and points the manifest `Main-Class` at it.
 public final class ValidatorMain {
-  private static final String CONFIG_RESOURCE = "jdt2jar.properties";
+  private static final String CONFIG_RESOURCE = "jtd2jar.properties";
 
   private ValidatorMain() {}
 

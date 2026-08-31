@@ -68,11 +68,11 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: jdt2jar/Dockerfile
+          file: jtd2jar/Dockerfile
           push: false
           load: true
-          tags: jdt2jar:ci
+          tags: jtd2jar:ci
 
       - name: Smoke test
         run: |
-          docker run --rm jdt2jar:ci --help
+          docker run --rm jtd2jar:ci --help

@@ -1,4 +1,4 @@
-package json.java21.jdt2jar;
+package json.java21.jtd2jar;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -11,7 +11,7 @@ import java.util.jar.JarFile;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class Jdt2JarCliTest extends Jdt2JarTestBase {
+class Jtd2JarCliTest extends Jtd2JarTestBase {
 
   @TempDir
   Path tempDir;
@@ -28,16 +28,16 @@ class Jdt2JarCliTest extends Jdt2JarTestBase {
         {"name":"Alice"}
         """, StandardCharsets.UTF_8);
 
-    assertThat(Jdt2Jar.run(new String[] {schema.toString(), "--output", output.toString(), "--main"})).isZero();
+    assertThat(Jtd2Jar.run(new String[] {schema.toString(), "--output", output.toString(), "--main"})).isZero();
 
     assertThat(output).exists();
     try (final var jar = new JarFile(output.toFile())) {
       assertThat(jar.getEntry("jtd/generated/SchemaValidator.class")).isNotNull();
       assertThat(jar.getEntry("jtd/schema.json")).isNotNull();
-      assertThat(jar.getEntry("jdt2jar.properties")).isNotNull();
-      assertThat(jar.getEntry("json/java21/jdt2jar/runtime/ValidatorMain.class")).isNotNull();
+      assertThat(jar.getEntry("jtd2jar.properties")).isNotNull();
+      assertThat(jar.getEntry("json/java21/jtd2jar/runtime/ValidatorMain.class")).isNotNull();
       assertThat(jar.getManifest().getMainAttributes().getValue("Main-Class"))
-          .isEqualTo("json.java21.jdt2jar.runtime.ValidatorMain");
+          .isEqualTo("json.java21.jtd2jar.runtime.ValidatorMain");
     }
 
     final var validResult = runJavaJar(output, "--validate", payload.toString());
@@ -61,7 +61,7 @@ class Jdt2JarCliTest extends Jdt2JarTestBase {
         """, StandardCharsets.UTF_8);
     final var output = tempDir.resolve("widget-validator.jar");
 
-    assertThat(Jdt2Jar.run(new String[] {
+    assertThat(Jtd2Jar.run(new String[] {
         schema.toString(),
         "--output", output.toString(),
         "--package", "demo.validator",

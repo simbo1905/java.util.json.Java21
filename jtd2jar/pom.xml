@@ -11,15 +11,15 @@
         <version>2026.08.30</version>
     </parent>
 
-    <artifactId>jdt2jar</artifactId>
+    <artifactId>jtd2jar</artifactId>
     <packaging>jar</packaging>
-    <name>jdt2jar CLI</name>
+    <name>jtd2jar CLI</name>
     <description>Offline JTD-to-JAR compiler that packages generated validators into standalone JAR files.</description>
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.release>24</maven.compiler.release>
-        <project.build.finalName>jdt2jar</project.build.finalName>
+        <project.build.finalName>jtd2jar</project.build.finalName>
     </properties>
 
     <dependencies>
@@ -86,10 +86,10 @@
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
-                            <finalName>jdt2jar</finalName>
+                            <finalName>jtd2jar</finalName>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>json.java21.jdt2jar.Jdt2Jar</mainClass>
+                                    <mainClass>json.java21.jtd2jar.Jtd2Jar</mainClass>
                                 </transformer>
                             </transformers>
                         </configuration>

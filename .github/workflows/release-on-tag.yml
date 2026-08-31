@@ -56,11 +56,11 @@ jobs:
             Pre-built distroless container image available on GitHub Container Registry:
 
             ```bash
-            docker pull ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jdt2jar:${{ steps.version.outputs.version }}
-            docker pull ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jdt2jar:latest
+            docker pull ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jtd2jar:${{ steps.version.outputs.version }}
+            docker pull ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jtd2jar:latest
             ```
 
-            See [jdt2jar/README.md](https://github.com/${{ github.repository }}/blob/main/jdt2jar/README.md) for usage.
+            See [jtd2jar/README.md](https://github.com/${{ github.repository }}/blob/main/jtd2jar/README.md) for usage.
 
       - name: Build and Deploy to Central (release profile)
         id: deploy
@@ -150,8 +150,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: jdt2jar/Dockerfile
+          file: jtd2jar/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jdt2jar:${{ steps.version.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jdt2jar:latest
+            ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jtd2jar:${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/java.util.json.java21/jtd2jar:latest

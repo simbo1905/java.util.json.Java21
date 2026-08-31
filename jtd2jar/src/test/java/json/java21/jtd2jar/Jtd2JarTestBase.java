@@ -1,4 +1,4 @@
-package json.java21.jdt2jar;
+package json.java21.jtd2jar;
 
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
@@ -9,10 +9,10 @@ import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-/// Shared JUL bootstrap for jdt2jar tests.
-public class Jdt2JarTestBase {
+/// Shared JUL bootstrap for jtd2jar tests.
+public class Jtd2JarTestBase {
 
-  static final Logger LOG = Logger.getLogger("json.java21.jdt2jar");
+  static final Logger LOG = Logger.getLogger("json.java21.jtd2jar");
 
   @BeforeAll
   static void configureJul() {

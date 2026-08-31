@@ -1,4 +1,4 @@
-package json.java21.jdt2jar;
+package json.java21.jtd2jar;
 
 import jdk.incubator.java.util.json.Json;
 import json.java21.jtd.codegen.JtdCodegen;
@@ -23,18 +23,18 @@ import java.util.logging.Logger;
 ///
 /// Builds a standalone validator JAR from a schema file and can optionally
 /// include a `java -jar` entry point and a companion source file.
-public final class Jdt2Jar {
+public final class Jtd2Jar {
 
-  static final Logger LOG = Logger.getLogger(Jdt2Jar.class.getName());
+  static final Logger LOG = Logger.getLogger(Jtd2Jar.class.getName());
 
   private static final int DEFAULT_RUNTIME = 21;
   private static final String DEFAULT_PACKAGE = "jtd.generated";
   private static final String DEFAULT_CLASS = "SchemaValidator";
-  private static final String PROPERTIES_ENTRY = "jdt2jar.properties";
+  private static final String PROPERTIES_ENTRY = "jtd2jar.properties";
   private static final String SCHEMA_ENTRY = "jtd/schema.json";
-  private static final String MAIN_CLASS = "json.java21.jdt2jar.runtime.ValidatorMain";
+  private static final String MAIN_CLASS = "json.java21.jtd2jar.runtime.ValidatorMain";
 
-  private Jdt2Jar() {}
+  private Jtd2Jar() {}
 
   public static void main(String[] args) {
     System.exit(run(args));
@@ -42,7 +42,7 @@ public final class Jdt2Jar {
 
   public static int run(String[] args) {
     try {
-      return new Jdt2Jar().execute(args);
+      return new Jtd2Jar().execute(args);
     } catch (UsageException e) {
       System.err.println(e.getMessage());
       System.err.println();
@@ -86,7 +86,7 @@ public final class Jdt2Jar {
     final var manifest = new Manifest();
     final var attrs = manifest.getMainAttributes();
     attrs.putValue("Manifest-Version", "1.0");
-    attrs.putValue("Created-By", "jdt2jar");
+    attrs.putValue("Created-By", "jtd2jar");
     if (options.main()) {
       attrs.putValue("Main-Class", MAIN_CLASS);
     }
@@ -163,7 +163,7 @@ public final class Jdt2Jar {
         || path.startsWith("json/java21/jtd/"))
         && !path.startsWith("json/java21/jtd/codegen/")
         || path.startsWith("json/java21/jtd/codegen/JtdValidator.class")
-        || path.startsWith("json/java21/jdt2jar/runtime/");
+        || path.startsWith("json/java21/jtd2jar/runtime/");
   }
 
   private static void writeEntry(JarOutputStream out, Set<String> written, String name, byte[] bytes)
@@ -184,7 +184,7 @@ public final class Jdt2Jar {
     props.setProperty("schemaEntry", SCHEMA_ENTRY);
     props.setProperty("runtime", Integer.toString(options.runtime()));
     try (final var out = new ByteArrayOutputStream()) {
-      props.store(out, "jdt2jar");
+      props.store(out, "jtd2jar");
       return out.toByteArray();
     } catch (IOException e) {
       throw new UncheckedIOException(e);
@@ -204,7 +204,7 @@ public final class Jdt2Jar {
 
         import jdk.incubator.java.util.json.JsonValue;
         import json.java21.jtd.JtdValidationResult;
-        import json.java21.jdt2jar.runtime.ValidatorMain;
+        import json.java21.jtd2jar.runtime.ValidatorMain;
 
         public final class %s implements json.java21.jtd.JtdValidator {
           private final String schemaJson;
@@ -308,7 +308,7 @@ public final class Jdt2Jar {
 
   private static void printUsage() {
     System.out.println("""
-        jdt2jar <schema.json> [options]
+        jtd2jar <schema.json> [options]
 
         Options:
           --output <path>       Output JAR path (default: <schema-name>-validator.jar)

@@ -1,4 +1,4 @@
-package json.java21.jdt2jar.build;
+package json.java21.jtd2jar.build;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -16,7 +16,7 @@ public final class DockerImageBuilder {
 
   public static void main(String[] args) throws Exception {
     if (args.length != 2) {
-      throw new IllegalArgumentException("Usage: DockerImageBuilder <jdt2jar.jar> <jre-output-dir>");
+      throw new IllegalArgumentException("Usage: DockerImageBuilder <jtd2jar.jar> <jre-output-dir>");
     }
     final var jar = Path.of(args[0]);
     final var jreOutput = Path.of(args[1]);
