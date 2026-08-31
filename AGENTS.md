@@ -152,6 +152,7 @@ See `README.md` for user-facing commands. When running locally as an agent, use 
 - `json-compatibility-suite`: JSON Test Suite compatibility validation.
 - `json-java21-jtd`: JSON Type Definition (JTD) validator based on RFC 8927.
 - `json-java21-jsonpath`: JsonPath query engine over `jdk.incubator.java.util.json` values.
+- `jtd-esm-codegen`: Experimental JTD (RFC 8927) to ES2020 ESM validator code generator for JS consumers; 316/316 official validation.json conformance. See its README and `JTD_CODEGEN_SPEC.md` before working on it.
 
 Only when you are asked to work on a specific module, start by reading that module's `README.md`, then its `AGENTS.md`.
 
