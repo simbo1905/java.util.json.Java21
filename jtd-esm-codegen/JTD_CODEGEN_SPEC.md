@@ -293,7 +293,7 @@ syntax-based.
 
 Target-language expression examples:
 - JavaScript (uint8): `typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 255`
-- Java (uint8): `v instanceof JsonNumber n && n.toDouble() == Math.floor(n.toDouble()) && n.toLong() >= 0 && n.toLong() <= 255`
+- Java (uint8): `v instanceof JsonNumber n && n.asDouble() == Math.floor(n.asDouble()) && n.asLong() >= 0 && n.asLong() <= 255`
 
 ## 5. Emission Rules
 
@@ -389,7 +389,7 @@ check for the element schema.
 ```javascript
 // "elements": {"type": "string"}
 if (!Array.isArray(v)) {
-  e.push({instancePath: p, schemaPath: sp});
+  e.push({instancePath: p, schemaPath: sp + "/elements"});
 } else {
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== "string")
@@ -415,7 +415,7 @@ Emit an object type guard, then:
 ```javascript
 // Schema: {"properties":{"name":{"type":"string"}}, "optionalProperties":{"age":{"type":"uint8"}}}
 if (v === null || typeof v !== "object" || Array.isArray(v)) {
-  e.push({instancePath: p, schemaPath: sp});
+  e.push({instancePath: p, schemaPath: sp + "/properties"});
 } else {
   // Required properties
   if (!("name" in v)) e.push({instancePath: p, schemaPath: sp + "/properties/name"});
@@ -451,7 +451,7 @@ generated check for the value schema.
 ```javascript
 // "values": {"type": "string"}
 if (v === null || typeof v !== "object" || Array.isArray(v)) {
-  e.push({instancePath: p, schemaPath: sp});
+  e.push({instancePath: p, schemaPath: sp + "/values"});
 } else {
   for (const k in v) {
     if (typeof v[k] !== "string")
@@ -468,9 +468,9 @@ variant validator.
 ```javascript
 // "discriminator": "type", "mapping": {"a": {...}, "b": {...}}
 if (v === null || typeof v !== "object" || Array.isArray(v)) {
-  e.push({instancePath: p, schemaPath: sp});
+  e.push({instancePath: p, schemaPath: sp + "/discriminator"});
 } else if (!("type" in v)) {
-  e.push({instancePath: p, schemaPath: sp});
+  e.push({instancePath: p, schemaPath: sp + "/discriminator"});
 } else if (typeof v["type"] !== "string") {
   e.push({instancePath: p + "/type", schemaPath: sp + "/discriminator"});
 } else if (v["type"] === "a") {
@@ -708,7 +708,7 @@ Properties {
 export function validate(instance) {
   const e = [];
   if (instance === null || typeof instance !== "object" || Array.isArray(instance)) {
-    e.push({instancePath: "", schemaPath: ""});
+    e.push({instancePath: "", schemaPath: "/properties"});
     return e;
   }
 
@@ -725,7 +725,7 @@ export function validate(instance) {
 
   if (!("tags" in instance)) e.push({instancePath: "", schemaPath: "/properties/tags"});
   else if (!Array.isArray(instance["tags"]))
-    e.push({instancePath: "/tags", schemaPath: "/properties/tags"});
+    e.push({instancePath: "/tags", schemaPath: "/properties/tags/elements"});
   else {
     const arr = instance["tags"];
     for (let i = 0; i < arr.length; i++) {
