@@ -60,6 +60,50 @@ This implementation follows Goessner-style JSONPath operators, including:
 - `[?(@.prop)]` and `[?(@.prop op value)]` basic filters
 - `[(@.length-1)]` limited script support
 
+## Two Engines: Interpreted and Compiled
+
+This module ships the same JsonPath language with two interchangeable engines behind one API:
+
+| Engine | Class | Availability | Mechanism |
+|---|---|---|---|
+| Interpreted | `JsonPath.parse(...)` result | JDK 21+ (default) | walks the `JsonPathAst` tree per query |
+| Compiled | `JsonPathCodegen.compile(...)` result | JDK 24+ runtime | bytecode generated with the JDK 24 ClassFile API (JEP 484), targeting Java 21 bytecode (`ClassFile.JAVA_21_VERSION`, class file version 65) |
+
+Both engines implement the same `JsonPath` public surface, so callers can hand either one to the same API. The compiled engine mirrors the approach already shipped for JTD validation in [`json-java21-jtd-codegen`](../json-java21-jtd-codegen/README.md) (`JtdCodegen` / `JtdValidator.compileGenerated`).
+
+### Using the Compiled Engine
+
+```java
+// Parse once, compile for the best repeated-query performance (JDK 24+)
+JsonPath path = JsonPathCodegen.compile(JsonPath.parse("$.store.book[*].author"));
+
+for (JsonValue doc : documents) {
+    List<JsonValue> results = path.query(doc);
+    // process results...
+}
+```
+
+`JsonPathCodegen.compile(...)` mirrors `JtdValidator.compileGenerated(...)`: it accepts any `JsonPath`, returns a `JsonPath` implementing the same public surface, and is idempotent (compiling a compiled path returns it unchanged).
+
+The compiled engine keeps the original path text (`toString()`) and the AST (`ast()`), so a compiled path is a drop-in replacement anywhere an interpreted path is accepted.
+
+### Runtime Requirements
+
+- **Interpreted engine**: JDK 21+; no dependency on the ClassFile API; unchanged semantics.
+- **Compiled engine**: generating classes requires a JDK 24+ runtime (`java.lang.classfile`, JEP 484) because the generator is compiled into the artifact only on JDK 24+. The generated classes are Java 21 bytecode and only need Java 21 API surface at query time.
+- **Ahead-of-time (build-time) tooling**: `JsonPathCodegen.compileBytes(...)` returns the raw generated classfile bytes without loading them, in the same style as `JtdCodegen.compileBytes(...)` for `jtd2jar`-style standalone JAR builds. Generated executor classes are always emitted into the `json.java21.jsonpath` package so they can implement the package-private executor interface.
+- **Diagnostics**: semantics and result order are identical between the engines. One deliberate, exact difference: when an expression carries an unsupported recursive-descent target or union selector, the interpreted engine logs it at `FINER` for every visited node, while the compiled engine logs it once at compile time; unsupported script expressions log `WARNING` at query time in both engines.
+
+### Parity Guarantee
+
+Compiled and interpreted engines produce identical results, in the same order, for every expression in the supported-syntax table above. The module's parity test suite (`JsonPathCompilerParityTest`) reuses the existing test corpus and asserts `compiled.query(doc)` equals `interpreted.query(doc)` element-for-element for both engines.
+
+### Supported Features in Compiled Mode
+
+All supported operators are supported by the compiled engine:
+- property access (dot and bracket), array indices (including negative), slices
+- wildcards, recursive descent (`$..name`, `$..*`), unions, filters with comparisons and logical operators, and the limited `[(@.length-1)]` script expression
+
 ## Stream-Based Functions (Aggregations)
 
 Some JsonPath implementations include aggregation functions such as `$.numbers.avg()`.

@@ -2,13 +2,24 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: ["**"]
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: ["**"]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,7 +50,7 @@ jobs:
                       for k in totals: totals[k]+=int(r.get(k,'0'))
                   except Exception:
                       pass
-          exp_tests=2038
+          exp_tests=2159
           exp_skipped=0
           if totals['tests']!=exp_tests or totals['skipped']!=exp_skipped:
               print(f"Unexpected test totals: {totals} != expected tests={exp_tests}, skipped={exp_skipped}")
@@ -50,6 +61,7 @@ jobs:
   docker-build:
     name: Build Docker image (Java 25)
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
