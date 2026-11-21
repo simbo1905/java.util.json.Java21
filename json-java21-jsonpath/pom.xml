@@ -107,8 +107,14 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <configuration>
-                    <!-- The compiled-engine sources are only compiled on JDK 24+;
-                         exclude them from the release-21 javadoc build. -->
+                    <!-- The compiled-engine sources require the JDK 24+ ClassFile API
+                         and are only on JDK 21 via the sourceFileExcludes list AND an
+                         empty sourcepath: javadoc completes each documented package by
+                         re-scanning -sourcepath, which would otherwise pick up the
+                         excluded files again. The jsonpath-codegen profile (JDK 24+)
+                         overrides both settings and documents the codegen classes
+                         with release 24 instead. -->
+                    <sourcepath>${project.build.directory}/javadoc21-sourcepath-placeholder</sourcepath>
                     <sourceFileExcludes>
                         <sourceFileExclude>json/java21/jsonpath/JsonPathCodegen.java</sourceFileExclude>
                         <sourceFileExclude>json/java21/jsonpath/JsonPathBytecodeEmitter.java</sourceFileExclude>
@@ -169,10 +175,11 @@
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-javadoc-plugin</artifactId>
                         <configuration>
-                            <sourceFileExcludes>
-                                <sourceFileExclude>json/java21/jsonpath/JsonPathCodegen.java</sourceFileExclude>
-                                <sourceFileExclude>json/java21/jsonpath/JsonPathBytecodeEmitter.java</sourceFileExclude>
-                            </sourceFileExcludes>
+                            <!-- JDK 24+: document the compiled-engine classes too; the
+                                 ClassFile API exists at release 24, so no sourcepath
+                                 placeholder or source file excludes are needed here. -->
+                            <release>24</release>
+                            <sourceFileExcludes combine.self="override"/>
                         </configuration>
                     </plugin>
                 </plugins>
