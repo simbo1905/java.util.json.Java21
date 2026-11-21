@@ -275,13 +275,13 @@ final class JsonPathInterpreted implements JsonPath {
     private static boolean matchesFilter(JsonPathAst.FilterExpression expr, JsonValue current) {
         return switch (expr) {
             case JsonPathAst.ExistsFilter exists -> {
-                final var value = resolvePropertyPath(exists.path(), current);
+                final var value = JsonPathHelpers.resolvePropertyPath(current, exists.path().properties());
                 yield value != null;
             }
             case JsonPathAst.ComparisonFilter comp -> {
                 final var leftValue = resolveFilterExpression(comp.left(), current);
                 final var rightValue = resolveFilterExpression(comp.right(), current);
-                yield compareValues(leftValue, comp.op(), rightValue);
+                yield JsonPathHelpers.compareValues(leftValue, comp.op(), rightValue);
             }
             case JsonPathAst.LogicalFilter logical -> {
                 final var leftMatch = matchesFilter(logical.left(), current);
@@ -292,7 +292,7 @@ final class JsonPathInterpreted implements JsonPath {
                 };
             }
             case JsonPathAst.CurrentNode ignored1 -> true;
-            case JsonPathAst.PropertyPath path -> resolvePropertyPath(path, current) != null;
+            case JsonPathAst.PropertyPath path -> JsonPathHelpers.resolvePropertyPath(current, path.properties()) != null;
             case JsonPathAst.LiteralValue ignored -> true;
         };
     }
@@ -300,98 +300,12 @@ final class JsonPathInterpreted implements JsonPath {
     private static Object resolveFilterExpression(JsonPathAst.FilterExpression expr, JsonValue current) {
         return switch (expr) {
             case JsonPathAst.PropertyPath path -> {
-                final var value = resolvePropertyPath(path, current);
-                yield jsonValueToComparable(value);
+                final var value = JsonPathHelpers.resolvePropertyPath(current, path.properties());
+                yield JsonPathHelpers.toJsonComparable(value);
             }
             case JsonPathAst.LiteralValue lit -> lit.value();
-            case JsonPathAst.CurrentNode ignored -> jsonValueToComparable(current);
+            case JsonPathAst.CurrentNode ignored -> JsonPathHelpers.toJsonComparable(current);
             default -> null;
-        };
-    }
-
-    private static JsonValue resolvePropertyPath(JsonPathAst.PropertyPath path, JsonValue current) {
-        JsonValue value = current;
-        for (final var prop : path.properties()) {
-            if (value instanceof JsonObject obj) {
-                value = obj.asMap().get(prop);
-                if (value == null) {
-                    return null;
-                }
-            } else {
-                return null;
-            }
-        }
-        return value;
-    }
-
-    private static Object jsonValueToComparable(JsonValue value) {
-        if (value == null) return null;
-        return switch (value) {
-            case JsonString s -> s.asString();
-            case JsonNumber n -> n.asDouble();
-            case JsonBoolean b -> b.asBoolean();
-            case JsonNull ignored -> null;
-            default -> value;
-        };
-    }
-
-    @SuppressWarnings("unchecked")
-    private static boolean compareValues(Object left, JsonPathAst.ComparisonOp op, Object right) {
-        if (left == null || right == null) {
-            return switch (op) {
-                case EQ -> left == right;
-                case NE -> left != right;
-                default -> false;
-            };
-        }
-
-        // Try numeric comparison
-        switch (left) {
-            case Number leftNum when right instanceof Number rightNum -> {
-                final double l = leftNum.doubleValue();
-                final double r = rightNum.doubleValue();
-                return switch (op) {
-                    case EQ -> l == r;
-                    case NE -> l != r;
-                    case LT -> l < r;
-                    case LE -> l <= r;
-                    case GT -> l > r;
-                    case GE -> l >= r;
-                };
-            }
-
-
-            // String comparison
-            case String ignored when right instanceof String -> {
-                @SuppressWarnings("rawtypes") final int cmp = ((Comparable) left).compareTo(right);
-                return switch (op) {
-                    case EQ -> cmp == 0;
-                    case NE -> cmp != 0;
-                    case LT -> cmp < 0;
-                    case LE -> cmp <= 0;
-                    case GT -> cmp > 0;
-                    case GE -> cmp >= 0;
-                };
-            }
-
-
-            // Boolean comparison
-            case Boolean ignored when right instanceof Boolean -> {
-                return switch (op) {
-                    case EQ -> left.equals(right);
-                    case NE -> !left.equals(right);
-                    default -> false;
-                };
-            }
-            default -> {
-            }
-        }
-
-        // Fallback equality
-        return switch (op) {
-            case EQ -> left.equals(right);
-            case NE -> !left.equals(right);
-            default -> false;
         };
     }
 
