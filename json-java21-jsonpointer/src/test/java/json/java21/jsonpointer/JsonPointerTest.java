@@ -1,10 +1,10 @@
 package json.java21.jsonpointer;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonNull;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonNull;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonValue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -68,7 +68,7 @@ class JsonPointerTest extends JsonPointerLoggingConfig {
         LOG.info("TEST: fooResolvesToArray");
         final var result = JsonPointer.parse("/foo").resolve(rfcDoc());
         assertThat(result).isInstanceOf(JsonArray.class);
-        assertThat(((JsonArray) result).elements()).hasSize(2);
+        assertThat(((JsonArray) result).asList()).hasSize(2);
     }
 
     @Test

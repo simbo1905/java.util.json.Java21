@@ -1,8 +1,8 @@
 package json.java21.jsonpointer;
 
-import jdk.sandbox.java.util.json.JsonArray;
-import jdk.sandbox.java.util.json.JsonObject;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonArray;
+import jdk.incubator.java.util.json.JsonObject;
+import jdk.incubator.java.util.json.JsonValue;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -159,11 +159,11 @@ public final class JsonPointer {
     private static Optional<JsonValue> step(JsonValue node, String token) {
         return switch (node) {
             case JsonObject obj -> {
-                final var value = obj.members().get(token);
+                final var value = obj.asMap().get(token);
                 yield Optional.ofNullable(value);
             }
             case JsonArray arr -> {
-                final var elements = arr.elements();
+                final var elements = arr.asList();
                 final var index = parseArrayIndex(token, elements.size());
                 yield index >= 0 ? Optional.of(elements.get(index)) : Optional.empty();
             }
