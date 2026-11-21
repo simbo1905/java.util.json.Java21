@@ -1,0 +1,16 @@
+{
+  "properties": {
+    "src": { "type": "string" },
+    "action": { "enum": ["on_click", "on_hover", "on_select", "on_deselect"] },
+    "domain": { "type": "string" },
+    "data": {}
+  },
+  "optionalProperties": {
+    "ts": { "type": "timestamp" }
+  },
+  "metadata": {
+    "id": "odc-chart-event-v1",
+    "description": "Event payload for ODC-bound chart interactions"
+  }
+}
+

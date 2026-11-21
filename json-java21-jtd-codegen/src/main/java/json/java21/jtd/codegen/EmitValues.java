@@ -61,7 +61,7 @@ final class EmitValues {
                                String prefix, String childSchemaPath) {
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 
@@ -73,7 +73,7 @@ final class EmitValues {
                                       int prefixSlot, String childSchemaPath) {
     cob.aload(instSlot);
     cob.checkcast(CD_JsonObject);
-    cob.invokeinterface(CD_JsonObject, "members", MTD_Map);
+    cob.invokeinterface(CD_JsonObject, "asMap", MTD_Map);
     int mapSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(mapSlot);
 

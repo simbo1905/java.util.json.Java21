@@ -6,12 +6,22 @@ This file is for contributor/agent operational notes. Read `json-java21-jsonpath
 - The `$(command -v mvnd || command -v mvn || command -v ./mvnw)` wrapper is for local developer speed only; do not put it in user-facing docs.
 
 Stable code entry points:
-- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPath.java`
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPath.java` (public sealed interface; `parse` = interpreted engine, `compile` = compiled engine)
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathInterpreted.java` (AST-walking interpreter)
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathCompiled.java` (compiled engine facade)
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathExecutor.java` (package-private functional interface implemented by generated classes)
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathParser.java`
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathAst.java`
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathParseException.java`
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathStreams.java`
 
+Compiled engine (JDK 24+ only): on JDK 21, the Maven profile `jsonpath-codegen` does not activate and `JsonPathCodegen`/`JsonPathBytecodeEmitter` plus the parity tests are excluded from compilation; on JDK 24+ they are compiled at release 24 (mirroring the jtd-codegen parent profile):
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathCodegen.java` (entry point; ClassFile API, JEP 484; emits `ClassFile.JAVA_21_VERSION` / version 65 bytecode)
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathBytecodeEmitter.java` (AST-to-bytecode emitter)
+- `json-java21-jsonpath/src/test/java/json/java21/jsonpath/JsonPathCompilerParityTest.java` (interpreted == generated parity over the existing test corpus)
+- `json-java21-jsonpath/src/test/java/json/java21/jsonpath/JsonPathCodegenTest.java` (codegen mechanics: facade, idempotence, classfile version)
+
 When changing syntax/behavior:
 - Update `JsonPathAst` + `JsonPathParser` + `JsonPath` together.
-- Add parser + evaluation tests; new tests should extend `JsonPathLoggingConfig`.
+- Mirror the change in `JsonPathBytecodeEmitter` (call sites of shared `JsonPathHelpers` evaluation) (and `JsonPathHelpers` when shared evaluation logic moves); the parity test suite guards the interpreted/generated contract.
+- Add parser + evaluation tests; new tests should extend `JsonPathLoggingConfig`; add a matching parity entry for any new operator.

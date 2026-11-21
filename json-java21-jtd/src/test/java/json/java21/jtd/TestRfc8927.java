@@ -1,8 +1,8 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
-import jdk.sandbox.java.util.json.JsonNumber;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonNumber;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -900,8 +900,8 @@ public class TestRfc8927 extends JtdTestBase {
       Jtd.Result result = validator.validate(schema, outOfRange);
       
       LOG.fine(() -> "Testing int8 range with Double value: " + outOfRange + 
-               " (JsonNumber.toLong(): " + 
-               outOfRange.toLong() + ")");
+               " (JsonNumber.asLong(): " + 
+               outOfRange.asLong() + ")");
       
       // This should fail but currently passes due to the bug
       assertThat(result.isValid())
@@ -1043,13 +1043,13 @@ public class TestRfc8927 extends JtdTestBase {
     
     // Verify that JsonNumber works properly for typical JSON numbers
     assertThat(numberValue).isInstanceOf(JsonNumber.class);
-    long longValue = numberValue.toLong();
+    long longValue = numberValue.asLong();
     
-    LOG.info(() -> "JsonNumber.toLong() returns: " + longValue + 
+    LOG.info(() -> "JsonNumber.asLong() returns: " + longValue + 
                    " for value: " + numberValue);
     
-    // This demonstrates what value JsonNumber.toLong() returns for typical values
-    LOG.info(() -> "JsonNumber.toLong() returns: " + longValue + 
+    // This demonstrates what value JsonNumber.asLong() returns for typical values
+    LOG.info(() -> "JsonNumber.asLong() returns: " + longValue + 
                    " for value: " + numberValue);
     
     // The key test is that regardless of the Number type, range validation should work
@@ -1069,7 +1069,7 @@ public class TestRfc8927 extends JtdTestBase {
     Jtd.Result result = validator.validate(schema, doubleValue);
     
     LOG.fine(() -> "Explicit Double validation - value: " + doubleValue + 
-             ", toDouble(): " + doubleValue.toDouble());
+             ", toDouble(): " + doubleValue.asDouble());
     
     // This should fail (1000 is way outside int8 range of -128 to 127)
     assertThat(result.isValid())

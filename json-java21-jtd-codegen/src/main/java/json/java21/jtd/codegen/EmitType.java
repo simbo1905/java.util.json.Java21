@@ -2,7 +2,6 @@ package json.java21.jtd.codegen;
 
 import java.lang.classfile.CodeBuilder;
 import java.lang.classfile.TypeKind;
-import java.lang.constant.ConstantDescs;
 
 import static json.java21.jtd.codegen.Descriptors.*;
 
@@ -239,7 +238,7 @@ final class EmitType {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonNumber);
-    cob.invokeinterface(CD_JsonNumber, "toDouble", MTD_double);
+    cob.invokeinterface(CD_JsonNumber, "asDouble", MTD_double);
     int dSlot = cob.allocateLocal(TypeKind.DOUBLE);
     cob.dstore(dSlot);
 
@@ -251,7 +250,7 @@ final class EmitType {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonNumber);
-    cob.invokeinterface(CD_JsonNumber, "toLong", MTD_long);
+    cob.invokeinterface(CD_JsonNumber, "asLong", MTD_long);
     int lSlot = cob.allocateLocal(TypeKind.LONG);
     cob.lstore(lSlot);
 
@@ -283,7 +282,7 @@ final class EmitType {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonString);
-    cob.invokeinterface(CD_JsonString, "string", MTD_String);
+    cob.invokeinterface(CD_JsonString, "asString", MTD_String);
     int strSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(strSlot);
 

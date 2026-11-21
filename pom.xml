@@ -6,7 +6,7 @@
 
     <groupId>io.github.simbo1905.json</groupId>
     <artifactId>parent</artifactId>
-    <version>0.1.9</version>
+    <version>2026.08.31</version>
     <packaging>pom</packaging>
 
     <name>java.util.json Java21 Backport Parent</name>
@@ -43,6 +43,7 @@
         <module>json-java21-jtd</module>
         <module>json-java21-jsonpath</module>
         <module>json-java21-jsonpointer</module>
+        <module>jtd-esm-codegen</module>
     </modules>
 
     <properties>
@@ -209,7 +210,7 @@
                     <plugin>
                         <groupId>org.sonatype.central</groupId>
                         <artifactId>central-publishing-maven-plugin</artifactId>
-                        <version>0.6.0</version>
+                        <version>0.8.0</version>
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
@@ -229,7 +230,7 @@
             </activation>
             <modules>
                 <module>json-java21-jtd-codegen</module>
-                <module>jdt2jar</module>
+                <module>jtd2jar</module>
             </modules>
         </profile>
     </profiles>

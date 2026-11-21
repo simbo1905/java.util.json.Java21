@@ -267,7 +267,7 @@ syntax-based.
 
 Target-language expression examples:
 - JavaScript (uint8): `typeof v === "number" && Number.isInteger(v) && v >= 0 && v <= 255`
-- Java (uint8): `v instanceof JsonNumber n && n.toDouble() == Math.floor(n.toDouble()) && n.toLong() >= 0 && n.toLong() <= 255`
+- Java (uint8): `v instanceof JsonNumber n && n.asDouble() == Math.floor(n.asDouble()) && n.asLong() >= 0 && n.asLong() <= 255`
 
 ## 5. Emission Rules
 

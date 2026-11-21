@@ -1,7 +1,7 @@
 package json.java21.jsonpath;
 
-import jdk.sandbox.java.util.json.Json;
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.Json;
+import jdk.incubator.java.util.json.JsonValue;
 import org.junit.jupiter.api.Test;
 
 import java.util.logging.Logger;
@@ -158,8 +158,8 @@ class JsonPathFilterEvaluationTest extends JsonPathLoggingConfig {
 
     // Helper to extract integer field for assertions
     private int asInt(JsonValue v, @SuppressWarnings("SameParameterValue") String key) {
-        if (v instanceof jdk.sandbox.java.util.json.JsonObject obj) {
-            return (int) obj.members().get(key).toLong();
+        if (v instanceof jdk.incubator.java.util.json.JsonObject obj) {
+            return (int) obj.asMap().get(key).asLong();
         }
         throw new IllegalArgumentException("Not an object");
     }

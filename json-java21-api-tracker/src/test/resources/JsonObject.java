@@ -72,7 +72,7 @@ public non-sealed interface JsonObject extends JsonValue {
     /// {@return {@code true} if the given object is also a {@code JsonObject}
     /// and the two {@code JsonObject}s represent the same mappings} Two
     /// {@code JsonObject}s {@code jo1} and {@code jo2} represent the same
-    /// mappings if {@code jo1.members().equals(jo2.members())}.
+    /// mappings if {@code jo1.asMap().equals(jo2.asMap())}.
     ///
     /// @see #members()
     @Override

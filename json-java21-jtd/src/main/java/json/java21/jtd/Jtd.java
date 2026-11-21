@@ -1,7 +1,7 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.*;
-import jdk.sandbox.internal.util.json.*;
+import jdk.incubator.java.util.json.*;
+import jdk.incubator.internal.util.json.*;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -142,7 +142,7 @@ public class Jtd {
     // Check for missing required properties
     for (var entry : propsSchema.properties().entrySet()) {
       String key = entry.getKey();
-      JsonValue value = obj.members().get(key);
+      JsonValue value = obj.asMap().get(key);
       
       if (value == null) {
         // Missing required property - create error with containing object offset
@@ -157,13 +157,13 @@ public class Jtd {
     // RFC 8927 §2.2.8: Only the discriminator field is exempt from additionalProperties enforcement
     if (!propsSchema.additionalProperties()) {
       String discriminatorKey = frame.discriminatorKey();
-      for (String key : obj.members().keySet()) {
+      for (String key : obj.asMap().keySet()) {
         if (!propsSchema.properties().containsKey(key) && !propsSchema.optionalProperties().containsKey(key)) {
           // Only exempt the discriminator field itself, not all additional properties
           if (key.equals(discriminatorKey)) {
             continue; // Skip the discriminator field - it's exempt
           }
-          JsonValue value = obj.members().get(key);
+          JsonValue value = obj.asMap().get(key);
           // Additional property not allowed - create error with the value's offset
           String error = Jtd.Error.ADDITIONAL_PROPERTY_NOT_ALLOWED.message(key);
           String enrichedError = Jtd.enrichedError(error, frame, value);
@@ -185,7 +185,7 @@ public class Jtd {
       case JtdSchema.ElementsSchema elementsSchema -> {
         if (instance instanceof JsonArray arr) {
           int index = 0;
-          for (JsonValue element : arr.elements()) {
+          for (JsonValue element : arr.asList()) {
             String childPtr = frame.ptr() + "/" + index;
             Crumbs childCrumbs = frame.crumbs().withArrayIndex(index);
             Frame childFrame = new Frame(elementsSchema.elements(), element, childPtr, childCrumbs);
@@ -208,7 +208,7 @@ public class Jtd {
               continue;
             }
 
-            JsonValue value = obj.members().get(key);
+            JsonValue value = obj.asMap().get(key);
 
             if (value != null) {
               String childPtr = frame.ptr() + "/" + key;
@@ -229,7 +229,7 @@ public class Jtd {
             }
 
             JtdSchema childSchema = entry.getValue();
-            JsonValue value = obj.members().get(key);
+            JsonValue value = obj.asMap().get(key);
 
             if (value != null) {
               String childPtr = frame.ptr() + "/" + key;
@@ -244,7 +244,7 @@ public class Jtd {
       }
       case JtdSchema.ValuesSchema valuesSchema -> {
         if (instance instanceof JsonObject obj) {
-          for (var entry : obj.members().entrySet()) {
+          for (var entry : obj.asMap().entrySet()) {
             String key = entry.getKey();
             JsonValue value = entry.getValue();
             String childPtr = frame.ptr() + "/" + key;
@@ -257,9 +257,9 @@ public class Jtd {
       }
       case JtdSchema.DiscriminatorSchema discSchema -> {
         if (instance instanceof JsonObject obj) {
-          JsonValue discriminatorValue = obj.members().get(discSchema.discriminator());
+          JsonValue discriminatorValue = obj.asMap().get(discSchema.discriminator());
           if (discriminatorValue instanceof JsonString discStr) {
-            String discriminatorValueStr = discStr.string();
+            String discriminatorValueStr = discStr.asString();
             JtdSchema variantSchema = discSchema.mapping().get(discriminatorValueStr);
             if (variantSchema != null) {
 
@@ -302,31 +302,31 @@ public class Jtd {
     }
 
     // RFC 8927: Only root schemas can contain definitions
-    if (!isRoot && obj.members().containsKey("definitions")) {
+    if (!isRoot && obj.asMap().containsKey("definitions")) {
       throw new IllegalArgumentException("Nested schemas cannot contain definitions, found: " + 
-          Json.toDisplayString(obj, 0));
+          Json.toDisplayString(obj, ""));
     }
 
     // First pass: register definition keys as placeholders (only for root schemas)
-    if (isRoot && obj.members().containsKey("definitions")) {
-      JsonValue definitionsValue = obj.members().get("definitions");
+    if (isRoot && obj.asMap().containsKey("definitions")) {
+      JsonValue definitionsValue = obj.asMap().get("definitions");
       if (!(definitionsValue instanceof JsonObject defsObj)) {
         throw new IllegalArgumentException("definitions must be an object");
       }
-      for (String key : defsObj.members().keySet()) {
+      for (String key : defsObj.asMap().keySet()) {
         definitions.putIfAbsent(key, null);
       }
     }
 
     // Second pass: compile each definition if not already compiled (only for root schemas)
-    if (isRoot && obj.members().containsKey("definitions")) {
-      JsonValue definitionsValue = obj.members().get("definitions");
+    if (isRoot && obj.asMap().containsKey("definitions")) {
+      JsonValue definitionsValue = obj.asMap().get("definitions");
       if (!(definitionsValue instanceof JsonObject defsObj)) {
         throw new IllegalArgumentException("definitions must be an object");
       }
-      for (String key : defsObj.members().keySet()) {
+      for (String key : defsObj.asMap().keySet()) {
         if (definitions.get(key) == null) {
-          JsonValue rawDef = defsObj.members().get(key);
+          JsonValue rawDef = defsObj.asMap().get(key);
           // Compile definitions normally (RFC 8927 strict)
           JtdSchema compiled = compileSchema(rawDef, false); // Definitions are not root schemas
           definitions.put(key, compiled);
@@ -343,7 +343,7 @@ public class Jtd {
   JtdSchema compileObjectSchema(JsonObject obj) {
     // Check for mutually-exclusive schema forms
     List<String> forms = new ArrayList<>();
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     
     if (members.containsKey("ref")) forms.add("ref");
     if (members.containsKey("type")) forms.add("type");
@@ -401,14 +401,14 @@ public class Jtd {
     }
     if (members.containsKey("mapping") && !members.containsKey("discriminator")) {
       throw new IllegalArgumentException("mapping can only appear with discriminator in schema: " + 
-          Json.toDisplayString(obj, 0));
+          Json.toDisplayString(obj, ""));
     }
     
     // Parse the specific schema form
     JtdSchema schema;
     
     // RFC 8927: {} is the empty form and accepts all instances
-    if (forms.isEmpty() && obj.members().isEmpty()) {
+    if (forms.isEmpty() && obj.asMap().isEmpty()) {
       LOG.finer(() -> "Empty schema {} encountered. Per RFC 8927 this means 'accept anything'. "
         + "Some non-JTD validators interpret {} with object semantics; this implementation follows RFC 8927.");
       return new JtdSchema.EmptySchema();
@@ -419,10 +419,10 @@ public class Jtd {
         JsonValue nullableValue = members.get("nullable");
         if (!(nullableValue instanceof JsonBoolean bool)) {
           throw new IllegalArgumentException("nullable must be a boolean, found: " + 
-              nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
+              nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, ""));
         }
         // If nullable is valid, this becomes a nullable empty schema
-        if (bool.bool()) {
+        if (bool.asBoolean()) {
           return new JtdSchema.NullableSchema(new JtdSchema.EmptySchema());
         }
       }
@@ -463,9 +463,9 @@ public class Jtd {
       JsonValue nullableValue = members.get("nullable");
       if (!(nullableValue instanceof JsonBoolean bool)) {
         throw new IllegalArgumentException("nullable must be a boolean, found: " + 
-            nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, 0));
+            nullableValue.getClass().getSimpleName() + " in schema: " + Json.toDisplayString(obj, ""));
       }
-      if (bool.bool()) {
+      if (bool.asBoolean()) {
         return new JtdSchema.NullableSchema(schema);
       }
     }
@@ -474,29 +474,29 @@ public class Jtd {
   }
   
   JtdSchema compileRefSchema(JsonObject obj) {
-    JsonValue refValue = obj.members().get("ref");
+    JsonValue refValue = obj.asMap().get("ref");
     if (!(refValue instanceof JsonString str)) {
       throw new IllegalArgumentException("ref must be a string");
     }
-    String ref = str.string();
+    String ref = str.asString();
     
     // RFC 8927: Validate that ref points to an existing definition at compile time
     if (!definitions.containsKey(ref)) {
       throw new IllegalArgumentException("ref '" + ref + "' points to non-existent definition in schema: " + 
-          Json.toDisplayString(obj, 0));
+          Json.toDisplayString(obj, ""));
     }
     
     return new JtdSchema.RefSchema(ref, definitions);
   }
   
   JtdSchema compileTypeSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     
     // Validate that only expected keys are present
     for (String key : members.keySet()) {
       if (!key.equals("type") && !key.equals("nullable") && !key.equals("metadata") && !key.equals("definitions")) {
         throw new IllegalArgumentException("Type schema contains unknown key: '" + key + 
-            "' in schema: " + Json.toDisplayString(obj, 0));
+            "' in schema: " + Json.toDisplayString(obj, ""));
       }
     }
     
@@ -505,7 +505,7 @@ public class Jtd {
       throw new IllegalArgumentException("type must be a string");
     }
     
-    String typeStr = str.string();
+    String typeStr = str.asString();
     
     // RFC 8927 §2.2.3: Validate that type is one of the supported primitive types
     if (!VALID_TYPES.contains(typeStr)) {
@@ -517,18 +517,18 @@ public class Jtd {
   }
   
   JtdSchema compileEnumSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     JsonValue enumValue = members.get("enum");
     if (!(enumValue instanceof JsonArray arr)) {
       throw new IllegalArgumentException("enum must be an array");
     }
     
     List<String> values = new ArrayList<>();
-    for (JsonValue value : arr.elements()) {
+    for (JsonValue value : arr.asList()) {
       if (!(value instanceof JsonString str)) {
         throw new IllegalArgumentException("enum values must be strings");
       }
-      values.add(str.string());
+      values.add(str.asString());
     }
     
     if (values.isEmpty()) {
@@ -546,7 +546,7 @@ public class Jtd {
   }
   
   JtdSchema compileElementsSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     JsonValue elementsValue = members.get("elements");
     JtdSchema elementsSchema = compileSchema(elementsValue, false); // Elements are nested schemas
     return new JtdSchema.ElementsSchema(elementsSchema);
@@ -556,7 +556,7 @@ public class Jtd {
     Map<String, JtdSchema> properties = Map.of();
     Map<String, JtdSchema> optionalProperties = Map.of();
     
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     
     // Parse required properties
     if (members.containsKey("properties")) {
@@ -581,7 +581,7 @@ public class Jtd {
       if (optionalProperties.containsKey(key)) {
         throw new IllegalArgumentException("Key '" + key + 
             "' cannot be defined in both properties and optionalProperties in schema: " + 
-            Json.toDisplayString(obj, 0));
+            Json.toDisplayString(obj, ""));
       }
     }
     
@@ -592,26 +592,26 @@ public class Jtd {
       if (!(addPropsValue instanceof JsonBoolean bool)) {
         throw new IllegalArgumentException("additionalProperties must be a boolean");
       }
-      additionalProperties = bool.bool();
+      additionalProperties = bool.asBoolean();
     }  // Empty schema with no properties defined rejects additional properties by default
 
     return new JtdSchema.PropertiesSchema(properties, optionalProperties, additionalProperties);
   }
   
   JtdSchema compileValuesSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     JsonValue valuesValue = members.get("values");
     JtdSchema valuesSchema = compileSchema(valuesValue, false); // Values are nested schemas
     return new JtdSchema.ValuesSchema(valuesSchema);
   }
 
   JtdSchema compileDiscriminatorSchema(JsonObject obj) {
-    Map<String, JsonValue> members = obj.members();
+    Map<String, JsonValue> members = obj.asMap();
     JsonValue discriminatorValue = members.get("discriminator");
     if (!(discriminatorValue instanceof JsonString discStr)) {
       throw new IllegalArgumentException("discriminator must be a string");
     }
-    String discriminatorKey = discStr.string();
+    String discriminatorKey = discStr.asString();
     
     JsonValue mappingValue = members.get("mapping");
     if (!(mappingValue instanceof JsonObject mappingObj)) {
@@ -619,8 +619,8 @@ public class Jtd {
     }
     
     Map<String, JtdSchema> mapping = new java.util.HashMap<>();
-    for (String key : mappingObj.members().keySet()) {
-      JsonValue variantValue = mappingObj.members().get(key);
+    for (String key : mappingObj.asMap().keySet()) {
+      JsonValue variantValue = mappingObj.asMap().get(key);
       
       // Early validation: mapping values must be objects (for PropertiesSchema)
       if (!(variantValue instanceof JsonObject)) {
@@ -630,9 +630,9 @@ public class Jtd {
       JsonObject variantObj = (JsonObject) variantValue;
       
       // Check for nullable flag before compiling
-      if (variantObj.members().containsKey("nullable") && 
-          variantObj.members().get("nullable") instanceof JsonBoolean bool &&
-          bool.bool()) {
+      if (variantObj.asMap().containsKey("nullable") && 
+          variantObj.asMap().get("nullable") instanceof JsonBoolean bool &&
+          bool.asBoolean()) {
         throw new IllegalArgumentException("Discriminator mapping '" + key + "' cannot be nullable");
       }
       
@@ -693,8 +693,8 @@ public class Jtd {
   /// Extracts and stores top-level definitions for ref resolution
   private Map<String, JtdSchema> parsePropertySchemas(JsonObject propsObj) {
     Map<String, JtdSchema> schemas = new java.util.HashMap<>();
-    for (String key : propsObj.members().keySet()) {
-      JsonValue schemaValue = propsObj.members().get(key);
+    for (String key : propsObj.asMap().keySet()) {
+      JsonValue schemaValue = propsObj.asMap().get(key);
       schemas.put(key, compileSchema(schemaValue, false));
     }
     return schemas;
@@ -782,7 +782,7 @@ public class Jtd {
     /// Creates a verbose error message including the actual JSON value
     public String message(JsonValue invalidValue, Object... args) {
       String baseMessage = String.format(messageTemplate, args);
-      String displayValue = Json.toDisplayString(invalidValue, 0); // Use compact format
+      String displayValue = Json.toDisplayString(invalidValue, ""); // Use compact format
       return baseMessage + " (was: " + displayValue + ")";
     }
   }

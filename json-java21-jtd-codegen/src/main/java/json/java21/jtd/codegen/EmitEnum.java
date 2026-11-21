@@ -57,7 +57,7 @@ final class EmitEnum {
 
     cob.aload(instSlot);
     cob.checkcast(CD_JsonString);
-    cob.invokeinterface(CD_JsonString, "string", MTD_String);
+    cob.invokeinterface(CD_JsonString, "asString", MTD_String);
     int strSlot = cob.allocateLocal(TypeKind.REFERENCE);
     cob.astore(strSlot);
 

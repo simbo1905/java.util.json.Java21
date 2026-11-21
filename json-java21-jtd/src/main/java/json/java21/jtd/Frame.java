@@ -1,6 +1,6 @@
 package json.java21.jtd;
 
-import jdk.sandbox.java.util.json.JsonValue;
+import jdk.incubator.java.util.json.JsonValue;
 
 /// Stack frame for iterative validation with path and offset tracking.
 ///

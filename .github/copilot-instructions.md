@@ -81,8 +81,8 @@ return switch (jsonValue) {
 ```
 
 ### Project Architecture
-- Core package: `jdk.sandbox.java.util.json`
-- Internal implementation: `jdk.sandbox.internal.util.json`
+- Core package: `jdk.incubator.java.util.json`
+- Internal implementation: `jdk.incubator.internal.util.json`
 - JSON Schema validator in separate module
 - Use appropriate logging configuration per module
 

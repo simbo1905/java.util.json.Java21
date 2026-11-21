@@ -8,7 +8,7 @@
     <parent>
         <groupId>io.github.simbo1905.json</groupId>
         <artifactId>parent</artifactId>
-        <version>0.1.9</version>
+        <version>2026.08.31</version>
     </parent>
 
     <artifactId>java.util.json.jsonpath</artifactId>
@@ -72,6 +72,29 @@
                         <arg>-Xdiags:verbose</arg>
                     </compilerArgs>
                 </configuration>
+                <executions>
+                    <!-- The compiled-engine sources require the JDK 24+ ClassFile API
+                         (JEP 484); the jsonpath-codegen profile compiles them at
+                         release 24. Keep them out of the default release-21 rounds. -->
+                    <execution>
+                        <id>default-compile</id>
+                        <configuration>
+                            <excludes>
+                                <exclude>json/java21/jsonpath/JsonPathCodegen.java</exclude>
+                                <exclude>json/java21/jsonpath/JsonPathBytecodeEmitter.java</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <testExcludes>
+                                <testExclude>json/java21/jsonpath/JsonPathCodegenTest.java</testExclude>
+                                <testExclude>json/java21/jsonpath/JsonPathCompilerParityTest.java</testExclude>
+                            </testExcludes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -80,6 +103,87 @@
                     <argLine>-ea</argLine>
                 </configuration>
             </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-javadoc-plugin</artifactId>
+                <configuration>
+                    <!-- The compiled-engine sources require the JDK 24+ ClassFile API
+                         and are only on JDK 21 via the sourceFileExcludes list AND an
+                         empty sourcepath: javadoc completes each documented package by
+                         re-scanning -sourcepath, which would otherwise pick up the
+                         excluded files again. The jsonpath-codegen profile (JDK 24+)
+                         overrides both settings and documents the codegen classes
+                         with release 24 instead. -->
+                    <sourcepath>${project.build.directory}/javadoc21-sourcepath-placeholder</sourcepath>
+                    <sourceFileExcludes>
+                        <sourceFileExclude>json/java21/jsonpath/JsonPathCodegen.java</sourceFileExclude>
+                        <sourceFileExclude>json/java21/jsonpath/JsonPathBytecodeEmitter.java</sourceFileExclude>
+                    </sourceFileExcludes>
+                </configuration>
+            </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!-- JsonPath compiled-engine sources require JDK 24+ (ClassFile API, JEP 484).
+             On JDK 21 the module builds the interpreted engine only. On JDK 24+ the
+             bytecode generator (JsonPathCodegen, JsonPathBytecodeEmitter) and the
+             parity tests are compiled at release 24, mirroring the jtd-codegen
+             parent profile; the interpreted engine stays at release 21. -->
+        <profile>
+            <id>jsonpath-codegen</id>
+            <activation>
+                <jdk>[24,)</jdk>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <executions>
+                            <!-- Keep the interpreted engine and its tests at Java 21. -->
+                            <!-- Compile the ClassFile API codegen and the parity tests at release 24. -->
+                            <execution>
+                                <id>compile-codegen</id>
+                                <goals>
+                                    <goal>compile</goal>
+                                </goals>
+                                <configuration>
+                                    <release>24</release>
+                                    <includes>
+                                        <include>json/java21/jsonpath/JsonPathCodegen.java</include>
+                                        <include>json/java21/jsonpath/JsonPathBytecodeEmitter.java</include>
+                                    </includes>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>compile-codegen-tests</id>
+                                <goals>
+                                    <goal>testCompile</goal>
+                                </goals>
+                                <configuration>
+                                    <release>24</release>
+                                    <testIncludes>
+                                        <testInclude>json/java21/jsonpath/JsonPathCodegenTest.java</testInclude>
+                                        <testInclude>json/java21/jsonpath/JsonPathCompilerParityTest.java</testInclude>
+                                    </testIncludes>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <configuration>
+                            <!-- JDK 24+: document the compiled-engine classes too; the
+                                 ClassFile API exists at release 24, so no sourcepath
+                                 placeholder or source file excludes are needed here. -->
+                            <release>24</release>
+                            <sourceFileExcludes combine.self="override"/>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

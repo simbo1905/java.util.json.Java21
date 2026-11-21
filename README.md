@@ -9,6 +9,22 @@ References:
 This project is not an official release; APIs and behaviour may change as upstream evolves. 
 You can find this code on [Maven Central](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json). 
 
+## Published Artifacts
+
+Every tagged release publishes all reactor modules to Maven Central under `io.github.simbo1905.json` (version = release date, e.g. `2026.08.30`):
+
+| Artifact | Purpose | Runtime |
+|---|---|---|
+| [`java.util.json`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json) | Core JSON API (incubator backport) | JDK 21+ |
+| [`java.util.json.jsonpath`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jsonpath) | JsonPath query engine over `JsonValue` | JDK 21+ |
+| [`java.util.json.jtd`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd) | JSON Type Definition validator (RFC 8927) | JDK 21+ |
+| [`java.util.json.jtd.codegen`](https://central.sonatype.com/artifact/io.github.simbo1905.json/java.util.json.jtd.codegen) | Codegen validators (~9x faster than the interpreter) | JDK 25+ |
+| [`jtd2jar`](https://central.sonatype.com/artifact/io.github.simbo1905.json/jtd2jar) | Compiles a JTD schema into a standalone validator JAR | JDK 21+ |
+| [`json-compatibility-suite`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-compatibility-suite) | JSON Test Suite compatibility validation | JDK 21+ |
+| [`json-java21-api-tracker`](https://central.sonatype.com/artifact/io.github.simbo1905.json/json-java21-api-tracker) | Upstream API drift tracking | JDK 21+ |
+
+The `jtd2jar` distroless container image is additionally published to GHCR: `ghcr.io/simbo1905/java.util.json.java21/jtd2jar:<version>`.
+
 This repo is organized into the following modules:
 
 | Module | What it is | JDK |
@@ -16,10 +32,11 @@ This repo is organized into the following modules:
 | `json-java21` | Core `java.util.json` backport (parser, immutable types, `Json` API) | 21+ |
 | `json-java21-jtd` | JTD (RFC 8927) stack-machine interpreter — ideal for infrequent config parsing and one-time validation | 21+ |
 | `json-java21-jtd-codegen` | Bytecode code generator for JTD schemas — ahead-of-time compiled validators for repeated hot-path validation | 24+ (auto-skipped on JDK 21) |
-| `jdt2jar` | CLI + distroless container to pre-compile JTD schemas into standalone validator JARs (eliminates JDK 24+ runtime requirement) | 24+ (auto-skipped on JDK 21) |
-| `json-java21-jsonpath` | JsonPath query engine over `jdk.sandbox.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
+| `jtd2jar` | CLI + distroless container to pre-compile JTD schemas into standalone validator JARs (eliminates JDK 24+ runtime requirement) | 24+ (auto-skipped on JDK 21) |
+| `json-java21-jsonpath` | JsonPath query engine over `jdk.incubator.java.util.json` values (Goessner-style: filters, slices, recursive descent, unions) | 21+ |
 | `json-compatibility-suite` | JSON Test Suite conformance reporter (tests against [nst/JSONTestSuite](https://github.com/nst/JSONTestSuite)) | 21+ |
 | `json-java21-api-tracker` | Daily upstream API drift detector — fetches OpenJDK sandbox sources, compares public API signatures, reports differences | 25+ |
+| `jtd-esm-codegen` | Experimental JTD → ES2020 ESM validator code generator for JS/browser consumers | 21+ |
 
 We welcome contributions to the incubating modules.
 
@@ -31,7 +48,7 @@ To try the examples from this README, build the project and run the standalone e
 
 ```bash
 ./mvnw package
-java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.sandbox.java.util.json.examples.ReadmeExamples
+java -cp ./json-java21/target/test-classes/:./json-java21/target/classes/ jdk.incubator.java.util.json.examples.ReadmeExamples
 ```
 
 ## API Overview
@@ -60,9 +77,9 @@ JsonValue value = Json.parse(json);
 
 // Access as map-like structure
 JsonObject obj = (JsonObject) value;
-String name = ((JsonString) obj.members().get("name")).string();
-long age = ((JsonNumber) obj.members().get("age")).toLong();
-boolean active = ((JsonBoolean) obj.members().get("active")).bool();
+String name = ((JsonString) obj.asMap().get("name")).asString();
+long age = ((JsonNumber) obj.asMap().get("age")).asLong();
+boolean active = ((JsonBoolean) obj.asMap().get("active")).asBoolean();
 ```
 
 ### Simple Record Mapping
@@ -77,9 +94,9 @@ JsonObject jsonObj = (JsonObject) Json.parse(userJson);
 
 // Map to record
 User user = new User(
-    ((JsonString) jsonObj.members().get("name")).string(),
-    ((JsonNumber) jsonObj.members().get("age")).toLong(),
-    ((JsonBoolean) jsonObj.members().get("active")).bool()
+    ((JsonString) jsonObj.asMap().get("name")).asString(),
+    ((JsonNumber) jsonObj.asMap().get("age")).asLong(),
+    ((JsonBoolean) jsonObj.asMap().get("active")).asBoolean()
 );
 
 // Convert records back to JSON using typed factories
@@ -117,20 +134,22 @@ JsonValue parsed = Json.parse("{\"name\":\"John\",\"age\":30}");
 JsonObject obj = (JsonObject) parsed;
 
 // Use the new type-safe accessor methods
-String name = obj.get("name").string();      // Returns "John"
-long age = obj.get("age").toLong();          // Returns 30L
-double ageDouble = obj.get("age").toDouble(); // Returns 30.0
+String name = obj.get("name").asString();      // Returns "John"
+long age = obj.get("age").asLong();          // Returns 30L
+double ageDouble = obj.get("age").asDouble(); // Returns 30.0
 ```
 
 The accessor methods on `JsonValue`:
-- `string()` - Returns the String value (for JsonString)
-- `toLong()` - Returns the long value (for JsonNumber, if representable)
-- `toDouble()` - Returns the double value (for JsonNumber, if representable)
-- `bool()` - Returns the boolean value (for JsonBoolean)
-- `elements()` - Returns List<JsonValue> (for JsonArray)
-- `members()` - Returns Map<String, JsonValue> (for JsonObject)
+- `asString()` - Returns the String value (for JsonString)
+- `asLong()` - Returns the long value (for JsonNumber, if representable)
+- `asDouble()` - Returns the double value (for JsonNumber, if representable)
+- `asBoolean()` - Returns the boolean value (for JsonBoolean)
+- `asList()` - Returns List<JsonValue> (for JsonArray)
+- `asMap()` - Returns Map<String, JsonValue> (for JsonObject)
 - `get(String name)` - Access JsonObject member by name
-- `element(int index)` - Access JsonArray element by index
+- `get(int index)` - Access JsonArray element by index
+- `tryGet(String name)` - Returns Optional<JsonValue> for a JsonObject member
+- `tryValue()` - Returns Optional<JsonValue>, empty for JsonNull
 
 ### Realistic Record Mapping
 
@@ -162,14 +181,14 @@ JsonValue teamJson = JsonObject.of(Map.of(
 // Parse JSON back to records
 JsonObject parsed = (JsonObject) Json.parse(teamJson.toString());
 Team reconstructed = new Team(
-    ((JsonString) parsed.members().get("teamName")).string(),
-    ((JsonArray) parsed.members().get("members")).elements().stream()
+    ((JsonString) parsed.asMap().get("teamName")).asString(),
+    ((JsonArray) parsed.asMap().get("members")).asList().stream()
         .map(v -> {
             JsonObject member = (JsonObject) v;
             return new User(
-                ((JsonString) member.members().get("name")).string(),
-                ((JsonString) member.members().get("email")).string(),
-                ((JsonBoolean) member.members().get("active")).bool()
+                ((JsonString) member.asMap().get("name")).asString(),
+                ((JsonString) member.asMap().get("email")).asString(),
+                ((JsonBoolean) member.asMap().get("active")).asBoolean()
             );
         })
         .toList()
@@ -206,10 +225,10 @@ Process JSON arrays efficiently with Java streams:
 ```java
 // Filter active users from a JSON array
 JsonArray users = (JsonArray) Json.parse(jsonArrayString);
-List<String> activeUserEmails = users.elements().stream()
+List<String> activeUserEmails = users.asList().stream()
     .map(v -> (JsonObject) v)
-    .filter(obj -> ((JsonBoolean) obj.members().get("active")).bool())
-    .map(obj -> ((JsonString) obj.members().get("email")).string())
+    .filter(obj -> ((JsonBoolean) obj.asMap().get("active")).asBoolean())
+    .map(obj -> ((JsonString) obj.asMap().get("email")).asString())
     .toList();
 ```
 
@@ -222,9 +241,9 @@ try {
     JsonValue value = Json.parse(userInput);
     // Process valid JSON
 } catch (JsonParseException e) {
-    // Handle malformed JSON with line/column information
-    System.err.println("Invalid JSON at line " + e.getLine() + 
-                       ", column " + e.getColumn() + ": " + e.getMessage());
+    // Handle malformed JSON with line/position information
+    System.err.println("Invalid JSON at line " + e.getErrorLine() + 
+                       ", position " + e.getErrorPosition() + ": " + e.getMessage());
 }
 ```
 
@@ -242,7 +261,7 @@ JsonObject data = JsonObject.of(Map.of(
     ))
 ));
 
-String formatted = Json.toDisplayString(data, 2);
+String formatted = Json.toDisplayString(data, "  ");
 // Output:
 // {
 //   "name": "Alice",
@@ -287,19 +306,28 @@ The test data is bundled as ZIP files and extracted automatically at runtime:
 
 ## Current Status
 
-**Final `java.util.json` sandbox-era release** (2026-05-19).
+**2026.08.30 — the `jdk.incubator.json` backport release.**
 
-This code is derived from the OpenJDK jdk-sandbox repository "json" branch at commit `c1a4f80` (2026-02-05), which was the last commit before the API was moved to `jdk.incubator.json`.
+This is a Java 21+ backport of the JDK's incubating JSON API (`jdk.incubator.json`, [JEP 540](https://openjdk.org/jeps/540), targeted at JDK 28), taken from the upstream `json` branch **as of commit `43325738c` (2026-08-27)**. The public API lives in `jdk.incubator.java.util.json` and the implementation in `jdk.incubator.internal.util.json`, mirroring the upstream module layout at that frontier.
+
+> Note: the upstream commit may be a day or more old by the time you read this — the code here is exactly the upstream API and implementation **as of `43325738c`, 2026-08-27 23:24 UTC**, tracked continuously by the daily drift checker described below.
+
+### Release highlights
+
+- **The incubator API, not a legacy preview.** Conversion accessors are `asString()`, `asInt()`, `asLong()`, `asDouble()`, `asBoolean()`, `asList()`, `asMap()`; navigation is `get(String)`, `get(int)`, `tryGet(String)`, `tryValue()`; type and path errors throw `JsonValueException` with document paths; subtypes use identity `equals`/`hashCode`, matching the upstream specification. Earlier releases of this library exposed a different, sandbox-era API — migrating to this release is a small set of mechanical renames (`string()`→`asString()`, `toLong()`→`asLong()`, `elements()`→`asList()`, `members()`→`asMap()`, and so on).
+- **Upstream hardening included.** The parser uses upstream's explicit-stack (non-recursive) design; the ported test suite covers documents nested 10,000 levels deep.
+- **1,679 automated tests** (up from 1,355 in the previous release), including the complete upstream test suite ported to JUnit and hardened numeric-boundary coverage for `asInt`/`asLong`/`asDouble` ranges, precision, and `JsonNumber.of` conversions.
+- **Automated breaking-change detection.** A daily CI job compares this backport's public API against upstream HEAD and opens a deduplicated issue on any drift; upstream unreachability is always treated as drift, never as all-clear. Sync tooling under `updates/` targets the incubator module layout, making each future sync a mechanical fetch-transform-verify cycle.
 
 ### API Summary
-- `JsonValue` conversion methods: `asBoolean()`, `toInt()`, `toLong()`, `toDouble()`, `asString()`
-- `JsonValue` navigation methods: `get(String)`, `get(int)`, `getOrAbsent(String)`, `valueOrNull()`
-- `JsonArray`: `elements()`, `of(List)`
-- `JsonObject`: `members()`, `of(Map)`
-- `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, int)`
+- `JsonValue` conversion methods: `asBoolean()`, `asString()`, `asInt()`, `asLong()`, `asDouble()`
+- `JsonValue` navigation methods: `get(String)`, `get(int)`, `tryGet(String)`, `tryValue()`
+- `JsonArray`: `asList()`, `of(List)`
+- `JsonObject`: `asMap()`, `of(Map)`
+- `Json`: `parse(String)`, `parse(char[])`, `toDisplayString(JsonValue, String indent)`
 
-### Upstream Migration Notice
-The upstream `java.util.json` API has been promoted to `jdk.incubator.json` (commit `b956ae0`, 2026-02-05). The incubator version introduces significant API changes including method renames (`bool()`→`asBoolean()`, `string()`→`asString()`, etc.) and new methods (`asInt()`). A separate branch tracks the incubator upgrade — see issue #145.
+### Upstream alignment
+Upstream promoted the API from the prototype `java.util.json` naming to the `jdk.incubator.json` incubator module (commit `b956ae0`, 2026-02-05); this release aligns fully with that module, including the renamed accessors, `tryGet()`/`tryValue()` navigation, and identity (non-value) `equals`/`hashCode`, at upstream frontier `43325738c` (issue #145).
 
 The original proposal and design rationale can be found in the included PDF: [Towards a JSON API for the JDK.pdf](Towards%20a%20JSON%20API%20for%20the%20JDK.pdf)
 
@@ -307,23 +335,29 @@ The JSON compatibitlity tests in this repo suggest 99% conformance with a leadin
 
 ### CI: Upstream API Tracking
 
-**Note**: The daily API tracker workflow currently targets the old `java.util.json` paths which no longer exist upstream. It needs to be updated to track `jdk.incubator.json` — see issue #145.
+The `daily-api-tracker.yml` workflow runs daily at 02:00 UTC: it fetches the upstream `jdk.incubator.json` sources from the [jdk-sandbox `json` branch](https://github.com/openjdk/jdk-sandbox/tree/json) HEAD and compares public API signatures against the local `jdk.incubator.java.util.json` classes. When they differ it creates a fingerprint-deduplicated "API drift detected" issue; reports are uploaded as workflow artifacts (`target/api-tracker/`) with 90-day retention. The check can also be run locally:
+
+```bash
+$(command -v mvnd || command -v mvn || command -v ./mvnw) -pl json-java21-api-tracker exec:java \
+  -Dexec.mainClass="io.github.simbo1905.tracker.ApiTrackerRunner" \
+  -Dexec.args="INFO"
+```
 
 ## Modifications
 
 This is a simplified backport with the following changes from the original:
 - Replaced `LazyConstant` with a package-local polyfill using double-checked locking pattern.
 - Added `Utils.powExact()` polyfill for `Math.powExact(long, int)` which is not available in Java 21.
-- Replaced unnamed variables `_` with `ignored` for Java 21 compatibility.
+- Replaced unnamed variables `_` with named variables (`e`, `v`, `k`) for Java 21 compatibility.
 - Removed `@ValueBased` annotations.
 - Removed `@PreviewFeature` annotations.
 - Compatible with JDK 21.
 
 ### Upstream Bug Fixes
 
-The following fixes have been applied to address bugs in the upstream OpenJDK jdk-sandbox code. These are upstream issues that should be reported to the [core-libs-dev@openjdk.org](mailto:core-libs-dev@openjdk.org) mailing list per OpenJDK process:
+Historically this backport carried local fixes against the upstream OpenJDK jdk-sandbox code. With the uplift to upstream frontier `43325738c` their disposition is:
 
-- **`JsonNumber.of(double)` offset bug** ([#118](https://github.com/simbo1905/java.util.json.Java21/issues/118)): The upstream implementation hardcodes `decimalOffset=0` and `exponentOffset=0`, causing `toLong()` to fail for integral doubles like `123.0`. Our fix delegates to `JsonNumber.of(String)` which correctly computes offsets via `Json.parse()`.
+- **`JsonNumber.of(double)` offset bug** ([#118](https://github.com/simbo1905/java.util.json.Java21/issues/118)): **CLOSED BY UPSTREAM — no longer carried.** Upstream reworked the numeric logic: `of(double)` now computes the decimal/exponent offsets from `Double.toString` output via `indexOf`, and `JsonNumberImpl` was rewritten with `LazyConstant`-cached conversions, trailing-zero stripping and sign/scale handling. Verified equivalent to our historic `of(String)` delegation fix by `JsonNumberOfDoubleMatrixTest` (integral doubles such as `123.0` and `1.0E2`, fractions, negatives, zero variants, out-of-range `asInt`/`asLong` throwing `JsonValueException`, and very large/small magnitudes) plus the ported upstream `TestJsonNumber`. The historic delegation hack has been removed with the uplifted upstream source.
 
 ## Security Considerations
 
@@ -355,7 +389,7 @@ Per **RFC 8927 (JSON Typedef)**, the empty schema `{}` is the **empty form** and
 
 ```java
 import json.java21.jtd.Jtd;
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 
 JsonValue schema = Json.parse("{\"properties\":{\"name\":{\"type\":\"string\"}}}");
 JsonValue data = Json.parse("{\"name\":\"Alice\"}");
@@ -376,9 +410,43 @@ Jtd.Result result = validator.validate(schema, data);
 
 ## JTD to JAR Compiler (Optional)
 
-An optional `jdt2jar` CLI tool and distroless Docker image are available for pre-compiling JTD schemas into standalone validator JARs at build time. This eliminates the JDK 24+ runtime requirement for generated validators — the JARs run on JDK 21+.
+An optional `jtd2jar` CLI tool and distroless Docker image are available for pre-compiling JTD schemas into standalone validator JARs at build time. This eliminates the JDK 24+ runtime requirement for generated validators — the JARs run on JDK 21+.
 
-See [`jdt2jar/README.md`](jdt2jar/README.md) for build instructions, container usage, and the pre-built image on GitHub Container Registry (`ghcr.io`).
+See [`jtd2jar/README.md`](jtd2jar/README.md) for build instructions, container usage, and the pre-built image on GitHub Container Registry (`ghcr.io`).
+
+## JTD to ESM Validator Codegen (Experimental)
+
+This repo also contains an **experimental** CLI tool that reads a JTD schema (RFC 8927) and generates a **vanilla ES2020 module** exporting a `validate(instance)` function. The intended use case is validating JSON event payloads in the browser (for example, across tabs using `BroadcastChannel`) without a build step. The generator passes the full official JTD conformance suite (316/316 cases from `validation.json`) and its output is executed in GraalJS during the test run.
+
+### Supported JTD subset (flat schemas only)
+
+This tool deliberately supports only:
+- `properties` (required properties)
+- `optionalProperties`
+- `type` primitives (`string`, `boolean`, `timestamp`, `int8`, `int16`, `int32`, `uint8`, `uint16`, `uint32`, `float32`, `float64`)
+- `enum`
+- `metadata.id` (used for the output filename prefix)
+
+It rejects other JTD features (`elements`, `values`, `discriminator`/`mapping`, `ref`/`definitions`) and also rejects **nested `properties`** (object schemas inside properties).
+
+When rejected, the error message is:
+
+`Unsupported JTD feature: <feature>. This experimental tool only supports flat schemas with properties, optionalProperties, type, and enum.`
+
+### Build and run
+
+```bash
+./mvnw -pl jtd-esm-codegen -am package
+java -jar ./jtd-esm-codegen/target/jtd-esm-codegen.jar schema.jtd.json
+```
+
+The output file is written to the current directory as:
+
+`<metadata.id>-<sha256_prefix_8>.js`
+
+Where `<sha256_prefix_8>` is the first 8 characters of the SHA-256 hash of the input schema file bytes.
+
+See [`jtd-esm-codegen/JTD_CODEGEN_SPEC.md`](jtd-esm-codegen/JTD_CODEGEN_SPEC.md) for the generated-code specification.
 
 ## Building
 
@@ -394,7 +462,7 @@ This repo also includes a JsonPath query engine (module `json-java21-jsonpath`),
 https://goessner.net/articles/JsonPath/
 
 ```java
-import jdk.sandbox.java.util.json.*;
+import jdk.incubator.java.util.json.*;
 import json.java21.jsonpath.JsonPath;
 import json.java21.jsonpath.JsonPathStreams;
 
@@ -409,7 +477,7 @@ JsonValue doc = Json.parse("""
 var authors = JsonPath.parse("$.store.book[*].author")
     .query(doc)
     .stream()
-    .map(JsonValue::string)
+    .map(JsonValue::asString)
     .toList();
 
 System.out.println("Authors count: " + authors.size());     // prints '3'
@@ -419,7 +487,7 @@ System.out.println("Last author: " + authors.getLast());    // prints 'Marek Ily
 var cheapTitles = JsonPath.parse("$.store.book[?(@.price < 10)].title")
     .query(doc)
     .stream()
-    .map(JsonValue::string)
+    .map(JsonValue::asString)
     .toList();
 
 var priceStats = JsonPath.parse("$.store.book[*].price")

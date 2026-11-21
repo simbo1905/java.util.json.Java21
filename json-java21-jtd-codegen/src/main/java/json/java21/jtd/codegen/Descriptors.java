@@ -31,13 +31,13 @@ final class Descriptors {
   static final ClassDesc CD_Iterator = ClassDesc.of("java.util.Iterator");
 
   // -- JSON API types --
-  static final ClassDesc CD_JsonValue = ClassDesc.of("jdk.sandbox.java.util.json.JsonValue");
-  static final ClassDesc CD_JsonObject = ClassDesc.of("jdk.sandbox.java.util.json.JsonObject");
-  static final ClassDesc CD_JsonArray = ClassDesc.of("jdk.sandbox.java.util.json.JsonArray");
-  static final ClassDesc CD_JsonString = ClassDesc.of("jdk.sandbox.java.util.json.JsonString");
-  static final ClassDesc CD_JsonNumber = ClassDesc.of("jdk.sandbox.java.util.json.JsonNumber");
-  static final ClassDesc CD_JsonBoolean = ClassDesc.of("jdk.sandbox.java.util.json.JsonBoolean");
-  static final ClassDesc CD_JsonNull = ClassDesc.of("jdk.sandbox.java.util.json.JsonNull");
+  static final ClassDesc CD_JsonValue = ClassDesc.of("jdk.incubator.java.util.json.JsonValue");
+  static final ClassDesc CD_JsonObject = ClassDesc.of("jdk.incubator.java.util.json.JsonObject");
+  static final ClassDesc CD_JsonArray = ClassDesc.of("jdk.incubator.java.util.json.JsonArray");
+  static final ClassDesc CD_JsonString = ClassDesc.of("jdk.incubator.java.util.json.JsonString");
+  static final ClassDesc CD_JsonNumber = ClassDesc.of("jdk.incubator.java.util.json.JsonNumber");
+  static final ClassDesc CD_JsonBoolean = ClassDesc.of("jdk.incubator.java.util.json.JsonBoolean");
+  static final ClassDesc CD_JsonNull = ClassDesc.of("jdk.incubator.java.util.json.JsonNull");
 
   // -- Validation result types --
   static final ClassDesc CD_JtdValidationError = ClassDesc.of("json.java21.jtd.JtdValidationError");
