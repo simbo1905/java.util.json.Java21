@@ -6,9 +6,9 @@ import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/// Tests based on AJV documentation examples for JTD schema forms.
-/// Each test method corresponds to an example from the AJV JTD documentation.
-public class DocumentationAJvTests extends JtdTestBase {
+/// Tests based on JTD documentation examples for JTD schema forms.
+/// Each test method corresponds to an example from the JTD documentation.
+public class DocumentationJtdTests extends JtdTestBase {
 
   /// Type form: primitive values - string type
   /// Example from docs: { type: "string" }
