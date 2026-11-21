@@ -118,6 +118,14 @@ final class JsonPathHelpers {
         };
     }
 
+    /// Normalizes an array index against an array size.
+    /// @param index the index, possibly counting from the end
+    /// @param size the array size
+    /// @return the resolved non-negative index (may be out of bounds)
+    static int normalizeIndex(int index, int size) {
+        return index < 0 ? size + index : index;
+    }
+
     /// Logs an unsupported script expression in the same way the interpreter does.
     /// Generated executors call this so compiled queries surface the same diagnostics.
     /// @param script the unsupported script text

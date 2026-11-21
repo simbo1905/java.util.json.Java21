@@ -142,8 +142,8 @@ final class JsonPathInterpreted implements JsonPath {
             }
 
             if (step > 0) {
-                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : 0;
-                int end = slice.end() != null ? normalizeIndex(slice.end(), size) : size;
+                int start = slice.start() != null ? JsonPathHelpers.normalizeIndex(slice.start(), size) : 0;
+                int end = slice.end() != null ? JsonPathHelpers.normalizeIndex(slice.end(), size) : size;
 
                 start = Math.max(0, Math.min(start, size));
                 end = Math.max(0, Math.min(end, size));
@@ -152,8 +152,8 @@ final class JsonPathInterpreted implements JsonPath {
                     evaluateSegments(segments, index + 1, elements.get(i), root, results);
                 }
             } else {
-                int start = slice.start() != null ? normalizeIndex(slice.start(), size) : size - 1;
-                final int end = slice.end() != null ? normalizeIndex(slice.end(), size) : -1;
+                int start = slice.start() != null ? JsonPathHelpers.normalizeIndex(slice.start(), size) : size - 1;
+                final int end = slice.end() != null ? JsonPathHelpers.normalizeIndex(slice.end(), size) : -1;
 
                 start = Math.max(0, Math.min(start, size - 1));
 
@@ -162,13 +162,6 @@ final class JsonPathInterpreted implements JsonPath {
                 }
             }
         }
-    }
-
-    private static int normalizeIndex(int index, int size) {
-        if (index < 0) {
-            return size + index;
-        }
-        return index;
     }
 
     private static void evaluateWildcard(
