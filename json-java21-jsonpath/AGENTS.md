@@ -15,12 +15,13 @@ Stable code entry points:
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathParseException.java`
 - `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathStreams.java`
 
-Compiled engine (JDK 24+ only; the Maven profile `jsonpath-codegen` activates on JDK 24+ and adds `src/main/codegen/java` plus `src/test/codegen/java`):
-- `json-java21-jsonpath/src/main/codegen/java/json/java21/jsonpath/JsonPathCodegen.java` (ClassFile API, JEP 484; emits `ClassFile.JAVA_21_VERSION` / version 65 bytecode)
-- `json-java21-jsonpath/src/main/codegen/java/json/java21/jsonpath/JsonPathBytecodeEmitter.java` (AST-to-bytecode emitter)
-- `json-java21-jsonpath/src/test/codegen/java/json/java21/jsonpath/JsonPathCompilerParityTest.java` (interpreted == generated parity over the existing test corpus)
+Compiled engine (JDK 24+ only): on JDK 21, the Maven profile `jsonpath-codegen` does not activate and `JsonPathCodegen`/`JsonPathBytecodeEmitter` plus the parity tests are excluded from compilation; on JDK 24+ they are compiled at release 24 (mirroring the jtd-codegen parent profile):
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathCodegen.java` (entry point; ClassFile API, JEP 484; emits `ClassFile.JAVA_21_VERSION` / version 65 bytecode)
+- `json-java21-jsonpath/src/main/java/json/java21/jsonpath/JsonPathBytecodeEmitter.java` (AST-to-bytecode emitter)
+- `json-java21-jsonpath/src/test/java/json/java21/jsonpath/JsonPathCompilerParityTest.java` (interpreted == generated parity over the existing test corpus)
+- `json-java21-jsonpath/src/test/java/json/java21/jsonpath/JsonPathCodegenTest.java` (codegen mechanics: facade, idempotence, classfile version)
 
 When changing syntax/behavior:
 - Update `JsonPathAst` + `JsonPathParser` + `JsonPath` together.
-- Mirror the change in `JsonPathBytecodeEmitter` (and `JsonPathHelpers` when shared evaluation logic moves); the parity test suite guards the interpreted/generated contract.
+- Mirror the change in `JsonPathBytecodeEmitter` (call sites of shared `JsonPathHelpers` evaluation) (and `JsonPathHelpers` when shared evaluation logic moves); the parity test suite guards the interpreted/generated contract.
 - Add parser + evaluation tests; new tests should extend `JsonPathLoggingConfig`; add a matching parity entry for any new operator.
