@@ -2,8 +2,14 @@ name: Java CI with Maven
 
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: [ "main" ]
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: [ "main" ]
     types: [opened, synchronize, reopened]
 

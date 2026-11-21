@@ -2,8 +2,14 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: ["**"]
   pull_request:
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
     branches: ["**"]
 
 concurrency:
